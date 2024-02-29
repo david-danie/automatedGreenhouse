@@ -1,5 +1,4 @@
-# automatedGreenhouse
-Greenhouse devices automated by a simple web server based in ESP32 microcontroller.
+# Automated Greenhouse
 
 <div align="justify">Aquí hay código para automatizar el encendido/apagado de algunos dispositivos usados en invernaderos. Se usa un Atmega328p cargado con el bootloader de Arduino, comunicación inalámbrica via UART, temporización con un RTC y algo de electrónica para activar contactores de una bomba de riego, ventiladores y/o extractores, y lámparas de cutivo. La principal motivación de este proyecto es generar <b>independencia alimentaria</b> respecto a las especies que se adapten a estas tecnologías, se contempla principalmente hortalizas.</div>
 <br>
