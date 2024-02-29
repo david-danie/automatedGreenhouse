@@ -6,8 +6,8 @@ class Clock {
   public:
     Clock();
     void startClock();
-    bool setTime(uint8_t* currentTime);
-    bool getTime(uint8_t* currentTime);
+    bool setCurrentTime(uint8_t* currentTime);
+    bool getCurrentTime(uint8_t* currentTime);
     
 };
 

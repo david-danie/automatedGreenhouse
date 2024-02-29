@@ -14,7 +14,7 @@ void Clock::startClock() {
   Wire.endTransmission();                       // Terminamos la escritura y verificamos si el DS1307 respondio
 }
 
-bool Clock::setTime(uint8_t* currentTime) {
+bool Clock::setCurrentTime(uint8_t* currentTime) {
   Wire.beginTransmission(DS3231Adress);         // 1° Byte = Dirección del chip ds1307
   Wire.write(0x00);                             // 2° Byte = Dirección del registro de segundos
     for (uint8_t i = 1; i <= rtcReadBytes; i ++)
@@ -24,7 +24,7 @@ bool Clock::setTime(uint8_t* currentTime) {
   return false;
 }
 
-bool Clock::getTime(uint8_t* currentTime) {
+bool Clock::getCurrentTime(uint8_t* currentTime) {
   Wire.beginTransmission(DS3231Adress);         // Inicia el protocolo en modo lectura.
   Wire.write(0x00);                             // Si la escritura se llevo a cabo el metodo endTransmission retorna 0
   if (Wire.endTransmission() != zero)           // Terminamos la escritura y verificamos si el DS1307 respondio
