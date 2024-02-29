@@ -1,97 +1,21 @@
 #include <WiFi.h>
-#include <Wire.h>
 #include <EEPROM.h>
-//#include <max6675.h>
+#include "Clock.h"
+#include "Constants.h"
+
 
 const char* ssid = "deviceName";
 const char* password = "yourPassword";
-
-const uint8_t port80 = 80;
-const uint8_t messageMaxLenght = 60;
-
-// setting PWM properties
-const int pwmFrequency = 1000;
-const uint8_t pwmChannel0 = 0;
-const uint8_t pwmChannel2 = 2;
-const uint8_t pwmChannel4 = 4;
-const uint8_t pwmResolution = 8;
-const uint8_t maxDutyCycle = 255;
-const uint8_t factorOf100 = 5;
-
-const uint8_t second = 1;
-const uint8_t minute = 2;
-const uint8_t hour = 3;
-const uint8_t dayOfWeek = 4;
-const uint8_t day = 5;
-const uint8_t month = 6;
-const uint8_t year = 7;
-const uint8_t ctrl = 8;
-const uint8_t DS3231Adress = 0x68;
-const uint8_t rtcReadBytes = 7;
-
-const uint8_t eepromBytes = 12;
-
-const uint8_t buzzerPin = 2;
-const uint8_t blueLedPin = 3; // Pin asociado a el led azul
-const uint8_t redLedPin = 4;
-const uint8_t greenLedPin = 5;
-const uint8_t whiteLedPin = 6;
-const uint8_t waterPumpPin = 7;
-const uint8_t fanPin = 8;
-const uint8_t deviceFourPin = 9;
-
-const uint8_t thermoCSPin = 10;
-//
-const uint8_t systemActive = 1; //index
-const uint8_t photoperiod = 2; //index
-const uint8_t whiteLedStatus = 3; //index
-const uint8_t blueDutyCycle = 4; //index
-const uint8_t redDutyCycle = 5; //index
-const uint8_t greenDutyCycle = 6; //index
-const uint8_t irrigationTime = 7;
-const uint8_t irrigationTimeMinute = 8;
-const uint8_t fanTime = 9;
-const uint8_t fanTimeMinute = 10;
-const uint8_t deviceFour = 13;
-const uint8_t cropWeek = 11;
-const uint8_t cropDay = 12;
-const uint8_t userIrrigationHour = 14;
-const uint8_t userFanHour = 15;
-
-const uint8_t onceAday = 1; // 8 times
-const uint8_t eachThreeHours = 2; // 8 times
-const uint8_t eachEightHours = 3; // 3 times
-const uint8_t eachHour = 4; // 24 times
-
-const long intervalToWifiUpdate = 1000;  // interval at which to blink (milliseconds)
 unsigned long previousMillis = 0;  // will store last time LED was updated
 unsigned long currentMillis = 0;
 
-unsigned long intervalToAddDay = 3000;
-unsigned long previousMillisAddDay = 0;
-
-const uint8_t BuzzerOn = 50;  // interval at which to blink (milliseconds)
-const uint8_t BuzzerOff = 80;  // interval at which to blink (milliseconds)
-
-const uint8_t zero = 0;
-
-char buffer[100];
 uint8_t systemStatus[20];
-uint8_t currentTime[10];
-
-//uint8_t thermoDO = 12;
-//uint8_t thermoCS = 11;
-//uint8_t thermoCLK = 10;
-
-bool whiteLedBool;
 
 WiFiServer server(port80);
-//MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 void setup() {
 
   Serial.begin(115200);
-  Wire.begin();
   if (!EEPROM.begin(eepromBytes))
     Serial.println("failed to initialise EEPROM");
 
@@ -106,16 +30,6 @@ void setup() {
   pinMode(fanPin, OUTPUT);
   pinMode(deviceFourPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
- 
-  /*Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.print("WiFi connected to IP: ");
-  Serial.println(WiFi.localIP());*/
 
   WiFi.softAP(ssid, password);
   Serial.print("Iniciado AP ");
@@ -129,7 +43,6 @@ void setup() {
   systemStatus[blueDutyCycle] = zero;
   systemStatus[redDutyCycle] = zero;
   systemStatus[greenDutyCycle] = zero;
-
 
   systemStatus[userIrrigationHour] = zero;
   systemStatus[userFanHour] = zero;
@@ -149,14 +62,6 @@ void setup() {
   analogWrite(greenLedPin, systemStatus[greenDutyCycle]);
   digitalWrite(whiteLedPin, whiteLedBool);
 
-  currentTime[second] = 55;
-  currentTime[minute] = 20;
-  currentTime[hour] = 4;
-  currentTime[dayOfWeek] = 1;
-  currentTime[day] = 21;
-  currentTime[month] = 5;
-  currentTime[year] = 36;
-  writeRTC();
 }
 
 void loop() {

@@ -9,9 +9,6 @@ class Clock {
     bool setTime(uint8_t* currentTime);
     bool getTime(uint8_t* currentTime);
     
-  private:
-    uint8_t dato;
-    
 };
 
 uint8_t bcd2bin(uint8_t bcd);
