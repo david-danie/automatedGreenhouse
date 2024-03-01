@@ -3,7 +3,6 @@
 #include "Clock.h"
 #include "Constants.h"
 
-
 const char* ssid = "deviceName";
 const char* password = "yourPassword";
 unsigned long previousMillis = 0;  // will store last time LED was updated
@@ -98,18 +97,15 @@ void wifiSearchData(uint8_t* parameters) {
             client.println("Content-Type: text/html"); //client.println("Content-type:text/html");
             client.println("");
             Serial.println("Invalid input");
-          // The HTTP response ends with another blank line:
-          client.println();
+          client.println();// The HTTP response ends with another blank line:
           currentLine = "";
-          // break out of the while loop:
-          break;
+          break; // break out of the while loop:
         } 
         else if (c != '\r')  // if you got anything else but a carriage return character,
           currentLine += c;                       // add it to the end of the currentLine
       }
     }
-    // close the connection:
-    client.stop();
+    client.stop(); // close the connection:
     Serial.println("Client Disconnected.\n");
   }
 }
