@@ -34,6 +34,7 @@ void loop() {
     Serial.println(p1.sendParameters());
   } 
   p1.turnOffDevices(); 
+  p1.addDay();
 }
 
 void wifiSearchData(uint8_t* parameters) {

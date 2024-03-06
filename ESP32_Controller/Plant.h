@@ -13,8 +13,6 @@ class Plant {
     char* sendParameters();
     char* updateEEPROM(uint8_t condition);
     void addDay();
-    /*void startServer();
-    void searchData(uint8_t* data);*/
 
   private:
     uint8_t _systemStatus[28];

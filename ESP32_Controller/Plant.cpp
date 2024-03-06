@@ -48,9 +48,9 @@ bool Plant::readParametersEEPROM() {
     _systemStatus[fanTime] = 2;
     _systemStatus[fanTimeMinute] = 2;
 
-    _systemStatus[second] = 30;
-    _systemStatus[minute] = 20;
-    _systemStatus[hour] = 4;
+    _systemStatus[second] = 50;
+    _systemStatus[minute] = 59;
+    _systemStatus[hour] = 23;
     _systemStatus[dayOfWeek] = 3;
     _systemStatus[day] = 21;
     _systemStatus[month] = 5;
@@ -182,12 +182,14 @@ void Plant::addDay() {
     if (_systemStatus[cropDay] <= 6) {
       _systemStatus[cropDay] += 1;
       //EEPROM.write(cropDay, _systemStatus[cropDay]);
-    } else {
+    } 
+    else {
       _systemStatus[cropDay] = 1;
       _systemStatus[cropWeek] += 1;
       //EEPROM.write(cropDay, _systemStatus[cropDay]);
       //EEPROM.write(cropWeek, _systemStatus[cropWeek]);
     }
+    delay(3000);
     //EEPROM.commit();
   }
 }
