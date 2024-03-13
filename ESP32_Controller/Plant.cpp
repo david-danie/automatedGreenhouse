@@ -39,7 +39,6 @@ bool Plant::readParametersEEPROM() {
     _systemStatus[cropWeek] = 0;
     _systemStatus[cropDay] = 0;
     _systemStatus[photoperiod] = 8;
-    _systemStatus[whiteLedStatus] = 1;
     _systemStatus[blueDutyCycle] = 3;
     _systemStatus[redDutyCycle] = 5;
     _systemStatus[complementDutyCycle] = 10;
@@ -133,20 +132,19 @@ void Plant::turnOffDevices() {
   default:
     digitalWrite(fanPin, LOW);
   }
-  if (_systemStatus[deviceFour] == zero)
+  /*if (_systemStatus[deviceFour] == zero)
     digitalWrite(deviceFourPin, LOW);
   else
-    digitalWrite(deviceFourPin, HIGH);
-  digitalWrite(buzzerPin, LOW);
+    digitalWrite(deviceFourPin, HIGH);*/
   return;
 }
 
 char* Plant::sendParameters() {
-  sprintf(buffer, "Plt:%d Week:%d Day:%d Fp:%d White:%d Blue:%d%% Red:%d%% Green:%d%%\nIrr:%dh/%dm Fan:%dh/%dm %02d/%02d/%02d %02d:%02d:%02d\n",
-    _systemStatus[systemActive], _systemStatus[cropWeek], _systemStatus[cropDay], _systemStatus[photoperiod], _systemStatus[whiteLedStatus],
-    _systemStatus[blueDutyCycle] * factorOf100, _systemStatus[redDutyCycle] * factorOf100, _systemStatus[complementDutyCycle] * factorOf100,
-    _systemStatus[irrigationTime], _systemStatus[irrigationTimeMinute], _systemStatus[fanTime], _systemStatus[fanTimeMinute],
-    _systemStatus[day], _systemStatus[month], _systemStatus[year], _systemStatus[hour], _systemStatus[minute], _systemStatus[second]);
+  sprintf(buffer, "%02d/%02d/%02d %02d:%02d:%02d Pl:%d Week:%d Day:%d Fp:%d\nIrr:%dh/%dm Fan:%dh/%dm Valve:%dh/%dm B:%d%% R:%d%% C:%d%%\n",
+    _systemStatus[day], _systemStatus[month], _systemStatus[year], _systemStatus[hour], _systemStatus[minute], _systemStatus[second],
+    _systemStatus[systemActive], _systemStatus[cropWeek], _systemStatus[cropDay], _systemStatus[photoperiod], _systemStatus[irrigationTime], 
+    _systemStatus[irrigationTimeMinute], _systemStatus[fanTime], _systemStatus[fanTimeMinute], _systemStatus[deviceFourHour], _systemStatus[deviceFourMinute],
+    _systemStatus[blueDutyCycle] * factorOf100, _systemStatus[redDutyCycle] * factorOf100, _systemStatus[complementDutyCycle] * factorOf100);
     return buffer;
 }
 
@@ -177,7 +175,7 @@ char* Plant::updateEEPROM(uint8_t condition) {
   }
 }
 
-void Plant::addDay() {
+bool Plant::addDay() {
   if (_systemStatus[hour] == 23 && _systemStatus[minute] == 59 && _systemStatus[second] >= 58) {
     if (_systemStatus[cropDay] <= 6) {
       _systemStatus[cropDay] += 1;
@@ -190,7 +188,32 @@ void Plant::addDay() {
       //EEPROM.write(cropWeek, _systemStatus[cropWeek]);
     }
     delay(3000);
+    return true;
     //EEPROM.commit();
+  }
+  return false;
+}
+
+bool Plant::addDay(unsigned long currentMillis) {
+  if (_systemStatus[hour] == 23 && _systemStatus[minute] == 59 && _systemStatus[second] >= 58) {
+    if (currentMillis - _previousMillisAddDay >= 3000) {
+      if (_systemStatus[cropDay] <= 6) {
+        _systemStatus[cropDay] += 1;
+      //EEPROM.write(cropDay, _systemStatus[cropDay]);
+      }
+      else {
+        _systemStatus[cropDay] = 1;
+        _systemStatus[cropWeek] += 1;
+      //EEPROM.write(cropDay, _systemStatus[cropDay]);
+      //EEPROM.write(cropWeek, _systemStatus[cropWeek]);
+      }
+      return true;
+    }
+    _previousMillisAddDay = currentMillis;
+  }
+  else {
+    _previousMillisAddDay = zero;
+    return false;
   }
 }
 

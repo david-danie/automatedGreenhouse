@@ -12,11 +12,14 @@ class Plant {
     void turnOffDevices();
     char* sendParameters();
     char* updateEEPROM(uint8_t condition);
-    void addDay();
+    bool addDay();
+    bool addDay(unsigned long currentMillis);
 
   private:
     uint8_t _systemStatus[28];
-    char buffer[150];
+    char buffer[180];
+    bool _updateDayFlag;
+    unsigned long _previousMillisAddDay;
 };
 
 void setBuzzer();
