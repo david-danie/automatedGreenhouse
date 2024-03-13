@@ -24,17 +24,17 @@ const uint8_t factorOf100 = 5;
 
 const uint8_t systemActive = 1; //index
 const uint8_t photoperiod = 2; //index
-const uint8_t whiteLedStatus = 3; //index
-const uint8_t blueDutyCycle = 4; //index
-const uint8_t redDutyCycle = 5; //index
-const uint8_t complementDutyCycle = 6; //index
-const uint8_t irrigationTime = 7;
-const uint8_t irrigationTimeMinute = 8;
-const uint8_t fanTime = 9;
-const uint8_t fanTimeMinute = 10;
-const uint8_t deviceFour = 13;
-const uint8_t cropWeek = 11;
-const uint8_t cropDay = 12;
+const uint8_t blueDutyCycle = 3; //index
+const uint8_t redDutyCycle = 4; //index
+const uint8_t complementDutyCycle = 5; //index
+const uint8_t irrigationTime = 6;
+const uint8_t irrigationTimeMinute = 7;
+const uint8_t fanTime = 8;
+const uint8_t fanTimeMinute = 9;
+const uint8_t deviceFourHour = 10; //index
+const uint8_t deviceFourMinute = 11;
+const uint8_t cropWeek = 12;
+const uint8_t cropDay = 13;
 
 const uint8_t second = 18;
 const uint8_t minute = 19;
@@ -60,5 +60,6 @@ const uint8_t BuzzerOn = 50;  // interval at which to blink (milliseconds)
 const uint8_t BuzzerOff = 80;  // interval at which to blink (milliseconds)
 
 const int intervalToUpdate = 1000;  // interval at which to blink (milliseconds)
+const int intervalToUpdateDay = 3000;  // interval at which to blink (milliseconds)
 
 #endif
