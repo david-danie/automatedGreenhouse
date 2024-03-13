@@ -34,7 +34,8 @@ void loop() {
     Serial.println(p1.sendParameters());
   } 
   p1.turnOffDevices(); 
-  p1.addDay();
+  if (p1.addDay())
+    Serial.println("Día actualizado\n");
 }
 
 void wifiSearchData(uint8_t* parameters) {
@@ -48,11 +49,11 @@ void wifiSearchData(uint8_t* parameters) {
         char c = client.read();                      // read a byte, then
         Serial.write(c);                             // print it out the serial monitor
         if (c == '\n' || currentLine.length() >= messageMaxLenght) {  // if the byte is a newline character
-          if (currentLine.indexOf("PUT /p") >= zero && currentLine.indexOf("-HDD") == 41) {  // if the current line is blank, you got two newline characters in a row that's the end of the client HTTP request, so send a response:
+          if (currentLine.indexOf("PUT /p") >= zero && currentLine.indexOf("-HDD") == 44) {  // if the current line is blank, you got two newline characters in a row that's the end of the client HTTP request, so send a response:
             client.println("HTTP/1.1 200 OK"); // HTTP headers Response code (HTTP/1.1 200 OK) 
             client.println("Content-Type: text/html"); //client.println("Content-type:text/html");
             client.println(""); // and a content-type so the client knows what's coming, then a blank line: 
-            for (uint8_t i = 1; i <= 12; i++) {
+            for (uint8_t i = 1; i <= 12; i++) { /// NO LEE DIA NI SEMANA ///
               parameters[i] = (currentLine[(i + 1) * 3] - '0') * 10; // Se añade decena
               parameters[i] = parameters[i] + (currentLine[((i + 1) * 3) + 1] - '0'); // Se añade unidad
               Serial.print(parameters[i]);
@@ -85,7 +86,6 @@ void wifiSearchData(uint8_t* parameters) {
             client.println("<h1>System: D800</h1>");
             client.println("<p>Sistema:" + String(parameters[systemActive]) + " Semana:" + String(parameters[cropWeek]) +
             " Dia:" + String(parameters[cropDay]) + " Fotoperiodo:" + String(parameters[photoperiod]) +
-            " Luz:" + String(parameters[whiteLedStatus]) +
             " Irr:" + String(parameters[irrigationTime]) + "/" +  String(parameters[irrigationTimeMinute]) +
             " Vent:" + String(parameters[fanTime]) + "/" +  String(parameters[fanTimeMinute]) + "</p>");
             client.println("<p>" + String(parameters[day]) + "/" + String(parameters[month]) + "/" + String(parameters[year]) + 
@@ -93,11 +93,12 @@ void wifiSearchData(uint8_t* parameters) {
             client.println("</font></center></body></html>");
             Serial.println("hay GET");//eliminar  
           }
-          else
+          else {
             client.println("HTTP/1.1 400 Bad Request"); 
             client.println("Content-Type: text/html"); //client.println("Content-type:text/html");
             client.println("");
             Serial.println("Invalid input");
+          }
           client.println();// The HTTP response ends with another blank line:
           currentLine = "";
           break; // break out of the while loop:
