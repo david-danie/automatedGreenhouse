@@ -1,26 +1,41 @@
-#ifndef Plant_h
-#define Plant_h
+#ifndef _PLANT
+#define _PLANT
+
+#include <Wire.h>
+#include <Preferences.h>
+#include <ArduinoJson.h>
 
 class Plant {
 
   public:
+
     Plant();
-    void setParameters(uint8_t* parameters);
-    uint8_t* getParameters();
-    bool readParametersEEPROM();
+    void begin();
+    bool processPostBody(String body);
+    char* getSystemStatus(char* buffer);
+    //void readSystemStatus(byte* systemStatus, size_t length);
+
+    void startClock();
+    bool setCurrentTime(uint8_t* currentTime);
+    bool getCurrentTime(uint8_t* currentTime);
+
     void turnOffDevices();
-    char* sendParameters();
-    char* updateEEPROM(uint8_t condition);
-    bool addDay();
-    bool addDay(unsigned long currentMillis);
+    void manageDevice(int devicePin, int scheduleHour, int scheduleMinute);
+
+    String mainHTML();
+    
+    //bool testCredentials(String SSID, String pass);
 
   private:
-    uint8_t _systemStatus[28];
-    char buffer[180];
-    bool _updateDayFlag;
-    unsigned long _previousMillisAddDay;
+
+    byte _systemStatus[15];
+    byte _currentTime[10];
+    Preferences preferences;
+
 };
 
+uint8_t bcd2bin(uint8_t bcd);
+uint8_t bin2bcd(uint8_t bin);
 void setBuzzer();
 
 #endif

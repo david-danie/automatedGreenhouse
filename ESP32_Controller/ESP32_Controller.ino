@@ -1,113 +1,99 @@
 #include <WiFi.h>
-#include "Plant.h"
-#include "Clock.h"
+#include <WebServer.h>
+#include <DNSServer.h>
 #include "Constants.h"
+#include "Plant.h"
 
-const char* ssid = "deviceName";
-const char* password = "yourPassword";
+#include "updateSistemHTML.h"
+
+char buffer[255];
+byte currentTime[10];
+
 unsigned long previousMillis = 0;  // will store last time LED was updated
 unsigned long currentMillis = 0;
 
-Plant p1;
-Clock rtc;
-WiFiServer server(port80);
+Plant planta;
+//IPAddress apIP(8,8,4,4); // The default android DNS
+DNSServer dnsServer;
+WebServer server(port80);
+
+void handleRoot();
+void handleExit();
+void handlePost();
 
 void setup() {
-  Serial.begin(115200); 
-  rtc.startClock();
-  if(p1.readParametersEEPROM());
-    rtc.setCurrentTime(p1.getParameters());
-  WiFi.softAP(ssid, password);
-  Serial.print("Iniciado AP ");
-  Serial.print(ssid);
-  Serial.print(" IP address:");
-  Serial.println(WiFi.softAPIP());
+
+  Serial.begin(115200);
+  planta.begin();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(deviceName);
+  delay(100);
+  //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+  dnsServer.start(dnsPort, "*", WiFi.softAPIP());
+  
+  server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
+  server.on("/exit", HTTP_GET, handleExit);
+  server.on("/update", HTTP_POST, handleUpdate);  // Configura el servidor web
+  server.on("/data", HTTP_POST, handlePostData); 
   server.begin();
+  
 }
 
 void loop() {
+
   currentMillis = millis();
-  if (currentMillis - previousMillis >= intervalToUpdate) {
+  if (currentMillis - previousMillis >= intervalToSend) {
     previousMillis = currentMillis;
-    wifiSearchData(p1.getParameters());
-    rtc.getCurrentTime(p1.getParameters());
-    Serial.println(p1.sendParameters());
+    Serial.println(planta.getSystemStatus(buffer));
   } 
-  p1.turnOffDevices(); 
-  if (p1.addDay())
-    Serial.println("Día actualizado\n");
+  dnsServer.processNextRequest();
+  server.handleClient();
+
 }
 
-void wifiSearchData(uint8_t* parameters) {
-  WiFiClient client = server.available();  // listen for incoming clients
-  if (client) {                            // if you get a client,
-    //Serial.println("");
-    Serial.println("New Client.");                   // print a monthsage out the serial port
-    String currentLine = "";                         // make a String to hold incoming data from the client
-    while (client.connected()) {                     // loop while the client's connected
-      if (client.available()) {                      // if there's bytes to read from the client,
-        char c = client.read();                      // read a byte, then
-        Serial.write(c);                             // print it out the serial monitor
-        if (c == '\n' || currentLine.length() >= messageMaxLenght) {  // if the byte is a newline character
-          if (currentLine.indexOf("PUT /p") >= zero && currentLine.indexOf("-HDD") == 44) {  // if the current line is blank, you got two newline characters in a row that's the end of the client HTTP request, so send a response:
-            client.println("HTTP/1.1 200 OK"); // HTTP headers Response code (HTTP/1.1 200 OK) 
-            client.println("Content-Type: text/html"); //client.println("Content-type:text/html");
-            client.println(""); // and a content-type so the client knows what's coming, then a blank line: 
-            for (uint8_t i = 1; i <= 12; i++) { /// NO LEE DIA NI SEMANA ///
-              parameters[i] = (currentLine[(i + 1) * 3] - '0') * 10; // Se añade decena
-              parameters[i] = parameters[i] + (currentLine[((i + 1) * 3) + 1] - '0'); // Se añade unidad
-              Serial.print(parameters[i]);
-              Serial.print(".");
-            }
-            Serial.println(p1.updateEEPROM(currentLine[7]));
-          }
-          else if (currentLine.indexOf("GET /t") >= zero && currentLine.indexOf("-HDD") == 26) {
-            client.println("HTTP/1.1 200 OK"); 
-            client.println("Content-Type: text/html"); //client.println("Content-type:text/html");
-            client.println("");
-            for (uint8_t i = 1; i <= 7; i++) {
-              parameters[17 + i] = (currentLine[(i + 1) * 3] - '0') * 10;
-              parameters[17 + i] = parameters[17 + i] + (currentLine[((i + 1) * 3) + 1] - '0');
-            }
-            rtc.setCurrentTime(parameters);
-            Serial.println("RTC Updated");
-            setBuzzer();
-          }
-          else if (currentLine.indexOf("DELETE /x") >= zero && currentLine.indexOf("-HDD") == 9) {
-            client.println("HTTP/1.1 200 OK"); //client.println("Content-type:text/html");
-            Serial.println(p1.updateEEPROM(currentLine[8]));
-          }
-          else if (currentLine.indexOf("GET /d") >= zero){
-            client.println("HTTP/1.1 200 OK"); //client.println("Content-type:text/html");
-            client.println("Content-Type: text/html");
-            client.println(""); //  Important.
-            client.println("<!DOCTYPE HTML>");
-            client.println("<html><head><meta charset=utf-8></head><body><center><font face='Arial'>");
-            client.println("<h1>System: D800</h1>");
-            client.println("<p>Sistema:" + String(parameters[systemActive]) + " Semana:" + String(parameters[cropWeek]) +
-            " Dia:" + String(parameters[cropDay]) + " Fotoperiodo:" + String(parameters[photoperiod]) +
-            " Irr:" + String(parameters[irrigationTime]) + "/" +  String(parameters[irrigationTimeMinute]) +
-            " Vent:" + String(parameters[fanTime]) + "/" +  String(parameters[fanTimeMinute]) + "</p>");
-            client.println("<p>" + String(parameters[day]) + "/" + String(parameters[month]) + "/" + String(parameters[year]) + 
-            " - " + String(parameters[hour]) + ":" + String(parameters[minute]) + ":" + parameters[second] + "</p>");
-            client.println("</font></center></body></html>");
-            Serial.println("hay GET");//eliminar  
-          }
-          else {
-            client.println("HTTP/1.1 400 Bad Request"); 
-            client.println("Content-Type: text/html"); //client.println("Content-type:text/html");
-            client.println("");
-            Serial.println("Invalid input");
-          }
-          client.println();// The HTTP response ends with another blank line:
-          currentLine = "";
-          break; // break out of the while loop:
-        } 
-        else if (c != '\r')  // if you got anything else but a carriage return character,
-          currentLine += c;                       // add it to the end of the currentLine
-      }
+void handleRoot() {
+  server.send(200, "text/html", planta.mainHTML());
+  Serial.println(server.uri());
+
+  if (server.args() > 0) {
+    for (int i = 0; i < server.args(); i++) {
+      Serial.printf("Argumento: %s = %s\n", server.argName(i).c_str(), server.arg(i).c_str());
     }
-    client.stop(); // close the connection:
-    Serial.println("Client Disconnected.\n");
+  }
+  /*if (server.uri() == "/salir"){
+    server.send(200, "text/html", "<h1>Te haz desconectado del equipo.</h1>");
+    Serial.println(server.uri());
+  } else {
+    server.send(200, "text/html", loginPage);
+    Serial.println(server.uri());
+  }*/
+}
+void handleExit() {
+  //server.sendHeader("Connection", "close");
+  server.send(200, "text/html", "<h1>Te haz desconectado del dispositivo.</h1>");
+  Serial.println(server.uri());
+  if (server.args() > 0) {
+    for (int i = 0; i < server.args(); i++) {
+      Serial.printf("Argumento: %s = %s\n", server.argName(i).c_str(), server.arg(i).c_str());
+    }
+  }
+}
+
+void handleUpdate() {
+  server.send(200, "text/html", updateForm);
+  Serial.println(server.uri());
+}
+
+void handlePostData() {
+  String body = server.arg("plain");
+  Serial.println(body);
+  Serial.println(server.uri());
+  if (planta.processPostBody(body)){
+    //server.sendHeader("Connection", "close");
+    server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Informacion valida\"}");
+    planta.turnOffDevices();
+  } else {
+    //server.sendHeader("Connection", "close");
+    server.send(401, "application/json", "{\"status\":\"400\",\"msg\":\"Informacion invalida\"}");
   }
 }
