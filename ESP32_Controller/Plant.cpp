@@ -5,9 +5,7 @@
 #include "Constants.h"
 #include "Plant.h"
 #include "mainHTML.h"
-#include "mainHTML2.h"
 #include "updateSistemHTML.h"
-#include "updateSistemHTML2.h"
 
 Plant::Plant(){
   ledcSetup(blueChannel, pwmFrequency, pwmResolution);
