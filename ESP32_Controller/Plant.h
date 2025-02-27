@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
+
 class Plant {
 
   public:
@@ -15,14 +16,18 @@ class Plant {
     char* getSystemStatus(char* buffer);
     //void readSystemStatus(byte* systemStatus, size_t length);
 
+    // Funciones para el control del RTC (DS3231)
     void startClock();
-    bool setCurrentTime(uint8_t* currentTime);
-    bool getCurrentTime(uint8_t* currentTime);
+    bool setCurrentTime();
+    bool getCurrentTime();
 
     void turnOffDevices();
     void manageDevice(int devicePin, int scheduleHour, int scheduleMinute);
 
+    void updateCropDay();
+
     String mainHTML();
+    String updateHTML();
     
     //bool testCredentials(String SSID, String pass);
 
@@ -39,3 +44,4 @@ uint8_t bin2bcd(uint8_t bin);
 void setBuzzer();
 
 #endif
+

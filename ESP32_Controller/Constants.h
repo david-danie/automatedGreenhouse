@@ -10,13 +10,14 @@ const byte waterPumpPin = 16;
 const byte fanPin = 17;
 
 // Canales PWM
-const int whiteChannel1 = 0; // Canal asignado a pwmPin1
-const int blueChannel2 = 1; // Canal asignado a pwmPin2
-const int redChannel3 = 2; // Canal asignado a pwmPin3
+const byte blueChannel = 0; // Canal asignado a pwmPin2
+const byte redChannel = 1; // Canal asignado a pwmPin3
+const byte whiteChannel = 2; // Canal asignado a pwmPin1
 
 // Configuración PWM
-const int pwmFreq = 1000; // Frecuencia en Hz
+const int pwmFrequency = 1000; // Frecuencia en Hz
 const byte pwmResolution = 8; // Resolución de 8 bits (0-255)
+const byte maxDutyCycle = 255;
 
 const byte zero = 0;
 
@@ -49,15 +50,13 @@ const byte ctrl = 8;
 const uint8_t  DS3231Adress = 0x68;
 const byte rtcReadBytes = 7;
 
-
-
 const byte onceAday = 1; // 8 times
 const byte eachThreeHours = 2; // 8 times
 const byte eachEightHours = 3; // 3 times
 const byte eachHour = 4; // 24 times
 
-const uint8_t BuzzerOn = 50;  // interval at which to blink (milliseconds)
-const uint8_t BuzzerOff = 80;  // interval at which to blink (milliseconds)
+const byte BuzzerOn = 50;  // interval at which to blink (milliseconds)
+const byte BuzzerOff = 80;  // interval at which to blink (milliseconds)
 
 const int intervalToSend = 5000;  // interval at which to blink (milliseconds)
 

@@ -1,5 +1,5 @@
 const char* controllerInfo2 = R"rawliteral(
-;
+  
     document.getElementById("dispositivoActivo").innerText = `Cultivo: a85665458-${valoresESP32.dispositivoActivo}`;
     document.getElementById("fotoperiodo").innerText = `Fotoperiodo: ${valoresESP32.fotoperiodo} horas`;
     document.getElementById("luces").innerText = `A:${valoresESP32.luzAzul}% - R:${valoresESP32.luzRoja}% - B:${valoresESP32.luzBlanca}%`;

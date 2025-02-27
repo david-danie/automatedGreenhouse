@@ -174,13 +174,13 @@ const char* updateForm = R"rawliteral(
 
                 <div class="form-group">
                     <label for="fotoperiodo">Fotoperiodo (h):</label>
-                    <input type="number" id="fotoperiodo" name="fp" min="0" max="23" value="12">
+                    <input type="number" id="fotoperiodo" name="fp" min="0" max="23">
                 </div>
             </div>
 
             <div class="form-group">
                 <label for="luzAzul">Luz Azul:</label>
-                <input type="range" id="luzAzul" name="ledB" min="0" max="100" step="5" value="50"
+                <input type="range" id="luzAzul" name="ledA" min="0" max="100" step="5" value="50"
                     oninput="document.getElementById('luzAzulValue').innerText = this.value + '%';">
                 <span class="slider-value" id="luzAzulValue">50%</span>
             </div>
@@ -202,12 +202,12 @@ const char* updateForm = R"rawliteral(
             <div class="row">
                 <div class="form-group">
                     <label for="horasIrrigacion">Horas Riego:</label>
-                    <input type="number" id="horasIrrigacion" name="IrrH" min="0" max="23" value="2">
+                    <input type="number" id="horasIrrigacion" name="irrH" min="0" max="23" value="2">
                 </div>
 
                 <div class="form-group">
                     <label for="minutosIrrigacion">Minutos Riego:</label>
-                    <input type="number" id="minutosIrrigacion" name="IrrM" min="0" max="59" value="30">
+                    <input type="number" id="minutosIrrigacion" name="irrM" min="0" max="59" value="30">
                 </div>
             </div>
 
@@ -226,7 +226,7 @@ const char* updateForm = R"rawliteral(
             <div class="row">
                 <div class="form-group">
                     <label for="pass">Contraseña:</label>
-                    <input type="password" id="pass" name="pass" min="0" max="59" value="15">
+                    <input type="password" id="pass" name="pass" min="0" max="59" value="">
                 </div>
             </div>
 
@@ -235,75 +235,5 @@ const char* updateForm = R"rawliteral(
     </div>
 
     <script>
-        document.getElementById('miFormulario').addEventListener('submit', function (event) {
-            event.preventDefault();
-            const formData = new FormData(this);
-            const data = {};
-            let errores = [];
-
-            formData.forEach((value, key) => {
-                if (key === 'pass' && value.length < 8 && value.length > 32) {
-                    errores.push("La contraseña debe tener al menos 8 caracteres.");
-                }
-                if (key === 'fp' || key === 'IrrH' || key === 'IrrM' || key === 'ventH' || key === 'ventM') {
-                    if (isNaN(value) || value === "") {
-                        errores.push(`${key} debe ser un número.`);
-                    } else {
-                        const num = parseInt(value);
-                        if ((key === 'fp' && (num < 0 || num > 23)) ||
-                            (key === 'IrrH' && (num < 0 || num > 23)) ||
-                            (key === 'IrrM' && (num < 0 || num > 59)) ||
-                            (key === 'ventH' && (num < 0 || num > 23)) ||
-                            (key === 'ventM' && (num < 0 || num > 59))) {
-                            errores.push(`${key} está fuera del rango permitido.`);
-                        }
-                    }
-                }
-
-                data[key] = value;
-
-            });
-
-            const checkbox = document.getElementById('activarSistema');
-            data['enable'] = checkbox.checked;
-
-            if (errores.length > 0) {
-                alert("Errores en el formulario:\n" + errores.join("\n"));
-                return;  
-            }
-
-            const fechaHoraActual = new Date();
-            data['dia'] = fechaHoraActual.getDate();
-            data['mes'] = fechaHoraActual.getMonth() + 1;
-            data['anio'] = fechaHoraActual.getFullYear().toString().slice(-2);
-            data['diaSem'] = fechaHoraActual.getDay();
-            data['hr'] = fechaHoraActual.getHours();
-            data['min'] = fechaHoraActual.getMinutes();
-            data['seg'] = fechaHoraActual.getSeconds();
-
-            fetch('http://192.168.4.1/data', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
-                .then(response => response.json())
-                .then(jsonData => {
-                    document.body.innerHTML = '';
-                    const respuestaDiv = document.createElement('div');
-                    respuestaDiv.innerHTML = `<h1>Respuesta del servidor</h1>
-                                          <p>Status: ${jsonData.status}</p>
-                                          <p>Mensaje: ${jsonData.msg}</p>`;
-                    document.body.appendChild(respuestaDiv);
-                })
-                .catch((error) => {
-                    console.error('Error:', error);
-                });
-        });
-    </script>
-
-</body>
-
-</html>
+        var valoresESP32 = 
 )rawliteral";

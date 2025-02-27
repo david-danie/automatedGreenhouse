@@ -4,9 +4,9 @@
 #include "Constants.h"
 #include "Plant.h"
 
-#include "updateSistemHTML.h"
+//#include "updateSistemHTML.h"
 
-char buffer[255];
+char buffer[300];
 byte currentTime[10];
 
 unsigned long previousMillis = 0;  // will store last time LED was updated
@@ -27,7 +27,7 @@ void setup() {
   planta.begin();
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(deviceName);
-  delay(100);
+  vTaskDelay(100);
   //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   dnsServer.start(dnsPort, "*", WiFi.softAPIP());
   
@@ -80,7 +80,7 @@ void handleExit() {
 }
 
 void handleUpdate() {
-  server.send(200, "text/html", updateForm);
+  server.send(200, "text/html", planta.updateHTML());
   Serial.println(server.uri());
 }
 
