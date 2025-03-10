@@ -25,9 +25,12 @@ class Plant {
     void manageDevice(int devicePin, int scheduleHour, int scheduleMinute);
 
     void updateCropDay();
+    
+    bool getRegisteredUser();
 
     String mainHTML();
     String updateHTML();
+    String registerUserHTML();
     
     //bool testCredentials(String SSID, String pass);
 
@@ -44,4 +47,5 @@ uint8_t bin2bcd(uint8_t bin);
 void setBuzzer();
 
 #endif
+
 

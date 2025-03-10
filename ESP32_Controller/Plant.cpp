@@ -34,6 +34,8 @@ void Plant::begin(){
   preferences.getBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
   preferences.end();
   startClock();
+  
+  _systemStatus[hasUserRegistered] = false;
 
 }
 
@@ -168,6 +170,10 @@ void Plant::manageDevice(int devicePin, int scheduleHour, int scheduleMinute){
   digitalWrite(devicePin, activeDevice ? HIGH : LOW);
 }
 
+bool Plant::getRegisteredUser(){
+  return _systemStatus[hasUserRegistered];
+}
+
 String Plant::mainHTML(){
 
   String mainHTML;
@@ -210,6 +216,10 @@ String Plant::updateHTML(){
   updateHTML += "};";
   updateHTML += updateForm2;
   return updateHTML;
+}
+
+String Plant::registerUserHTML(){
+  return registerUserForm;
 }
 
 void Plant::updateCropDay(){

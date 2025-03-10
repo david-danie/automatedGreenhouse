@@ -37,6 +37,7 @@ const byte ventilationHour = 8;
 const byte ventilationMinute = 9;
 const byte cropWeek = 12;
 const byte cropDay = 13;
+const byte hasUserRegistered = 14;
 
 const byte second = 1;
 const byte minute = 2;
