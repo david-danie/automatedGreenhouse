@@ -17,6 +17,7 @@ WebServer server(port80);
 
 void handleRoot();
 void handleRootNoUser();
+void handleRegisterUser();
 void handlePost();
 void handleExit();
 
@@ -32,18 +33,17 @@ void setup() {
   //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   dnsServer.start(dnsPort, "*", WiFi.softAPIP());
   server.on("/exit", HTTP_GET, handleExit);
+  server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
+  server.on("/update", HTTP_POST, handleUpdate);  // Configura el servidor web
+  server.on("/data", HTTP_POST, handlePostData); 
+
+  server.on("/registeru", HTTP_GET, handleRegisterUser); 
 
   if(hasRegisteredUser){
     Serial.println("YA HAY usuario registrado");
-    server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
-    //server.on("/exit", HTTP_GET, handleExit);
-    server.on("/update", HTTP_POST, handleUpdate);  // Configura el servidor web
-    server.on("/data", HTTP_POST, handlePostData); 
   }
   else{
     Serial.println("NO HAY usuario registrado");
-    server.onNotFound(handleRootNoUser);  // Redirige todas las solicitudes a la página de inicio
-    //server.on("/updateUser", HTTP_POST, handleUpdateUser);  // Configura el usuario
     //server.on("/dataUser", HTTP_POST, handlePostDataUser); 
   }
 
@@ -64,36 +64,29 @@ void loop() {
 }
 
 void handleRoot() {
-  server.send(200, "text/html", planta.mainHTML());
+
+  if (hasRegisteredUser)
+    server.send(200, "text/html", planta.mainHTML());
+  else 
+    server.send(200, "text/html", planta.wellcomeHTML());
+
   Serial.println(server.uri());
 
-  if (server.args() > 0) {
-    for (int i = 0; i < server.args(); i++) {
+  if (server.args() > 0) 
+    for (int i = 0; i < server.args(); i++) 
       Serial.printf("Argumento: %s = %s\n", server.argName(i).c_str(), server.arg(i).c_str());
-    }
-  }
-  /*if (server.uri() == "/salir"){
-    server.send(200, "text/html", "<h1>Te haz desconectado del equipo.</h1>");
-    Serial.println(server.uri());
-  } else {
-    server.send(200, "text/html", loginPage);
-    Serial.println(server.uri());
-  }*/
+
 }
 
-void handleRootNoUser() {
+void handleRegisterUser() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/html", planta.registerUserHTML());
   Serial.println(server.uri());
-
-  if (server.args() > 0) {
-    for (int i = 0; i < server.args(); i++) {
-      Serial.printf("Argumento: %s = %s\n", server.argName(i).c_str(), server.arg(i).c_str());
-    }
-  }
 }
 
 void handleExit() {
   //server.sendHeader("Connection", "close");
+  server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/html", "<h1>Te haz desconectado del dispositivo.</h1>");
   Serial.println(server.uri());
   if (server.args() > 0) {

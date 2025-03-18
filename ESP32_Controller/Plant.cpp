@@ -6,6 +6,7 @@
 #include "Plant.h"
 #include "mainHTML.h"
 #include "updateSistemHTML.h"
+#include "registerUserHTML.h"
 
 Plant::Plant(){
   ledcSetup(blueChannel, pwmFrequency, pwmResolution);
@@ -216,6 +217,10 @@ String Plant::updateHTML(){
   updateHTML += "};";
   updateHTML += updateForm2;
   return updateHTML;
+}
+
+String Plant::wellcomeHTML(){
+  return wellcomeForm;
 }
 
 String Plant::registerUserHTML(){
