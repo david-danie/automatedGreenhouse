@@ -32,7 +32,7 @@ void setup() {
   vTaskDelay(100);
   //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   dnsServer.start(dnsPort, "*", WiFi.softAPIP());
-  server.on("/exit", HTTP_GET, handleExit);
+  server.on("/exit", HTTP_POST, handleExit);
   server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
   server.on("/update", HTTP_POST, handleUpdate);  // Configura el servidor web
   server.on("/data", HTTP_POST, handlePostData); 
@@ -87,7 +87,8 @@ void handleRegisterUser() {
 void handleExit() {
   //server.sendHeader("Connection", "close");
   server.sendHeader("Access-Control-Allow-Origin", "*");
-  server.send(200, "text/html", "<h1>Te haz desconectado del dispositivo.</h1>");
+  server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Te haz desconectado exitosamente.\"}");
+  //server.send(200, "text/html", "<h1>Te haz desconectado del dispositivo.</h1>");
   Serial.println(server.uri());
   if (server.args() > 0) {
     for (int i = 0; i < server.args(); i++) {
@@ -105,12 +106,15 @@ void handlePostData() {
   String body = server.arg("plain");
   Serial.println(body);
   Serial.println(server.uri());
-  if (planta.processPostBody(body)){
+  if(planta.processPostBody(body) == 2){
     //server.sendHeader("Connection", "close");
     server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Informacion valida\"}");
     planta.turnOffDevices();
-  } else {
+  } else if(planta.processPostBody(body) == 0) {
     //server.sendHeader("Connection", "close");
     server.send(401, "application/json", "{\"status\":\"400\",\"msg\":\"Informacion invalida\"}");
+  } else if(planta.processPostBody(body) == 1) {
+    //server.sendHeader("Connection", "close");
+    server.send(401, "application/json", "{\"status\":\"200\",\"msg\":\"Sistema reiniciado\"}");
   }
 }

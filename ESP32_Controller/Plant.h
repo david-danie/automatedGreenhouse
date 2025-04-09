@@ -12,7 +12,7 @@ class Plant {
 
     Plant();
     void begin();
-    bool processPostBody(String body);
+    byte processPostBody(String body);
     char* getSystemStatus(char* buffer);
     //void readSystemStatus(byte* systemStatus, size_t length);
 

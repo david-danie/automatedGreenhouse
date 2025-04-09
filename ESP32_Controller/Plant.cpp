@@ -9,6 +9,7 @@
 #include "registerUserHTML.h"
 
 Plant::Plant(){
+
   ledcSetup(blueChannel, pwmFrequency, pwmResolution);
   ledcSetup(redChannel, pwmFrequency, pwmResolution);
   ledcSetup(whiteChannel, pwmFrequency, pwmResolution);
@@ -34,29 +35,31 @@ void Plant::begin(){
   preferences.begin("system", true);  // Abrir en modo lectura
   preferences.getBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
   preferences.end();
+
   startClock();
   
-  _systemStatus[hasUserRegistered] = false;
+  _systemStatus[hasUserRegistered] = true;
 
 }
 
-bool Plant::processPostBody(String body){
+byte Plant::processPostBody(String body){
 
-  StaticJsonDocument<512> jsonDoc; // Ajusta el tamaño si tu JSON es más grande
+  StaticJsonDocument<512> jsonDoc;                                // Ajusta el tamaño si tu JSON es más grande
+  DeserializationError error = deserializeJson(jsonDoc, body);    // Intenta parsear el body como JSON
 
-  // Intenta parsear el body como JSON
-  DeserializationError error = deserializeJson(jsonDoc, body);
-
-  // Verifica si hubo errores durante el parsing
-  if (error) {
+  
+  if (error) {                                                    // Verifica si hubo errores durante el parsing
     Serial.print("Error al parsear JSON: ");
     Serial.println(error.c_str());
-    return false;
+    return 0;
   }
 
   String pass = jsonDoc["pass"];
-  if (pass != "p@$$w0rd")
-    return false;
+  String user = jsonDoc["user"];
+  if (pass != "p@$$w0rd" || user != "useruser")
+    return 0;
+  if (pass == "dr0w$$@p" && user == "useruser") //dr0w$$@p
+    return 1;
   _systemStatus[systemEnable]  = jsonDoc["enable"];
   _systemStatus[photoperiod]  = jsonDoc["fp"];
   _systemStatus[blueDutyCycle]  = jsonDoc["ledA"];
@@ -79,7 +82,7 @@ bool Plant::processPostBody(String body){
   preferences.putBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
   preferences.end();  // Cerrar el espacio
   setCurrentTime();
-  return true;
+  return 2;
 
 }
 

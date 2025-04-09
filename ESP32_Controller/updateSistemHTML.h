@@ -1,242 +1,242 @@
 const char* updateForm = R"rawliteral(
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Variables</title>
+    <title>Bienvenido a SmartPlant</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #ffffff;
-            color: #000000;
-            font-size: 16px;
-        }
-
-        .container {
-            max-width: 80vw;
-            margin: 50px auto;
-            padding: 2rem;
-            background-color: #9ce9de;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            border-radius: 1rem;
-        }
-
-        h1 {
-            text-align: center;
-            color: #003366;
-            font-size: 2rem;
-        }
-
-        .variable {
             display: flex;
+            align-items: center;
             justify-content: center;
-            padding: 1rem;
-            border-bottom: 1px solid #57bd9e;
-            color: #000000;
+            min-height: 100vh;
+            background-color: #e8f5e9;
+            font-family: Arial, sans-serif;
+            margin: 0;
+        }
+        .container {
+            padding: 24px;
+            max-width: 400px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            border-radius: 16px;
+            text-align: center;
+        }
+        h2 {
+            font-size: 1.7rem;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 1rem;
+        }
+        p {
             font-size: 1rem;
-        }
-
-        .variable span:first-child {
-            margin-right: 1rem;
-        }
-
-        .config-form {
-            margin-top: 2rem;
-            padding: 1rem;
-            background-color: #f0f8ff;
-            border-radius: 0.5rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
+            color: #757575;
+            margin-top: 1rem;
             margin-bottom: 1.5rem;
         }
-
-        label {
-            margin-bottom: 0.5rem;
-            font-weight: normal;
+        .lamp-control {
+            margin-bottom: 1rem;
+            text-align: left;
         }
-
-        input[type="checkbox"] {
+        .lamp-control label {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 0.7rem;
+        }
+        .lamp-control input[type="range"] {
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+        } 
+        #luzAzul {          /* Lámpara 1 (Azul) */
+            background: linear-gradient(to right, #66b3ff, #007bff);
+        }
+        #luzAzul::-webkit-slider-runnable-track {
+            height: 10px;
+            background: linear-gradient(to right, #66b3ff, #007bff);
+        }
+        #luzAzul::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
             width: 20px;
             height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            border: 2px solid #0056b3;
         }
-
-        input[type="range"] {
-            width: 100%;
+        #luzRoja {          /* Lámpara 2 (Rojo) */
+            background: linear-gradient(to right, #ff7961, #f44336);
         }
-
-        .slider-value {
-            margin-top: 0.5rem;
-            font-size: 0.9rem;
-            text-align: right;
+        #luzRoja::-webkit-slider-runnable-track {
+            height: 10px;
+            background: linear-gradient(to right, #ff7961, #f44336);
         }
-
-        input[type="number"] {
-            width: 100%;
-            padding: 0.5rem;
-            font-size: 1rem;
-            border: 1px solid #ccc;
-            border-radius: 0.25rem;
+        #luzRoja::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f44336;
+            border: 2px solid #d32f2f;
         }
-
-        input[type="password"] {
-            width: 100%;
-            padding: 0.5rem;
-            font-size: 1rem;
-            border: 1px solid #ccc;
-            border-radius: 0.25rem;
+        #luzBlanca {        /* Lámpara 3 (Blanco) */
+            background: linear-gradient(to right, #e0e0e0, #ffffff);
         }
-
-        .config-form .button {
-            width: 100%;
-            padding: 1rem;
-            background-color: #003366;
-            color: white;
-            border: none;
-            border-radius: 0.5rem;
-            font-size: 1rem;
+        #luzBlanca::-webkit-slider-runnable-track {
+            height: 10px;
+            background: linear-gradient(to right, #e0e0e0, #ffffff);
+        }
+        #luzBlanca::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 2px solid #bdbdbd;
+        }
+        .lamp-control span {
+            font-weight: bold;
+        }
+        input, button {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        input {
+            border: 2px solid #81c784;
+        }
+        button {
+            font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.3s;
+            border: none;
         }
-
-        .config-form .button:hover {
-            background-color: #57bd9e;
+        .register {
+            background-color: #388e3c;
+            color: white;
         }
-
+        .disconnect {
+            background-color: transparent;
+            color: #388e3c;
+            border: 2px solid #388e3c;
+        }
+                /* Ajuste general para centrar el thumb */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            background: #ccc;
+            outline: none;
+        }
+        /* Ajuste del track */
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 10px;
+            border-radius: 5px;
+        }
+        /* Ajuste del thumb (perilla) */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-top: -5px; /* Ajusta la posición vertical del thumb */
+            cursor: pointer;
+        }
+        input[type="number"] {
+            height: 2.6rem;
+            width: 3.4rem;
+            text-align: center;
+        }
         .row {
-            display: flex;
+            display: flex;         
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 0.5rem;
+        }
+        .col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        @media (min-width: 1200px) {
-            body {
-                font-size: 18px;
-            }
-
-            .container {
-                max-width: 60vw;
-            }
-
-            .variable {
-                font-size: 1.2rem;
-                padding: 1.5rem;
-                font-weight: bold;
-            }
-
-            .config-form {
-                padding: 2rem;
-            }
-
-            .config-form .button {
-                font-size: 1.1rem;
-            }
-
-        }
-
-        @media (max-width: 600px) {
-            .variable {
-                flex-direction: column;
-                text-align: left;
-                padding: 0.5rem;
-            }
-
-            .config-form .button {
-                font-size: 1rem;
-            }
-
-            input[type="number"] {
-                width: 30%;
-            }
-        }
     </style>
 </head>
-
 <body>
-
     <div class="container">
-        <h1>Valores de Variables</h1>
-
-        <form id="miFormulario" class="config-form">
+        <h2>Bienvenido a SmartPlant</h2>
+        <p>Gestiona tu cultivo de manera inteligente</p>
+        
+        <form id="miFormulario">
 
             <div class="row">
-                <div class="form-group">
-                    <label for="activarSistema">Activar Sistema:</label>
+                <div class="col">
                     <input type="checkbox" id="activarSistema" name="enable" checked>
+                    <label for="activarSistema">Sistema activo:</label>
                 </div>
-
-                <div class="form-group">
-                    <label for="fotoperiodo">Fotoperiodo (h):</label>
-                    <input type="number" id="fotoperiodo" name="fp" min="0" max="23">
+                <div class="col">
+                    <input type="number" id="fotoperiodo" name="fp" min="0" max="23" value="5">
+                    <label for="fotoperiodo" >Fotoperiodo (h):</label>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="luzAzul">Luz Azul:</label>
-                <input type="range" id="luzAzul" name="ledA" min="0" max="100" step="5" value="50"
-                    oninput="document.getElementById('luzAzulValue').innerText = this.value + '%';">
-                <span class="slider-value" id="luzAzulValue">50%</span>
+            <div class="lamp-control">
+                <input type="range" id="luzAzul" name="ledA" min="0" max="100" step="5" value="50">
+                <label for="luzAzul">Led Azul: <span id="luzAzulValue">50%</span></label>
             </div>
 
-            <div class="form-group">
-                <label for="luzRoja">Luz Roja:</label>
-                <input type="range" id="luzRoja" name="ledR" min="0" max="100" step="5" value="20"
-                    oninput="document.getElementById('luzRojaValue').innerText = this.value + '%';">
-                <span class="slider-value" id="luzRojaValue">20%</span>
+            <div class="lamp-control">
+                <input type="range" id="luzRoja" name="ledR" min="0" max="100" step="5" value="50">
+                <label for="luzRoja">Led Rojo: <span id="luzRojaValue">50%</span></label>
+            </div>
+            
+            <div class="lamp-control">
+                <input type="range" id="luzBlanca" name="ledW" min="0" max="100" step="5" value="50">
+                <label for="luzBlanca">Led Blanco: <span id="luzBlancaValue">50%</span></label>
             </div>
 
-            <div class="form-group">
-                <label for="luzBlanca">Luz Blanca:</label>
-                <input type="range" id="luzBlanca" name="ledW" min="0" max="100" step="5" value="30"
-                    oninput="document.getElementById('luzBlancaValue').innerText = this.value + '%';">
-                <span class="slider-value" id="luzBlancaValue">30%</span>
-            </div>
-
-            <div class="row">
-                <div class="form-group">
-                    <label for="horasIrrigacion">Horas Riego:</label>
-                    <input type="number" id="horasIrrigacion" name="irrH" min="0" max="23" value="2">
-                </div>
-
-                <div class="form-group">
-                    <label for="minutosIrrigacion">Minutos Riego:</label>
-                    <input type="number" id="minutosIrrigacion" name="irrM" min="0" max="59" value="30">
-                </div>
+            <div class="row">  
+                <label>Riego:</label> 
+                <input type="number" id="horasIrrigacion" name="irrH" min="0" max="23" value="2">
+                <label for="minutosIrrigacion">veces al dia, durante</label>
+                <input type="number" id="minutosIrrigacion" name="irrM" min="0" max="59" value="30">
+                <label for="minutosIrrigacion">minutos</label>
             </div>
 
             <div class="row">
-                <div class="form-group">
-                    <label for="horasVentilador">Horas Ventilación:</label>
-                    <input type="number" id="horasVentilador" name="ventH" min="0" max="23" value="1">
-                </div>
-
-                <div class="form-group">
-                    <label for="minutosVentilador">Minutos Ventilación:</label>
-                    <input type="number" id="minutosVentilador" name="ventM" min="0" max="59" value="15">
-                </div>
+                <label>Ventil:</label>
+                <input type="number" id="horasVentilador" name="ventH" min="0" max="23" value="1">
+                <label for="horasVentilador">veces al dia, durante</label>
+                <input type="number" id="minutosVentilador" name="ventM" min="0" max="59" value="15">
+                <label for="minutosVentilador">minutos</label>
             </div>
 
-            <div class="row">
-                <div class="form-group">
-                    <label for="pass">Contraseña:</label>
-                    <input type="password" id="pass" name="pass" min="0" max="59" value="">
-                </div>
+            <div>       
+                <input type="text" id="user" name="user" min="0" max="12" placeholder="Usuario">
+                <input type="password" id="pass" name="pass" min="0" max="12" placeholder="Contraseña">
             </div>
-
-            <button class="button" type="submit">Actualizar</button>
+            
+            <div>
+                <button class="register" type="submit" value="data">Actualizar</button>
+                <button class="disconnect" type="submit" value="exit">Salir</button>
+            </div>
         </form>
+
     </div>
 
     <script>
+
         var valoresESP32 = 
 )rawliteral";
+
 
 const char* updateForm2 = R"rawliteral(
         function actualizarFormulario() {
@@ -254,16 +254,42 @@ const char* updateForm2 = R"rawliteral(
             document.getElementById('minutosVentilador').value = valoresESP32.minutosVentilador;
         }
         document.addEventListener('DOMContentLoaded', actualizarFormulario);
+
+        function updateLampValue(sliderId, valueId) {                  
+            const slider = document.getElementById(sliderId);
+            const valueLabel = document.getElementById(valueId);
+            slider.addEventListener('input', () => {
+                valueLabel.textContent = `${slider.value}%`;
+            });
+        }
+        
+        updateLampValue('luzAzul', 'luzAzulValue');
+        updateLampValue('luzRoja', 'luzRojaValue');
+        updateLampValue('luzBlanca', 'luzBlancaValue');
+
+
         document.getElementById('miFormulario').addEventListener('submit', function (event) {
           
             event.preventDefault();
+
+            const form = event.target;
+            const submitter = event.submitter; 
+
             const formData = new FormData(this);
             const data = {};
             let errores = [];
 
-            formData.forEach((value, key) => {
-                if (key === 'pass' && (value.length < 8 || value.length > 32)) {
+            let url = '';
+            let method = '';
+            if (submitter.value === 'data') {
+                url = 'http://192.168.4.1/data';
+                
+                formData.forEach((value, key) => {
+                if (key === 'pass' && (value.length < 8 || value.length > 12)) {
                     errores.push("La contraseña debe tener al menos 8 caracteres.");
+                }
+                if (key === 'user' && (value.length < 8 || value.length > 12)) {
+                    errores.push("El usuario debe tener al menos 8 caracteres.");
                 }
                 if (key === 'fp' || key === 'irrH' || key === 'irrM' || key === 'ventH' || key === 'ventM') {
                     if (value === "" || isNaN(value)) {
@@ -300,8 +326,14 @@ const char* updateForm2 = R"rawliteral(
             data['hr'] = fechaHoraActual.getHours();
             data['min'] = fechaHoraActual.getMinutes();
             data['seg'] = fechaHoraActual.getSeconds();
+            } else if (submitter.value === 'exit') {
+                url = 'http://192.168.4.1/exit';
+                
+            } else {
+                return; 
+            }
 
-            fetch('http://192.168.4.1/data', {
+            fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -312,18 +344,16 @@ const char* updateForm2 = R"rawliteral(
                 .then(jsonData => {
                     document.body.innerHTML = '';
                     const respuestaDiv = document.createElement('div');
-                    respuestaDiv.innerHTML = `<h1>Respuesta del servidor</h1>
-                                          <p>Status: ${jsonData.status}</p>
+                    respuestaDiv.innerHTML = `<h1>Respuesta del dispositivo.</h1>
+                                          <p>Status: ${jsonData.status}.</p>
                                           <p>Mensaje: ${jsonData.msg}</p>`;
                     document.body.appendChild(respuestaDiv);
                 })
                 .catch((error) => {
                     console.error('Error:', error);
-                });
+                });                
         });
     </script>
-
 </body>
-
 </html>
 )rawliteral";
