@@ -32,12 +32,13 @@ void setup() {
   vTaskDelay(100);
   //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   dnsServer.start(dnsPort, "*", WiFi.softAPIP());
-  server.on("/exit", HTTP_POST, handleExit);
+  server.on("/exit", HTTP_GET, handleExit);
   server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
   server.on("/update", HTTP_POST, handleUpdate);  // Configura el servidor web
   server.on("/data", HTTP_POST, handlePostData); 
 
-  server.on("/registeru", HTTP_GET, handleRegisterUser); 
+  server.on("/registeru", HTTP_POST, handleRegisterUser); 
+  server.on("/userData", HTTP_POST, handleUserData); 
 
   if(hasRegisteredUser){
     Serial.println("YA HAY usuario registrado");
@@ -64,12 +65,12 @@ void loop() {
 }
 
 void handleRoot() {
-
+  server.sendHeader("Access-Control-Allow-Origin", "*");
   if (hasRegisteredUser)
     server.send(200, "text/html", planta.mainHTML());
   else 
     server.send(200, "text/html", planta.wellcomeHTML());
-
+  Serial.println("root");
   Serial.println(server.uri());
 
   if (server.args() > 0) 
@@ -80,6 +81,7 @@ void handleRoot() {
 
 void handleRegisterUser() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
+  Serial.println("register user");
   server.send(200, "text/html", planta.registerUserHTML());
   Serial.println(server.uri());
 }
@@ -89,6 +91,7 @@ void handleExit() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Te haz desconectado exitosamente.\"}");
   //server.send(200, "text/html", "<h1>Te haz desconectado del dispositivo.</h1>");
+  Serial.println("exit");
   Serial.println(server.uri());
   if (server.args() > 0) {
     for (int i = 0; i < server.args(); i++) {
@@ -98,13 +101,17 @@ void handleExit() {
 }
 
 void handleUpdate() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/html", planta.updateHTML());
+  Serial.println("update");
   Serial.println(server.uri());
 }
 
 void handlePostData() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
   String body = server.arg("plain");
   Serial.println(body);
+  Serial.println("post data");
   Serial.println(server.uri());
   if(planta.processPostBody(body) == 2){
     //server.sendHeader("Connection", "close");
@@ -117,4 +124,10 @@ void handlePostData() {
     //server.sendHeader("Connection", "close");
     server.send(401, "application/json", "{\"status\":\"200\",\"msg\":\"Sistema reiniciado\"}");
   }
+}
+
+void handleUserData(){
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  Serial.println("user data");
+  server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Se recibió información de usuario\"}");
 }

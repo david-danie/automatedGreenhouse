@@ -26,7 +26,7 @@ const char* wellcomeForm = R"rawliteral(
         h2 {
             font-size: 24px;
             font-weight: bold;
-            color: #2e7d32;
+            color: #126b17;
         }
         p {
             font-size: 14px;
@@ -38,6 +38,7 @@ const char* wellcomeForm = R"rawliteral(
             padding: 10px;
             margin-bottom: 10px;
             border-radius: 8px;
+            box-sizing: border-box;
             font-weight: bold;
             cursor: pointer;
             border: none;
@@ -56,30 +57,61 @@ const char* wellcomeForm = R"rawliteral(
 <body>
     <div class="container">
         <h2>Bienvenido a SmartPlant</h2>
-        <p>Gestiona tu cultivo de manera inteligente</p>
-        <button class="register" onclick="registerUser()">Registrarse</button>
-        <button class="disconnect" onclick="disconnect()">Desconectarse</button>
+        <p>Gestiona tu cultivo de manera inteligente.</p>
+        <p>¿Deseas registrar un usuario?</p>
+        <form id="wellcomeForm">
+            <button class="register" type="submit" value="registeru">Registrar</button>
+            <button class="disconnect" type="submit" value="exit">Salir</button>
+        </form>
+
     </div>
     <script>
-        function registerUser() {
-            fetch('http://192.168.4.1/registeru', { method: 'GET' })
-              .then(response => {
-                  console.log(response.headers.get("Content-Type")); // Verifica si es "text/html"
-                  return response.text();
-              })
-              .then(data => {
-                  console.log("Contenido recibido:", data); // Depura el HTML recibido
-                  document.body.innerHTML = data;
-              })
-              .catch(error => console.error("Error en fetch:", error));
-        }
-        function disconnect() { 
-            fetch('http://192.168.4.1/exit', { method: 'GET' })
-                .then(response => response.text())
-                .then(data => alert("Desconectado: " + data))
-                .catch(error => alert("Error al desconectar: " + error));
-        }
-    </script>
+        document.getElementById('wellcomeForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+        
+            const form = event.target;
+            const submitter = event.submitter;
+        
+            let url = '';
+            let method = 'POST';
+        
+            if (submitter.value === 'registeru') {
+                url = '/registeru';
+            } else if (submitter.value === 'exit') {
+                url = '/exit';
+                method = 'GET';
+            } else {
+                return;
+            }
+        
+            fetch(url, {
+                method: method
+            })
+            .then(response => {
+                const contentType = response.headers.get("content-type") || "";
+                if (contentType.includes("application/json")) {
+                    return response.json().then(data => {
+                        document.body.innerHTML = '';
+                        const respuestaDiv = document.createElement('div');
+                        respuestaDiv.innerHTML = `
+                            <h1>Respuesta del dispositivo</h1>
+                            <p>Status: ${data.status}</p>
+                            <p>Mensaje: ${data.msg}</p>`;
+                        document.body.appendChild(respuestaDiv);
+                    });
+                } else {
+                    return response.text().then(html => {
+                        document.body.innerHTML = html;
+                    });
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                document.body.innerHTML = '<p style="color:red;">Error de conexión con el dispositivo.</p>';
+            });
+        });
+        </script>
+        
 </body>
 </html>
 )rawliteral";
@@ -119,7 +151,6 @@ const char* registerUserForm = R"rawliteral(
             color: #757575;
             margin-bottom: 16px;
         }
-
         input, button {
             width: calc(100% - 20px);
             padding: 10px;
@@ -149,25 +180,85 @@ const char* registerUserForm = R"rawliteral(
 <body>
     <div class="container">
         <h2>Bienvenido a SmartPlant</h2>
-        <p>Gestiona tu cultivo de manera inteligente</p>
-        <input type="text" id="username" placeholder="Usuario">
-        <input type="password" id="password" placeholder="Contraseña">
-        <button class="register" onclick="registerUser()">Registrarse</button>
-        <button class="disconnect" onclick="disconnect()">Desconectarse</button>
+        <p>Registra un usuario y contraseña</p>
+        <form id="registerForm">
+            <input type="text" id="username" placeholder="Usuario">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button class="register" type="submit" name="action" value="userData">Registrar</button>
+            <button class="disconnect" type="submit" name="action" value="exit">Desconectarse</button>
+        </form>
     </div>
-
     <script>
-        function registerUser() {
-            let username = document.getElementById("username").value;
-            let password = document.getElementById("password").value;
-            alert("Usuario: " + username + " registrado!");
-        }
-
-        function disconnect() {
-            alert("Desconectado");
-        }
-    </script>
+        document.getElementById('registerForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+        
+            const form = event.target;
+            const submitter = event.submitter;
+        
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+        
+            let errores = [];
+            const data = { username, password };
+        
+            let url = '';
+            let method = 'POST';
+            let useBody = true;
+        
+            if (submitter.value === 'userData') {
+                url = 'http://192.168.4.1/userData';
+        
+                // Validación de longitud
+                if (username.length < 8 || username.length > 22) {
+                    errores.push("El usuario debe tener entre 8 y 22 caracteres.");
+                }
+                if (password.length < 8 || password.length > 22) {
+                    errores.push("La contraseña debe tener entre 8 y 22 caracteres.");
+                }
+        
+                // No más de 3 caracteres repetidos seguidos
+                const repetidosRegex = /(.)\1{3,}/;
+                if (repetidosRegex.test(username)) {
+                    errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
+                }
+                if (repetidosRegex.test(password)) {
+                    errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
+                }
+        
+                if (errores.length > 0) {
+                    alert("Errores en el formulario:\n" + errores.join("\n"));
+                    return;
+                }
+        
+            } else if (submitter.value === 'exit') {
+                url = 'http://192.168.4.1/exit';
+                method = 'GET';
+                useBody = false;
+            } else {
+                return;
+            }
+        
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                ...(useBody ? { body: JSON.stringify(data) } : {})
+            })
+            .then(response => response.json())
+            .then(jsonData => {
+                document.body.innerHTML = '';
+                const respuestaDiv = document.createElement('div');
+                respuestaDiv.innerHTML = `<h1>Respuesta del dispositivo.</h1>
+                                          <p>Status: ${jsonData.status}.</p>
+                                          <p>Mensaje: ${jsonData.msg}</p>`;
+                document.body.appendChild(respuestaDiv);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        });
+        </script>      
 </body>
 </html>
-
 )rawliteral";
