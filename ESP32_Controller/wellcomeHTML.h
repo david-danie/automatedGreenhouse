@@ -1,0 +1,257 @@
+const char* welcomePage = R"rawliteral(
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenido</title>
+  <style>
+    body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background-color: #e8f5e9;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 1rem;
+    }
+    .container {
+        width: 100%;
+        max-width: 400px;
+        padding: 24px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: white;
+        border-radius: 16px;
+        text-align: center;
+    }
+    h2 {
+        font-size: 1.7rem;
+        font-weight: bold;
+        color: #2e7d32;
+        margin-bottom: 1rem;
+    }
+    p {
+        font-size: 1rem;
+        color: #757575;
+        margin-top: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 1rem;
+        cursor: pointer;
+        border: none;
+    }
+    .register {
+        background-color: #388e3c;
+        color: white;
+    }
+    .disconnect {
+        background-color: transparent;
+        color: #388e3c;
+        border: 2px solid #388e3c;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>¡Bienvenido!</h2>
+    <p>Para continuar, regístrate o desconéctate</p>
+    <button class="register" onclick="location.href='/registeru'">Registrarse</button>
+    <button class="disconnect" onclick="location.href='/exit'">Salir</button>
+  </div>
+</body>
+</html>
+)rawliteral";
+
+const char* registerPage = R"rawliteral(
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bienvenido</title>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #e8f5e9;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 24px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 1.7rem;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 1rem;
+        }
+
+        p {
+            font-size: 1rem;
+            color: #757575;
+            margin-top: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+        }
+
+        .register {
+            background-color: #388e3c;
+            color: white;
+        }
+
+        .disconnect {
+            background-color: transparent;
+            color: #388e3c;
+            border: 2px solid #388e3c;
+        }
+
+        .input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 40px;
+            /* espacio para el ícono */
+        }
+
+        #togglePass {
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+        }
+
+        #eyeIcon {
+            fill: #333;
+            transition: fill 0.2s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Bienvenido</h2>
+        <p>Regístrate para continuar</p>
+
+        <form action="/userdata" method="POST">
+            <input type="text" name="usuario" placeholder="Usuario" required class="input" id="user">
+
+            <div class="password-wrapper">
+                <input type="password" name="contrasena" placeholder="Contraseña" required class="input" id="passInput">
+                <span id="togglePass" onclick="togglePassword()">
+                    <!-- SVG de ojo -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" id="eyeIcon">
+                        <path
+                            d="M12 4C7 4 3 7 3 7s4 3 9 3 9-3 9-3-4-3-9-3zm0 14c-5 0-9-3-9-3s4-3 9-3 9 3 9 3-4 3-9 3zm0-9c-2.5 0-4.5-1.5-4.5-3s2-3 4.5-3 4.5 1.5 4.5 3-2 3-4.5 3z" />
+                    </svg>
+                </span>
+            </div>
+
+            <button type="button" class="register" onclick="submitRegister()">Registrarse</button>
+        </form>
+
+        <button class="disconnect" onclick="window.location.href='/exit'">Salir</button>
+    </div>
+    <script>
+        function togglePassword() {
+            const passInput = document.getElementById('passInput');
+            const toggle = document.getElementById('togglePass');
+            const eyeIcon = document.getElementById('eyeIcon');
+
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                eyeIcon.setAttribute('fill', '#FF5722');
+            } else {
+                passInput.type = 'password';
+                eyeIcon.setAttribute('fill', '#333');
+            }
+        }
+        
+        function submitRegister() {
+            const user = document.getElementById("user").value.trim();
+            const pass = document.getElementById("passInput").value.trim();
+
+            const data = { user, pass };
+            let errores = [];
+            // Validación de longitud
+            if (user.length < 8 || user.length > 22) {
+                errores.push("El usuario debe tener entre 8 y 22 caracteres.");
+            }
+            if (pass.length < 8 || pass.length > 22) {
+                errores.push("La contraseña debe tener entre 8 y 22 caracteres.");
+            }
+    
+            // No más de 3 caracteres repetidos seguidos
+            const repetidosRegex = /(.)\1{3,}/;
+            if (repetidosRegex.test(user)) {
+                errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
+            }
+            if (repetidosRegex.test(pass)) {
+                errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
+            }
+            if (errores.length > 0) {
+                alert("Errores en el formulario:\n" + errores.join("\n"));
+                return;
+            }
+
+            fetch("/userdata", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                
+                body: JSON.stringify(data)
+                
+            })
+                .then(res => res.json())
+                .then(data => {
+                    document.body.innerHTML = "<h2>" + data.msg + "</h2>";
+                });
+        }
+        
+    </script>
+</body>
+</html>
+)rawliteral";

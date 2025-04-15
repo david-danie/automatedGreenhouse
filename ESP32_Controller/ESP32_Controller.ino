@@ -32,13 +32,16 @@ void setup() {
   vTaskDelay(100);
   //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   dnsServer.start(dnsPort, "*", WiFi.softAPIP());
-  server.on("/exit", HTTP_GET, handleExit);
+
+  server.on("/exit", handleExit);
+  server.on("/", handleRoot);
   server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
+
   server.on("/update", HTTP_POST, handleUpdate);  // Configura el servidor web
   server.on("/data", HTTP_POST, handlePostData); 
-
-  server.on("/registeru", HTTP_POST, handleRegisterUser); 
-  server.on("/userData", HTTP_POST, handleUserData); 
+  
+  server.on("/registeru", handleRegisterUser);
+  server.on("/userdata", HTTP_POST, handleUserData); 
 
   if(hasRegisteredUser){
     Serial.println("YA HAY usuario registrado");
@@ -47,9 +50,7 @@ void setup() {
     Serial.println("NO HAY usuario registrado");
     //server.on("/dataUser", HTTP_POST, handlePostDataUser); 
   }
-
   server.begin();
-  
 }
 
 void loop() {
@@ -65,12 +66,11 @@ void loop() {
 }
 
 void handleRoot() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
   if (hasRegisteredUser)
     server.send(200, "text/html", planta.mainHTML());
-  else 
+  else
     server.send(200, "text/html", planta.wellcomeHTML());
-  Serial.println("root");
+  //Serial.println("root");
   Serial.println(server.uri());
 
   if (server.args() > 0) 
@@ -80,24 +80,13 @@ void handleRoot() {
 }
 
 void handleRegisterUser() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
-  Serial.println("register user");
   server.send(200, "text/html", planta.registerUserHTML());
   Serial.println(server.uri());
 }
 
 void handleExit() {
-  //server.sendHeader("Connection", "close");
-  server.sendHeader("Access-Control-Allow-Origin", "*");
-  server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Te haz desconectado exitosamente.\"}");
-  //server.send(200, "text/html", "<h1>Te haz desconectado del dispositivo.</h1>");
-  Serial.println("exit");
+  server.send(200, "text/html", "<h1>Desconectado correctamente</h1>");
   Serial.println(server.uri());
-  if (server.args() > 0) {
-    for (int i = 0; i < server.args(); i++) {
-      Serial.printf("Argumento: %s = %s\n", server.argName(i).c_str(), server.arg(i).c_str());
-    }
-  }
 }
 
 void handleUpdate() {
@@ -127,7 +116,8 @@ void handlePostData() {
 }
 
 void handleUserData(){
-  server.sendHeader("Access-Control-Allow-Origin", "*");
-  Serial.println("user data");
+  String body = server.arg("plain");
+  Serial.print("JSON recibido: ");
+  Serial.println(body);
   server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Se recibió información de usuario\"}");
 }

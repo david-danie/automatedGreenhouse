@@ -5,8 +5,8 @@
 #include "Constants.h"
 #include "Plant.h"
 #include "mainHTML.h"
-#include "updateSistemHTML.h"
-#include "registerUserHTML.h"
+#include "updateSystemHTML.h"
+#include "wellcomeHTML.h"
 
 Plant::Plant(){
 
@@ -38,7 +38,7 @@ void Plant::begin(){
 
   startClock();
   
-  _systemStatus[hasUserRegistered] = true;
+  _systemStatus[hasUserRegistered] = false;
 
 }
 
@@ -223,11 +223,11 @@ String Plant::updateHTML(){
 }
 
 String Plant::wellcomeHTML(){
-  return wellcomeForm;
+  return welcomePage;
 }
 
 String Plant::registerUserHTML(){
-  return registerUserForm;
+  return registerPage;
 }
 
 void Plant::updateCropDay(){
