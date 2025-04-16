@@ -38,7 +38,7 @@ void Plant::begin(){
 
   startClock();
   
-  _systemStatus[hasUserRegistered] = false;
+  _systemStatus[hasUserRegistered] = true;
 
 }
 
