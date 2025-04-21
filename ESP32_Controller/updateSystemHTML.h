@@ -175,7 +175,7 @@ const char* updateForm = R"rawliteral(
         <h2>Bienvenido a SmartPlant</h2>
         <p>Gestiona tu cultivo de manera inteligente</p>
         
-        <form id="miFormulario">
+        <form id="updateForm">
 
             <div class="row">
                 <div class="col">
@@ -225,8 +225,8 @@ const char* updateForm = R"rawliteral(
             </div>
             
             <div>
-                <button class="register" type="submit" value="data">Actualizar</button>
-                <button class="disconnect" type="submit" value="exit">Salir</button>
+                <button class="register" type="button" onclick="submitForm()">Actualizar</button>
+                <button class="disconnect" type="button" onclick="window.location.href='/exit'">Salir</button>
             </div>
         </form>
 
@@ -267,24 +267,13 @@ const char* updateForm2 = R"rawliteral(
         updateLampValue('luzRoja', 'luzRojaValue');
         updateLampValue('luzBlanca', 'luzBlancaValue');
 
-
-        document.getElementById('miFormulario').addEventListener('submit', function (event) {
-          
-            event.preventDefault();
-
-            const form = event.target;
-            const submitter = event.submitter; 
-
-            const formData = new FormData(this);
+        function submitForm() {
+            const form = document.getElementById('updateForm');
+            const formData = new FormData(form);
             const data = {};
             let errores = [];
 
-            let url = '';
-            let method = '';
-            if (submitter.value === 'data') {
-                url = 'http://192.168.4.1/data';
-                
-                formData.forEach((value, key) => {
+            formData.forEach((value, key) => {
                 if (key === 'pass' && (value.length < 8 || value.length > 12)) {
                     errores.push("La contraseña debe tener al menos 8 caracteres.");
                 }
@@ -317,7 +306,6 @@ const char* updateForm2 = R"rawliteral(
                 alert("Errores en el formulario:\n" + errores.join("\n"));
                 return;  
             }
-
             const fechaHoraActual = new Date();
             data['dia'] = fechaHoraActual.getDate();
             data['mes'] = fechaHoraActual.getMonth() + 1;
@@ -326,33 +314,29 @@ const char* updateForm2 = R"rawliteral(
             data['hr'] = fechaHoraActual.getHours();
             data['min'] = fechaHoraActual.getMinutes();
             data['seg'] = fechaHoraActual.getSeconds();
-            } else if (submitter.value === 'exit') {
-                url = 'http://192.168.4.1/exit';
-                
-            } else {
-                return; 
-            }
 
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
+            fetch("/updatedata", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(data)
             })
-                .then(response => response.json())
-                .then(jsonData => {
-                    document.body.innerHTML = '';
-                    const respuestaDiv = document.createElement('div');
-                    respuestaDiv.innerHTML = `<h1>Respuesta del dispositivo.</h1>
-                                          <p>Status: ${jsonData.status}.</p>
-                                          <p>Mensaje: ${jsonData.msg}</p>`;
-                    document.body.appendChild(respuestaDiv);
-                })
-                .catch((error) => {
+            .then(response => response.json())
+            .then(data => {
+              document.body.innerHTML = '';
+              const respuestaDiv = document.createElement('div');
+              respuestaDiv.innerHTML =`<h1>Respuesta del dispositivo.</h1>
+                                          <p>Status: ${data.status}.</p>
+                                          <p>Mensaje: ${data.msg}</p>`;
+              document.body.appendChild(respuestaDiv);
+            })
+            .catch((error) => {
                     console.error('Error:', error);
-                });                
-        });
+                    document.body.innerHTML = "<h2>Error al enviar datos</h2>";
+                });
+          }
+
     </script>
 </body>
 </html>

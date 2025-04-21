@@ -94,8 +94,7 @@ const char* controllerInfo = R"rawliteral(
 </head>
 <body>
   <div class="container">
-    <form class="config-form">
-
+    
       <h1>Estado del cultivo</h1>
 
       <div class="form-group">     
@@ -123,9 +122,9 @@ const char* controllerInfo = R"rawliteral(
       <div class="form-group">      
         <span id="edad">Cargando...</span>
       </div>
-      <button class="update" formaction="/update" formmethod="POST" type="submit">Actualizar</button>
-      <button class="exit" formaction="/exit" type="submit">Salir</button> 
-    </form>
+      <button class="update" onclick="location.href='/update'">Actualizar</button>
+      <button class="exit" onclick="location.href='/exit'">Salir</button>
+ 
   </div>
 
   <script>

@@ -238,16 +238,17 @@ const char* registerPage = R"rawliteral(
 
             fetch("/userdata", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                
+                headers: { "Content-Type": "application/json" },      
                 body: JSON.stringify(data)
-                
             })
                 .then(res => res.json())
                 .then(data => {
-                    document.body.innerHTML = "<h2>" + data.msg + "</h2>";
+                document.body.innerHTML = '';
+                const respuestaDiv = document.createElement('div');
+                respuestaDiv.innerHTML =`<h1>Respuesta del dispositivo.</h1>
+                                            <p>Status: ${data.status}.</p>
+                                            <p>Mensaje: ${data.msg}</p>`;
+                document.body.appendChild(respuestaDiv);
                 });
         }
         

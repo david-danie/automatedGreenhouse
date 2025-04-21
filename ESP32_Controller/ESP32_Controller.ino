@@ -33,24 +33,23 @@ void setup() {
   //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   dnsServer.start(dnsPort, "*", WiFi.softAPIP());
 
-  server.on("/exit", handleExit);
-  server.on("/", handleRoot);
   server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
+  server.on("/", handleRoot);
 
-  server.on("/update", HTTP_POST, handleUpdate);  // Configura el servidor web
-  server.on("/data", HTTP_POST, handlePostData); 
-  
   server.on("/registeru", handleRegisterUser);
-  server.on("/userdata", HTTP_POST, handleUserData); 
+  server.on("/userdata", HTTP_POST, handleUserData);
 
-  if(hasRegisteredUser){
+  server.on("/update", handleUpdate);  // Configura el servidor web
+  server.on("/updatedata", HTTP_POST, handlePostData); 
+
+  server.on("/exit", handleExit);
+  
+  if(hasRegisteredUser)
     Serial.println("YA HAY usuario registrado");
-  }
-  else{
+  else
     Serial.println("NO HAY usuario registrado");
-    //server.on("/dataUser", HTTP_POST, handlePostDataUser); 
-  }
   server.begin();
+
 }
 
 void loop() {
@@ -84,23 +83,22 @@ void handleRegisterUser() {
   Serial.println(server.uri());
 }
 
-void handleExit() {
-  server.send(200, "text/html", "<h1>Desconectado correctamente</h1>");
-  Serial.println(server.uri());
+void handleUserData(){
+  String body = server.arg("plain");
+  Serial.print("JSON recibido: ");
+  Serial.println(body);
+  server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Se recibió información de usuario\"}");
 }
 
 void handleUpdate() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/html", planta.updateHTML());
   Serial.println("update");
   Serial.println(server.uri());
 }
 
 void handlePostData() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
   String body = server.arg("plain");
   Serial.println(body);
-  Serial.println("post data");
   Serial.println(server.uri());
   if(planta.processPostBody(body) == 2){
     //server.sendHeader("Connection", "close");
@@ -115,9 +113,7 @@ void handlePostData() {
   }
 }
 
-void handleUserData(){
-  String body = server.arg("plain");
-  Serial.print("JSON recibido: ");
-  Serial.println(body);
-  server.send(200, "application/json", "{\"status\":\"200\",\"msg\":\"Se recibió información de usuario\"}");
+void handleExit() {
+  server.send(200, "text/html", "<h1>Desconectado correctamente</h1>");
+  Serial.println(server.uri());
 }
