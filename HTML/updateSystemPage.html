@@ -331,13 +331,16 @@
             })
             .then(response => response.json())
             .then(data => {
-              document.body.innerHTML =`<h1>Respuesta del dispositivo.</h1>
-                                          <p>Status: ${response.status}.</p>
-                                          <p>Mensaje: ${response.msg}</p>`;
+              document.body.innerHTML = '';
+              const respuestaDiv = document.createElement('div');
+              respuestaDiv.innerHTML =`<h1>Respuesta del dispositivo.</h1>
+                                          <p>Status: ${data.status}.</p>
+                                          <p>Mensaje: ${data.msg}</p>`;
+              document.body.appendChild(respuestaDiv);
             })
             .catch((error) => {
-                    document.body.innerHTML = "<h2>Error al enviar datos</h2>";
                     console.error('Error:', error);
+                    document.body.innerHTML = "<h2>Error al enviar datos</h2>";
                 });
           }
 
