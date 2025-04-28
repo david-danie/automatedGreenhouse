@@ -35,13 +35,10 @@ void setup() {
 
   server.onNotFound(handleRoot);  // Redirige todas las solicitudes a la página de inicio
   server.on("/", handleRoot);
-
   server.on("/registeru", handleRegisterUser);
   server.on("/userdata", HTTP_POST, handleUserData);
-
   server.on("/update", handleUpdate);  // Configura el servidor web
   server.on("/updatedata", HTTP_POST, handlePostData); 
-
   server.on("/exit", handleExit);
   
   if(hasRegisteredUser)
@@ -50,6 +47,8 @@ void setup() {
     Serial.println("NO HAY usuario registrado");
   server.begin();
 
+  xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
+ 
 }
 
 void loop() {
@@ -59,8 +58,8 @@ void loop() {
     previousMillis = currentMillis;
     Serial.println(planta.getSystemStatus(buffer));
   } 
-  dnsServer.processNextRequest();
-  server.handleClient();
+  //dnsServer.processNextRequest();
+  //server.handleClient();
 
 }
 
@@ -69,13 +68,11 @@ void handleRoot() {
     server.send(200, "text/html", planta.mainHTML());
   else
     server.send(200, "text/html", planta.wellcomeHTML());
-  //Serial.println("root");
   Serial.println(server.uri());
 
   if (server.args() > 0) 
     for (int i = 0; i < server.args(); i++) 
       Serial.printf("Argumento: %s = %s\n", server.argName(i).c_str(), server.arg(i).c_str());
-
 }
 
 void handleRegisterUser() {
@@ -116,4 +113,12 @@ void handlePostData() {
 void handleExit() {
   server.send(200, "text/html", "<h1>Desconectado correctamente</h1>");
   Serial.println(server.uri());
+}
+
+void serverTask(void *pvParameters) {
+  while (true) {
+    dnsServer.processNextRequest();
+    server.handleClient();
+    vTaskDelay(1000 / portTICK_PERIOD_MS); // Espera 1 segundo
+  }
 }

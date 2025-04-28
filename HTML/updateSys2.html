@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Variables</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #000000;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 80vw;
+            margin: 50px auto;
+            padding: 2rem;
+            background-color: #9ce9de;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+        }
+
+        h1 {
+            text-align: center;
+            color: #003366;
+            font-size: 2rem;
+        }
+
+        .variable {
+            display: flex;
+            justify-content: center;
+            padding: 1rem;
+            border-bottom: 1px solid #57bd9e;
+            color: #000000;
+            font-size: 1rem;
+        }
+
+        .variable span:first-child {
+            margin-right: 1rem;
+        }
+
+        .config-form {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: #f0f8ff;
+            border-radius: 0.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            margin-bottom: 0.5rem;
+            font-weight: normal;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .slider-value {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            text-align: right;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 0.5rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 0.25rem;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 0.5rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 0.25rem;
+        }
+
+        .config-form .button {
+            width: 100%;
+            padding: 1rem;
+            background-color: #003366;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .config-form .button:hover {
+            background-color: #57bd9e;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        @media (min-width: 1200px) {
+            body {
+                font-size: 18px;
+            }
+
+            .container {
+                max-width: 60vw;
+            }
+
+            .variable {
+                font-size: 1.2rem;
+                padding: 1.5rem;
+                font-weight: bold;
+            }
+
+            .config-form {
+                padding: 2rem;
+            }
+
+            .config-form .button {
+                font-size: 1.1rem;
+            }
+
+        }
+
+        @media (max-width: 600px) {
+            .variable {
+                flex-direction: column;
+                text-align: left;
+                padding: 0.5rem;
+            }
+
+            .config-form .button {
+                font-size: 1rem;
+            }
+
+            input[type="number"] {
+                width: 30%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Valores de Variables</h1>
+
+        <form id="miFormulario" class="config-form">
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="activarSistema">Activar Sistema:</label>
+                    <input type="checkbox" id="activarSistema" name="enable" checked>
+                </div>
+
+                <div class="form-group">
+                    <label for="fotoperiodo">Fotoperiodo (h):</label>
+                    <input type="number" id="fotoperiodo" name="fp" min="0" max="23">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="luzAzul">Luz Azul:</label>
+                <input type="range" id="luzAzul" name="ledA" min="0" max="100" step="5" value="50"
+                    oninput="document.getElementById('luzAzulValue').innerText = this.value + '%';">
+                <span class="slider-value" id="luzAzulValue">50%</span>
+            </div>
+
+            <div class="form-group">
+                <label for="luzRoja">Luz Roja:</label>
+                <input type="range" id="luzRoja" name="ledR" min="0" max="100" step="5" value="20"
+                    oninput="document.getElementById('luzRojaValue').innerText = this.value + '%';">
+                <span class="slider-value" id="luzRojaValue">20%</span>
+            </div>
+
+            <div class="form-group">
+                <label for="luzBlanca">Luz Blanca:</label>
+                <input type="range" id="luzBlanca" name="ledW" min="0" max="100" step="5" value="30"
+                    oninput="document.getElementById('luzBlancaValue').innerText = this.value + '%';">
+                <span class="slider-value" id="luzBlancaValue">30%</span>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="horasIrrigacion">Horas Riego:</label>
+                    <input type="number" id="horasIrrigacion" name="irrH" min="0" max="23" value="2">
+                </div>
+
+                <div class="form-group">
+                    <label for="minutosIrrigacion">Minutos Riego:</label>
+                    <input type="number" id="minutosIrrigacion" name="irrM" min="0" max="59" value="30">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="horasVentilador">Horas Ventilación:</label>
+                    <input type="number" id="horasVentilador" name="ventH" min="0" max="23" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="minutosVentilador">Minutos Ventilación:</label>
+                    <input type="number" id="minutosVentilador" name="ventM" min="0" max="59" value="15">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="pass">Contraseña:</label>
+                    <input type="password" id="pass" name="pass" min="0" max="59" value="">
+                </div>
+            </div>
+
+            <button class="button" type="submit">Actualizar</button>
+        </form>
+    </div>
+
+    <script>
+
+
+        function actualizarFormulario() {
+            document.getElementById('activarSistema').checked = valoresESP32.dispositivoActivo === "Activo";
+            document.getElementById('fotoperiodo').value = valoresESP32.fotoperiodo;
+            document.getElementById('luzAzul').value = valoresESP32.luzAzul;
+            document.getElementById('luzAzulValue').innerText = `${valoresESP32.luzAzul}%`;
+            document.getElementById('luzRoja').value = valoresESP32.luzRoja;
+            document.getElementById('luzRojaValue').innerText = `${valoresESP32.luzRoja}%`;
+            document.getElementById('luzBlanca').value = valoresESP32.luzBlanca;
+            document.getElementById('luzBlancaValue').innerText = `${valoresESP32.luzBlanca}%`;
+            document.getElementById('horasIrrigacion').value = valoresESP32.horasIrrigacion;
+            document.getElementById('minutosIrrigacion').value = valoresESP32.minutosIrrigacion;
+            document.getElementById('horasVentilador').value = valoresESP32.horasVentilador;
+            document.getElementById('minutosVentilador').value = valoresESP32.minutosVentilador;
+        }
+        document.addEventListener('DOMContentLoaded', actualizarFormulario);
+        document.getElementById('miFormulario').addEventListener('submit', function (event) {
+          
+            event.preventDefault();
+            const formData = new FormData(this);
+            const data = {};
+            let errores = [];
+
+            formData.forEach((value, key) => {
+                if (key === 'pass' && (value.length < 8 || value.length > 32)) {
+                    errores.push("La contraseña debe tener al menos 8 caracteres.");
+                }
+                if (key === 'fp' || key === 'irrH' || key === 'irrM' || key === 'ventH' || key === 'ventM') {
+                    if (value === "" || isNaN(value)) {
+                        errores.push(`${key} debe ser un número.`);
+                    } else {
+                        const num = parseInt(value);
+                        if ((key === 'fp' && (num < 0 || num > 23)) ||
+                            (key === 'irrH' && (num < 0 || num > 23)) ||
+                            (key === 'irrM' && (num < 0 || num > 59)) ||
+                            (key === 'ventH' && (num < 0 || num > 23)) ||
+                            (key === 'ventM' && (num < 0 || num > 59))) {
+                            errores.push(`${key} está fuera del rango permitido.`);
+                        }
+                    }
+                }
+
+                data[key] = value;
+
+            });
+
+            const checkbox = document.getElementById('activarSistema');
+            data['enable'] = checkbox.checked;
+
+            if (errores.length > 0) {
+                alert("Errores en el formulario:\n" + errores.join("\n"));
+                return;  
+            }
+
+            const fechaHoraActual = new Date();
+            data['dia'] = fechaHoraActual.getDate();
+            data['mes'] = fechaHoraActual.getMonth() + 1;
+            data['anio'] = fechaHoraActual.getFullYear().toString().slice(-2);
+            data['diaSem'] = fechaHoraActual.getDay();
+            data['hr'] = fechaHoraActual.getHours();
+            data['min'] = fechaHoraActual.getMinutes();
+            data['seg'] = fechaHoraActual.getSeconds();
+
+            fetch('http://192.168.4.1/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(jsonData => {
+                    document.body.innerHTML = '';
+                    const respuestaDiv = document.createElement('div');
+                    respuestaDiv.innerHTML = `<h1>Respuesta del servidor</h1>
+                                          <p>Status: ${jsonData.status}</p>
+                                          <p>Mensaje: ${jsonData.msg}</p>`;
+                    document.body.appendChild(respuestaDiv);
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenido</title>
+  <style>
+    body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background-color: #e8f5e9;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 1rem;
+    }
+    .container {
+        width: 100%;
+        max-width: 400px;
+        padding: 24px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: white;
+        border-radius: 16px;
+        text-align: center;
+    }
+    h2 {
+        font-size: 1.7rem;
+        font-weight: bold;
+        color: #2e7d32;
+        margin-bottom: 1rem;
+    }
+    p {
+        font-size: 1rem;
+        color: #757575;
+        margin-top: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 1rem;
+        cursor: pointer;
+        border: none;
+    }
+    .register {
+        background-color: #388e3c;
+        color: white;
+    }
+    .disconnect {
+        background-color: transparent;
+        color: #388e3c;
+        border: 2px solid #388e3c;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>¡Bienvenido!</h2>
+    <p>Para continuar, regístrate o desconéctate</p>
+    <button class="register" onclick="location.href='/registeru'">Registrarse</button>
+    <button class="disconnect" onclick="location.href='/exit'">Salir</button>
+  </div>
+</body>
+</html>

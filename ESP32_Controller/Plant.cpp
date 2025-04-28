@@ -230,6 +230,10 @@ String Plant::registerUserHTML(){
   return registerPage;
 }
 
+String Plant::exitHTML(){
+  return exitPage;
+}
+
 void Plant::updateCropDay(){
   static int ultimoSegundoProcesado = -1; // Guarda el último segundo procesado
   // Verifica si ya se procesó este segundo

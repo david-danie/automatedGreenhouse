@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bienvenido a SmartPlant</title>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #e8f5e9;
+            font-family: Arial, sans-serif;
+            margin: 0;
+        }
+        .container {
+            padding: 24px;
+            max-width: 400px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            border-radius: 16px;
+            text-align: center;
+        }
+        h2 {
+            font-size: 1.7rem;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 1rem;
+        }
+        p {
+            font-size: 1rem;
+            color: #757575;
+            margin-top: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .lamp-control {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+        .lamp-control label {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 0.7rem;
+        }
+        .lamp-control input[type="range"] {
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+        } 
+        #luzAzul {          /* Lámpara 1 (Azul) */
+            background: linear-gradient(to right, #66b3ff, #007bff);
+        }
+        #luzAzul::-webkit-slider-runnable-track {
+            height: 10px;
+            background: linear-gradient(to right, #66b3ff, #007bff);
+        }
+        #luzAzul::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            border: 2px solid #0056b3;
+        }
+        #luzRoja {          /* Lámpara 2 (Rojo) */
+            background: linear-gradient(to right, #ff7961, #f44336);
+        }
+        #luzRoja::-webkit-slider-runnable-track {
+            height: 10px;
+            background: linear-gradient(to right, #ff7961, #f44336);
+        }
+        #luzRoja::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f44336;
+            border: 2px solid #d32f2f;
+        }
+        #luzBlanca {        /* Lámpara 3 (Blanco) */
+            background: linear-gradient(to right, #e0e0e0, #ffffff);
+        }
+        #luzBlanca::-webkit-slider-runnable-track {
+            height: 10px;
+            background: linear-gradient(to right, #e0e0e0, #ffffff);
+        }
+        #luzBlanca::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 2px solid #bdbdbd;
+        }
+        .lamp-control span {
+            font-weight: bold;
+        }
+        input, button {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        input {
+            border: 2px solid #81c784;
+        }
+        button {
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+        }
+        .register {
+            background-color: #388e3c;
+            color: white;
+        }
+        .disconnect {
+            background-color: transparent;
+            color: #388e3c;
+            border: 2px solid #388e3c;
+        }
+                /* Ajuste general para centrar el thumb */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            background: #ccc;
+            outline: none;
+        }
+        /* Ajuste del track */
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 10px;
+            border-radius: 5px;
+        }
+        /* Ajuste del thumb (perilla) */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-top: -5px; /* Ajusta la posición vertical del thumb */
+            cursor: pointer;
+        }
+        input[type="number"] {
+            height: 2.6rem;
+            width: 3.4rem;
+            text-align: center;
+        }
+        .row {
+            display: flex;         
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Bienvenido a SmartPlant</h2>
+        <p>Gestiona tu cultivo de manera inteligente</p>
+        
+        <form id="updateForm">
+
+            <div class="row">
+                <div class="col">
+                    <input type="checkbox" id="activarSistema" name="enable" checked>
+                    <label for="activarSistema">Sistema activo:</label>
+                </div>
+                <div class="col">
+                    <input type="number" id="fotoperiodo" name="fp" min="0" max="23" value="5">
+                    <label for="fotoperiodo" >Fotoperiodo (h):</label>
+                </div>
+            </div>
+
+            <div class="lamp-control">
+                <input type="range" id="luzAzul" name="ledA" min="0" max="100" step="5" value="50">
+                <label for="luzAzul">Led Azul: <span id="luzAzulValue">50%</span></label>
+            </div>
+
+            <div class="lamp-control">
+                <input type="range" id="luzRoja" name="ledR" min="0" max="100" step="5" value="50">
+                <label for="luzRoja">Led Rojo: <span id="luzRojaValue">50%</span></label>
+            </div>
+            
+            <div class="lamp-control">
+                <input type="range" id="luzBlanca" name="ledW" min="0" max="100" step="5" value="50">
+                <label for="luzBlanca">Led Blanco: <span id="luzBlancaValue">50%</span></label>
+            </div>
+
+            <div class="row">  
+                <label>Riego:</label> 
+                <input type="number" id="horasIrrigacion" name="irrH" min="0" max="23" value="2">
+                <label for="minutosIrrigacion">veces al dia, durante</label>
+                <input type="number" id="minutosIrrigacion" name="irrM" min="0" max="59" value="30">
+                <label for="minutosIrrigacion">minutos</label>
+            </div>
+
+            <div class="row">
+                <label>Ventil:</label>
+                <input type="number" id="horasVentilador" name="ventH" min="0" max="23" value="1">
+                <label for="horasVentilador">veces al dia, durante</label>
+                <input type="number" id="minutosVentilador" name="ventM" min="0" max="59" value="15">
+                <label for="minutosVentilador">minutos</label>
+            </div>
+
+            <div>       
+                <input type="text" id="user" name="user" min="0" max="12" placeholder="Usuario">
+                <input type="password" id="pass" name="pass" min="0" max="12" placeholder="Contraseña">
+            </div>
+            
+            <div>
+                <button class="register" type="button" onclick="submitForm()">Actualizar</button>
+                <button class="disconnect" type="button" onclick="window.location.href='/exit'">Salir</button>
+            </div>
+        </form>
+
+    </div>
+
+    <script>
+
+        var valoresESP32 = {
+                dispositivoActivo: "",
+                fotoperiodo: "",
+                semana: "",
+                dias: "",
+                luzAzul: "",
+                luzRoja: "",
+                luzBlanca: "",
+                horasIrrigacion: "",
+                minutosIrrigacion: "",
+                horasVentilador: "",
+                minutosVentilador: "",
+            }
+            function actualizarFormulario() {
+            document.getElementById('activarSistema').checked = valoresESP32.dispositivoActivo === "Activo";
+            document.getElementById('fotoperiodo').value = valoresESP32.fotoperiodo;
+            document.getElementById('luzAzul').value = valoresESP32.luzAzul;
+            document.getElementById('luzAzulValue').innerText = `${valoresESP32.luzAzul}%`;
+            document.getElementById('luzRoja').value = valoresESP32.luzRoja;
+            document.getElementById('luzRojaValue').innerText = `${valoresESP32.luzRoja}%`;
+            document.getElementById('luzBlanca').value = valoresESP32.luzBlanca;
+            document.getElementById('luzBlancaValue').innerText = `${valoresESP32.luzBlanca}%`;
+            document.getElementById('horasIrrigacion').value = valoresESP32.horasIrrigacion;
+            document.getElementById('minutosIrrigacion').value = valoresESP32.minutosIrrigacion;
+            document.getElementById('horasVentilador').value = valoresESP32.horasVentilador;
+            document.getElementById('minutosVentilador').value = valoresESP32.minutosVentilador;
+        }
+        document.addEventListener('DOMContentLoaded', actualizarFormulario);
+
+        function updateLampValue(sliderId, valueId) {                  
+            const slider = document.getElementById(sliderId);
+            const valueLabel = document.getElementById(valueId);
+            slider.addEventListener('input', () => {
+                valueLabel.textContent = `${slider.value}%`;
+            });
+        }
+        
+        updateLampValue('luzAzul', 'luzAzulValue');
+        updateLampValue('luzRoja', 'luzRojaValue');
+        updateLampValue('luzBlanca', 'luzBlancaValue');
+
+        function submitForm() {
+            const form = document.getElementById('updateForm');
+            const formData = new FormData(form);
+            const data = {};
+            let errores = [];
+
+            formData.forEach((value, key) => {
+                if (key === 'pass' && (value.length < 8 || value.length > 12)) {
+                    errores.push("La contraseña debe tener al menos 8 caracteres.");
+                }
+                if (key === 'user' && (value.length < 8 || value.length > 12)) {
+                    errores.push("El usuario debe tener al menos 8 caracteres.");
+                }
+                if (key === 'fp' || key === 'irrH' || key === 'irrM' || key === 'ventH' || key === 'ventM') {
+                    if (value === "" || isNaN(value)) {
+                        errores.push(`${key} debe ser un número.`);
+                    } else {
+                        const num = parseInt(value);
+                        if ((key === 'fp' && (num < 0 || num > 23)) ||
+                            (key === 'irrH' && (num < 0 || num > 23)) ||
+                            (key === 'irrM' && (num < 0 || num > 59)) ||
+                            (key === 'ventH' && (num < 0 || num > 23)) ||
+                            (key === 'ventM' && (num < 0 || num > 59))) {
+                            errores.push(`${key} está fuera del rango permitido.`);
+                        }
+                    }
+                }
+
+                data[key] = value;
+
+            });
+
+            const checkbox = document.getElementById('activarSistema');
+            data['enable'] = checkbox.checked;
+
+            if (errores.length > 0) {
+                alert("Errores en el formulario:\n" + errores.join("\n"));
+                return;  
+            }
+            const fechaHoraActual = new Date();
+            data['dia'] = fechaHoraActual.getDate();
+            data['mes'] = fechaHoraActual.getMonth() + 1;
+            data['anio'] = fechaHoraActual.getFullYear().toString().slice(-2);
+            data['diaSem'] = fechaHoraActual.getDay();
+            data['hr'] = fechaHoraActual.getHours();
+            data['min'] = fechaHoraActual.getMinutes();
+            data['seg'] = fechaHoraActual.getSeconds();
+
+            fetch("/updatedata", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+              document.body.innerHTML =`<h1>Respuesta del dispositivo.</h1>
+                                          <p>Status: ${response.status}.</p>
+                                          <p>Mensaje: ${response.msg}</p>`;
+            })
+            .catch((error) => {
+                    document.body.innerHTML = "<h2>Error al enviar datos</h2>";
+                    console.error('Error:', error);
+                });
+          }
+
+    </script>
+</body>
+</html>

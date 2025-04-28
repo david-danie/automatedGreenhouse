@@ -32,6 +32,7 @@ class Plant {
     String updateHTML();
     String registerUserHTML();
     String wellcomeHTML();
+    String exitHTML();
     //bool testCredentials(String SSID, String pass);
 
   private:
