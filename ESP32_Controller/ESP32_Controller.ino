@@ -2,6 +2,7 @@
 #include <WebServer.h>
 #include <DNSServer.h>
 #include "Constants.h"
+#include "ConstantsD.h"
 #include "Plant.h"
 
 char buffer[300];
@@ -28,6 +29,26 @@ void setup() {
   hasRegisteredUser = planta.getRegisteredUser();
 
   WiFi.mode(WIFI_AP_STA);
+
+  delay(1000);
+  WiFi.begin(ssidUser, ssidPassU);
+  delay(1000);
+  //Serial.print("Conectando a la red: " + ssidU);
+  unsigned long startTime = millis();
+  while (WiFi.status() != WL_CONNECTED){
+    Serial.print(".");
+    if (millis() - startTime > 15000){          // Espera máximo 20 segundos
+      Serial.println("\nNo se pudo conectar a la red WiFi.");
+      WiFi.disconnect();
+      break;
+    }
+    delay(100);
+  }
+  if (WiFi.status() == WL_CONNECTED){
+    Serial.print("\nDispositivo conectado.");
+    //Serial.println("IP asignada:  " + WiFi.localIP());
+  }
+
   WiFi.softAP(deviceName);
   vTaskDelay(100);
   //WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
@@ -47,7 +68,7 @@ void setup() {
     Serial.println("NO HAY usuario registrado");
   server.begin();
 
-  xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
+  //xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
  
 }
 
@@ -58,8 +79,8 @@ void loop() {
     previousMillis = currentMillis;
     Serial.println(planta.getSystemStatus(buffer));
   } 
-  //dnsServer.processNextRequest();
-  //server.handleClient();
+  dnsServer.processNextRequest();
+  server.handleClient();
 
 }
 

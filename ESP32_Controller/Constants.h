@@ -21,8 +21,6 @@ const byte maxDutyCycle = 255;
 
 const byte zero = 0;
 
-const char deviceName[] = "CropController";
-
 const byte port80 = 80;
 const byte dnsPort = 53;
 

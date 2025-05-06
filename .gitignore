@@ -17,6 +17,9 @@ __pycache__/
 *.env
 .env.*
 
+# --- Nombre de red y contraseñas ---
+ConstantsD.h
+
 # --- Archivos de logs ---
 *.log
 
