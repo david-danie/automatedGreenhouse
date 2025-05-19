@@ -36,7 +36,8 @@ class Plant {
     //bool testCredentials(String SSID, String pass);
 
   private:
-
+    
+    SemaphoreHandle_t mutex;
     byte _systemStatus[15];
     byte _currentTime[10];
     Preferences preferences;

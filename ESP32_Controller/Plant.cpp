@@ -10,6 +10,11 @@
 
 Plant::Plant(){
 
+  mutex = xSemaphoreCreateMutex();
+  if (mutex == NULL) {
+    Serial.println("Error: No se pudo crear el mutex.");  // Reiniciar.
+  }
+
   ledcSetup(blueChannel, pwmFrequency, pwmResolution);
   ledcSetup(redChannel, pwmFrequency, pwmResolution);
   ledcSetup(whiteChannel, pwmFrequency, pwmResolution);
@@ -56,44 +61,58 @@ byte Plant::processPostBody(String body){
 
   String pass = jsonDoc["pass"];
   String user = jsonDoc["user"];
+  
   if (pass != "p@$$w0rd" || user != "useruser")
     return 0;
   if (pass == "dr0w$$@p" && user == "useruser") //dr0w$$@p
     return 1;
-  _systemStatus[systemEnable]  = jsonDoc["enable"];
-  _systemStatus[photoperiod]  = jsonDoc["fp"];
-  _systemStatus[blueDutyCycle]  = jsonDoc["ledA"];
-  _systemStatus[redDutyCycle]  = jsonDoc["ledR"];
-  _systemStatus[whiteDutyCycle]  = jsonDoc["ledW"];
-  _systemStatus[irrigationHour]  = jsonDoc["irrH"];
-  _systemStatus[irrigationMinute]  = jsonDoc["irrM"];
-  _systemStatus[ventilationHour]  = jsonDoc["ventH"];
-  _systemStatus[ventilationMinute]  = jsonDoc["ventM"];
-  
-  _currentTime[second] = jsonDoc["seg"];
-  _currentTime[minute] = jsonDoc["min"];
-  _currentTime[hour] = jsonDoc["hr"];
-  _currentTime[dayOfWeek] = jsonDoc["diaSem"];
-  _currentTime[day] = jsonDoc["dia"];
-  _currentTime[month] = jsonDoc["mes"];
-  _currentTime[year] = jsonDoc["anio"];
+  if (mutex != NULL && xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    _systemStatus[systemEnable]  = jsonDoc["enable"];
+    _systemStatus[photoperiod]  = jsonDoc["fp"];
+    _systemStatus[blueDutyCycle]  = jsonDoc["ledA"];
+    _systemStatus[redDutyCycle]  = jsonDoc["ledR"];
+    _systemStatus[whiteDutyCycle]  = jsonDoc["ledW"];
+    _systemStatus[irrigationHour]  = jsonDoc["irrH"];
+    _systemStatus[irrigationMinute]  = jsonDoc["irrM"];
+    _systemStatus[ventilationHour]  = jsonDoc["ventH"];
+    _systemStatus[ventilationMinute]  = jsonDoc["ventM"];
+    
+    _currentTime[second] = jsonDoc["seg"];
+    _currentTime[minute] = jsonDoc["min"];
+    _currentTime[hour] = jsonDoc["hr"];
+    _currentTime[dayOfWeek] = jsonDoc["diaSem"];
+    _currentTime[day] = jsonDoc["dia"];
+    _currentTime[month] = jsonDoc["mes"];
+    _currentTime[year] = jsonDoc["anio"];
 
-  preferences.begin("system", false);  // Abrir el espacio "system" en modo escritura
-  preferences.putBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
-  preferences.end();  // Cerrar el espacio
-  setCurrentTime();
+    preferences.begin("system", false);  // Abrir el espacio "system" en modo escritura
+    preferences.putBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
+    preferences.end();  // Cerrar el espacio
+    setCurrentTime();
+    xSemaphoreGive(mutex);
+  }
+  else {
+    Serial.print("Error: no se pudo actualizar el sistema.\n");
+    return 0;
+  }
   return 2;
 
 }
 
 char* Plant::getSystemStatus(char* buffer){
   getCurrentTime();
-  sprintf(buffer, "Estado:%s Sem:%d/dia:%d %02d/%02d/%02d %02d:%02d:%02d \nFotoperiodo:%dhr Azul:%d%% Roja:%d%% Blanca:%d%% \nIrrigación:%02d:%02d Ventilación:%02d:%02d\n",
-    _systemStatus[systemEnable] ? "Activo" : "Inactivo", _systemStatus[cropWeek], _systemStatus[cropDay], 
-    _currentTime[day], _currentTime[month], _currentTime[year], _currentTime[hour], _currentTime[minute], _currentTime[second],
-    _systemStatus[photoperiod], _systemStatus[blueDutyCycle], _systemStatus[redDutyCycle], _systemStatus[whiteDutyCycle],
-    _systemStatus[irrigationHour], _systemStatus[irrigationMinute], _systemStatus[ventilationHour], _systemStatus[ventilationMinute]
-  );
+  if (mutex != NULL && xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    sprintf(buffer, "Estado:%s Sem:%d/dia:%d %02d/%02d/%02d %02d:%02d:%02d \nFotoperiodo:%dhr Azul:%d%% Roja:%d%% Blanca:%d%% \nIrrigación:%02d:%02d Ventilación:%02d:%02d\n",
+      _systemStatus[systemEnable] ? "Activo" : "Inactivo", _systemStatus[cropWeek], _systemStatus[cropDay], 
+      _currentTime[day], _currentTime[month], _currentTime[year], _currentTime[hour], _currentTime[minute], _currentTime[second],
+      _systemStatus[photoperiod], _systemStatus[blueDutyCycle], _systemStatus[redDutyCycle], _systemStatus[whiteDutyCycle],
+      _systemStatus[irrigationHour], _systemStatus[irrigationMinute], _systemStatus[ventilationHour], _systemStatus[ventilationMinute]
+    );
+    xSemaphoreGive(mutex);
+  }
+  else {
+    sprintf(buffer, "Error: no se pudo obtener el estado del sistema.\n");
+  }
   return buffer;
 }
 //void readSystemStatus(byte* systemStatus, size_t length);

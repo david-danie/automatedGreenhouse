@@ -68,7 +68,7 @@ void setup() {
     Serial.println("NO HAY usuario registrado");
   server.begin();
 
-  //xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
  
 }
 
@@ -79,8 +79,8 @@ void loop() {
     previousMillis = currentMillis;
     Serial.println(planta.getSystemStatus(buffer));
   } 
-  dnsServer.processNextRequest();
-  server.handleClient();
+  //dnsServer.processNextRequest();
+  //server.handleClient();
 
 }
 
