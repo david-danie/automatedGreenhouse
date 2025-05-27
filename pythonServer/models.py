@@ -16,6 +16,9 @@ class DeviceData(BaseModel):
     week: int 
     day: int 
 
+class UserDB(DeviceData):
+    password: str
+
 class OTARequest(BaseModel):
     user: str
     deviceId: str
@@ -33,3 +36,42 @@ usersDataList = [DeviceData(userName = "David", deviceId = "124EW698AA", deviceV
                  DeviceData(userName = "Estefanny", deviceId = "144EW698AA", deviceVer = "1.0.0", status = False, photoperiod = 6, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 8, week = 0, day = 1),
                  DeviceData(userName = "Tania", deviceId = "154EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 9, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 6, day = 4),
                  DeviceData(userName = "Juan", deviceId = "164EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 18, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 0, day = 6)]
+
+
+
+exampleDB = {
+    "Davzig": {
+        "userName": "Davzig",
+        "password": "claveDavid",
+        "deviceId": "124EW698AA",
+        "deviceVer": "1.0.0",
+        "status": True,
+        "photoperiod": 18,
+        "blueLed": 75,
+        "redLed": 80,
+        "whiteLed": 100,
+        "irriTimes": 4,
+        "irriMinute": 5,
+        "ventTimes": 7,
+        "ventMinute": 5,
+        "week": 2,
+        "day": 3
+    },
+    "Daniel": {
+        "userName": "Daniel",
+        "password": "claveDaniel",
+        "deviceId": "134EW698AA",
+        "deviceVer": "1.0.0",
+        "status": False,
+        "photoperiod": 6,
+        "blueLed": 75,
+        "redLed": 80,
+        "whiteLed": 100,
+        "irriTimes": 4,
+        "irriMinute": 5,
+        "ventTimes": 7,
+        "ventMinute": 5,
+        "week": 0,
+        "day": 2
+    }
+}

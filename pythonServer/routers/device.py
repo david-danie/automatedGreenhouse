@@ -30,5 +30,6 @@ async def getFirmware(deviceId: str):
     if (device := searchDevice(deviceId)) is None:
         raise  HTTPException(status_code=403, detail="No autorizado")
     return FileResponse("firmware/newVer.bin", media_type="application/octet-stream", filename="newVer.bin")
+
     
     
