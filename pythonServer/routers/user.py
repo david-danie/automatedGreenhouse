@@ -26,8 +26,8 @@ async def getAllDevices():
 @router.post("/", response_model=DeviceData, status_code = 201, summary="Crear un nuevo dispositivo")
 async def createDevice(newDevice: DeviceData):
     print(newDevice.model_dump())
-    deviceExists = searchDevice(newDevice.deviceId)
-    if deviceExists is not None:
+    #deviceExists = searchDevice(newDevice.deviceId)
+    if deviceExists := searchDevice(newDevice.deviceId) is not None:
         raise  HTTPException(status_code = 409, detail = "El usuario ya existe")
     usersDataList.append(newDevice)
     return newDevice

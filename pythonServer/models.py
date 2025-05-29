@@ -42,7 +42,7 @@ usersDataList = [DeviceData(userName = "David", deviceId = "124EW698AA", deviceV
 exampleDB = {
     "Davzig": {
         "userName": "Davzig",
-        "password": "claveDavid",
+        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa",
         "deviceId": "124EW698AA",
         "deviceVer": "1.0.0",
         "status": True,
@@ -59,7 +59,7 @@ exampleDB = {
     },
     "Daniel": {
         "userName": "Daniel",
-        "password": "claveDaniel",
+        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6",
         "deviceId": "134EW698AA",
         "deviceVer": "1.0.0",
         "status": False,
