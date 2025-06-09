@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from models import *
+from database import *
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -17,10 +18,13 @@ async def getDeviceByQuery(deviceId: str):
         return deviceExists
     raise  HTTPException(status_code = 404, detail = "No se ha encontrado el dispositivo")
 
-@router.get("/", response_model=list[DeviceData], status_code=200, summary="Obtener todos los dispositivos")      # Aqui se lanzará los usuarios existentes
+@router.get("s/", response_model=list[DeviceData], status_code=200, summary="Obtener todos los dispositivos")      # Aqui se lanzará los usuarios existentes
 async def getAllDevices():   
-    if len(usersDataList) >= 1:  
-        return usersDataList
+    if len(usersDataList) >= 1: 
+        cursor.execute("""SELECT * FROM devices;""")
+        devices = cursor.fetchall()
+        print(devices)
+        return {"data": devices}
     raise  HTTPException(status_code = 400, detail = "No hay usuarios existentes")
     
 @router.post("/", response_model=DeviceData, status_code = 201, summary="Crear un nuevo dispositivo")

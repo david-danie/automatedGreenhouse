@@ -58,3 +58,5 @@ desktop.ini        # Windows
 # --- VSCode-specific files ---
 .vscode/
 .history/
+
+database.py

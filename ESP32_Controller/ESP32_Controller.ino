@@ -26,6 +26,11 @@ void setup() {
   
   Serial.begin(115200);
   planta.begin();
+
+  String mac = WiFi.macAddress();           // "24:6F:28:9A:2C:40"
+  mac.replace(":", "");   
+  Serial.print(mac);                  // "246F289A2C40"
+  
   hasRegisteredUser = planta.getRegisteredUser();
 
   WiFi.mode(WIFI_AP_STA);

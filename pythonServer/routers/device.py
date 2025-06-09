@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from models import *
+from database import *
 
 router = APIRouter(prefix="/device", tags=["device"])
 
