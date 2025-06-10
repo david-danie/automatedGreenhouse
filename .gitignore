@@ -60,3 +60,5 @@ desktop.ini        # Windows
 .history/
 
 pythonServer/database.py
+
+database.py
