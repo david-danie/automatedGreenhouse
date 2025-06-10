@@ -38,11 +38,12 @@ usersDataList = [DeviceData(userName = "David", deviceId = "124EW698AA", deviceV
                  DeviceData(userName = "Juan", deviceId = "164EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 18, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 0, day = 6)]
 
 
-
+#claveDavzig
+#claveDaniel
 exampleDB = {
     "Davzig": {
         "userName": "Davzig",
-        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa",
+        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", 
         "deviceId": "124EW698AA",
         "deviceVer": "1.0.0",
         "status": True,
@@ -59,7 +60,7 @@ exampleDB = {
     },
     "Daniel": {
         "userName": "Daniel",
-        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6",
+        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6", 
         "deviceId": "134EW698AA",
         "deviceVer": "1.0.0",
         "status": False,

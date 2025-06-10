@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+#from routers import login
 from models import *
 from database import *
 
@@ -25,12 +26,13 @@ async def otaUpdate(data: OTARequest):     # Aqui se responderá si hay nuevas a
         "url": firmware_url
     }
 
+'''
 @router.get("/firmware/{deviceId}", response_class=FileResponse, status_code=200, summary="Descarga binario de la actualización OTA")
 async def getFirmware(deviceId: str):
     print(f"Device: {deviceId}")
     if (device := searchDevice(deviceId)) is None:
         raise  HTTPException(status_code=403, detail="No autorizado")
-    return FileResponse("firmware/newVer.bin", media_type="application/octet-stream", filename="newVer.bin")
+    return FileResponse("firmware/newVer.bin", filename="newVer.bin", media_type="application/octet-stream")
+'''
 
-    
     
