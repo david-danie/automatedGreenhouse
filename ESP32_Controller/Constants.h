@@ -57,6 +57,6 @@ const byte eachHour = 4; // 24 times
 const byte BuzzerOn = 50;  // interval at which to blink (milliseconds)
 const byte BuzzerOff = 80;  // interval at which to blink (milliseconds)
 
-const int intervalToSend = 5000;  // interval at which to blink (milliseconds)
+const int intervalToSend = 10000;  // interval at which to blink (milliseconds)
 
 #endif

@@ -18,7 +18,7 @@ __pycache__/
 .env.*
 
 # --- Nombre de red y contraseñas ---
-ConstantsD.h
+sensibleData.h
 
 # --- Archivos de logs ---
 *.log
@@ -59,6 +59,6 @@ desktop.ini        # Windows
 .vscode/
 .history/
 
-pythonServer/database.py
+#pythonServer/sensibleData.py
 
-database.py
+sensibleData.py

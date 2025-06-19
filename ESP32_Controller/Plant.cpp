@@ -2,11 +2,13 @@
 #include <Wire.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
+
 #include "Constants.h"
 #include "Plant.h"
 #include "mainHTML.h"
 #include "updateSystemHTML.h"
 #include "wellcomeHTML.h"
+#include "sensibleData.h"
 
 Plant::Plant(){
 
@@ -269,6 +271,36 @@ void Plant::updateCropDay(){
       _systemStatus[cropWeek]++;   // Incrementa la semana
     }
   }
+}
+
+bool Plant::getToken() {
+
+  char loginPath[100];
+  char bodyRequest[100];
+
+  strcpy(loginPath, SERVER_URL);
+  strcat(loginPath, "login");
+  strcpy(bodyRequest, userName);
+  strcat(bodyRequest, userPass);
+  
+  http.begin(loginPath);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+  sprintf(bodyRequest, "username=%s&password=%s", userName, userPass);
+  int httpCode = http.POST(bodyRequest);
+  Serial.println(httpCode);
+
+  if (httpCode == 200) {
+    String payload = http.getString();
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, payload);
+    if (!error) {
+      jwtToken = doc["accessToken"].as<String>();
+      return true;
+    }
+  }
+  Serial.println(http.errorToString(httpCode));
+  return false;
 }
 
 //bool testCredentials(String SSID, String pass);

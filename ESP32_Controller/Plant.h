@@ -4,13 +4,16 @@
 #include <Wire.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
-
+#include <HTTPClient.h>
 
 class Plant {
 
   public:
 
     Plant();
+
+    String jwtToken;
+
     void begin();
     byte processPostBody(String body);
     char* getSystemStatus(char* buffer);
@@ -33,6 +36,8 @@ class Plant {
     String registerUserHTML();
     String wellcomeHTML();
     String exitHTML();
+
+    bool getToken();
     //bool testCredentials(String SSID, String pass);
 
   private:
@@ -40,7 +45,9 @@ class Plant {
     SemaphoreHandle_t mutex;
     byte _systemStatus[15];
     byte _currentTime[10];
+    
     Preferences preferences;
+    HTTPClient http;
 
 };
 

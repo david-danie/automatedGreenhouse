@@ -31,7 +31,7 @@ async def authDevice(token: str = Depends(oauth2)):
 
     except InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
-                            detail="Credenciales inválidas", 
+                            detail="Usuaario no autenticado", 
                             headers={"WWW-Authenticate": "Bearer"})
 
 @router.post("/login", summary="Autenticar usuario y contraseña")      # Aqui se lanzará los usuarios existentes
@@ -53,23 +53,14 @@ async def autenticateUser(form: OAuth2PasswordRequestForm = Depends()):
     expiration = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_DURATION)
     access_token = {"sub": user.userName, "exp": expiration}
     token = jwt.encode(access_token, SECRET_KEY, algorithm=ALGORITHM)
-
     return {"accessToken": token, "tokenType": "bearer"}
 
-
-
-#@router.get("/users/me", summary="Ruta para actualizaciones OTA")    
-#async def postAuth(device: DeviceData = Depends(authDevice)):   
-#    print("aqui se descarga la OTA update")
-#    return device
-
-
 @router.get("/firmware/{deviceId}", response_class=FileResponse, status_code=200, summary="Descarga binario de la actualización OTA")
-async def getFirmware(deviceId: str, DeviceData = Depends(authDevice)):
+async def getFirmware(deviceId: str, authDevice: DeviceData = Depends(authDevice)):
     print(f"Device: {deviceId}")
-    if not deviceId == DeviceData.deviceId:
-        raise  HTTPException(status_code=403, detail="No autorizado")
+    if not deviceId == authDevice.deviceId:
+        raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
     try:    
         return FileResponse("firmware/newVer.bin", filename="newVer.bin", media_type="application/octet-stream")
     except Exception:
-        raise HTTPException(status_code=404, detail="Firmware no encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Firmware no encontrado")

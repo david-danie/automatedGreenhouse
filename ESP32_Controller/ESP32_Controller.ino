@@ -2,7 +2,7 @@
 #include <WebServer.h>
 #include <DNSServer.h>
 #include "Constants.h"
-#include "ConstantsD.h"
+#include "sensibleData.h"
 #include "Plant.h"
 
 char buffer[300];
@@ -73,6 +73,11 @@ void setup() {
     Serial.println("NO HAY usuario registrado");
   server.begin();
 
+  if (planta.getToken())
+    Serial.print(planta.jwtToken);
+  else
+    Serial.print("no se obtuvo token");
+
   xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
  
 }
@@ -83,6 +88,10 @@ void loop() {
   if (currentMillis - previousMillis >= intervalToSend) {
     previousMillis = currentMillis;
     Serial.println(planta.getSystemStatus(buffer));
+    if (planta.getToken())
+      Serial.println(planta.jwtToken);
+    else
+      Serial.println("no se obtuvo token");
   } 
   //dnsServer.processNextRequest();
   //server.handleClient();
