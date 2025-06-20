@@ -58,9 +58,11 @@ async def autenticateUser(form: OAuth2PasswordRequestForm = Depends()):
 @router.get("/firmware/{deviceId}", response_class=FileResponse, status_code=200, summary="Descarga binario de la actualización OTA")
 async def getFirmware(deviceId: str, authDevice: DeviceData = Depends(authDevice)):
     print(f"Device: {deviceId}")
+    firmwareVersion = "1.0.0"  
+    headers = {"version": firmwareVersion}  # asfd
     if not deviceId == authDevice.deviceId:
         raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
     try:    
-        return FileResponse("firmware/newVer.bin", filename="newVer.bin", media_type="application/octet-stream")
+        return FileResponse("firmware/newVer.bin", filename="newVer.bin", media_type="application/octet-stream", headers=headers)
     except Exception:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Firmware no encontrado")

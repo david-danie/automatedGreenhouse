@@ -39,8 +39,17 @@ Plant::Plant(){
 
 void Plant::begin(){
 
+  String mac = WiFi.macAddress();           // "24:6F:28:9A:2C:40"
+  mac.replace(":", "");   
+  macID = mac;
+  Serial.println(macID);                  // "246F289A2C40"
+
   preferences.begin("system", true);  // Abrir en modo lectura
   preferences.getBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
+
+  preferences.begin("firmware", true);
+  firmwareVersion = preferences.getString("version", "1.0.0");
+
   preferences.end();
 
   startClock();
@@ -102,7 +111,8 @@ byte Plant::processPostBody(String body){
 }
 
 char* Plant::getSystemStatus(char* buffer){
-  getCurrentTime();
+  getCurrentTime();    // ************** CORREGIR ESTA LINEA
+  Serial.println("Dispositivo:" + macID + " Ver:" + firmwareVersion);
   if (mutex != NULL && xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
     sprintf(buffer, "Estado:%s Sem:%d/dia:%d %02d/%02d/%02d %02d:%02d:%02d \nFotoperiodo:%dhr Azul:%d%% Roja:%d%% Blanca:%d%% \nIrrigación:%02d:%02d Ventilación:%02d:%02d\n",
       _systemStatus[systemEnable] ? "Activo" : "Inactivo", _systemStatus[cropWeek], _systemStatus[cropDay], 
@@ -173,27 +183,48 @@ void Plant::turnOffDevices(){
  * @param scheduleHour    Frecuencia de activación (onceAday, eachThreeHours, etc.).
  * @param scheduleMinute  Duración en minutos del encendido.
  */
-void Plant::manageDevice(int devicePin, int scheduleHour, int scheduleMinute){
-  bool activeDevice = false; // Variable para determinar si el dispositivo debe estar encendido.
+void Plant::manageDevice(int devicePin, int scheduleHour, int scheduleMinute) {
+  bool activeDevice = false;
+
   switch (scheduleHour) {
-    case onceAday:
+    case WATERING_ONCE_A_DAY:
       activeDevice = (_currentTime[hour] == 0 && _currentTime[minute] < scheduleMinute);
       break;
-    case eachThreeHours:
-      activeDevice = (_currentTime[hour] % 3 == 0 && _currentTime[minute] < scheduleMinute);
+
+    case WATERING_TWICE_A_DAY:
+      activeDevice = ((_currentTime[hour] == 0 || _currentTime[hour] == 12) && _currentTime[minute] < scheduleMinute);
       break;
-    case eachEightHours:
-      activeDevice = (_currentTime[hour] % 8 == 0 && _currentTime[minute] < scheduleMinute);
+
+    case WATERING_4X_PER_DAY:
+      activeDevice = ((_currentTime[hour] % 6 == 0) &&   _currentTime[minute] < scheduleMinute);  // 24 / 4 = cada 6 horas
       break;
-    case eachHour:
+
+    case WATERING_6X_PER_DAY:
+      activeDevice = (
+        (_currentTime[hour] % 4 == 0) && _currentTime[minute] < scheduleMinute);  // 24 / 6 = cada 4 horas
+      break;
+
+    case WATERING_8X_PER_DAY:
+      activeDevice = (
+        (_currentTime[hour] % 3 == 0) &&  _currentTime[minute] < scheduleMinute);  // 24 / 8 = cada 3 horas
+      break;
+
+    case WATERING_12X_PER_DAY:
+      activeDevice = (
+        (_currentTime[hour] % 2 == 0) &&   _currentTime[minute] < scheduleMinute);  // 24 / 12 = cada 2 horas
+      break;
+
+    case WATERING_EVERY_HOUR:
       activeDevice = (_currentTime[minute] < scheduleMinute);
       break;
+
     default:
-      activeDevice = false; // Si no se reconoce el caso, apaga el dispositivo.
+      activeDevice = false;
   }
-  // Actualiza el estado del dispositivo según la lógica evaluada.
+
   digitalWrite(devicePin, activeDevice ? HIGH : LOW);
 }
+
 
 bool Plant::getRegisteredUser(){
   return _systemStatus[hasUserRegistered];
@@ -288,7 +319,7 @@ bool Plant::getToken() {
 
   sprintf(bodyRequest, "username=%s&password=%s", userName, userPass);
   int httpCode = http.POST(bodyRequest);
-  Serial.println(httpCode);
+  //Serial.println(httpCode);
 
   if (httpCode == 200) {
     String payload = http.getString();
@@ -296,11 +327,42 @@ bool Plant::getToken() {
     DeserializationError error = deserializeJson(doc, payload);
     if (!error) {
       jwtToken = doc["accessToken"].as<String>();
+      Serial.println("Token:" + jwtToken);
       return true;
     }
   }
-  Serial.println(http.errorToString(httpCode));
+  Serial.println("HTTP error code " + String(httpCode) + ": " + http.errorToString(httpCode));
   return false;
+}
+
+void Plant::downloadOTA() {
+
+
+
+  http.begin(firmwareURL);
+  // Incluir el token en el header Authorization
+  http.addHeader("Authorization", "Bearer " + jwtToken);
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String newVersion = http.header("version");
+    
+    Serial.printf("Versión actual: %s\n", firmwareVersion);
+    Serial.printf("Versión nueva: %s\n", newVersion.c_str());
+
+    if (newVersion == firmwareVersion) {
+      Serial.println("No es necesaria la actualización.");
+      http.end();
+      return;
+    }
+
+    Serial.println("AQUI SE DESCARGA EL BINARIO\n");
+    // [ ... iniciar Update ... ]
+    //if (Update.end() && Update.isFinished()) {
+    //  saveFirmwareVersion(newVersion);  // guardar nueva versión
+    //  ESP.restart();
+    //}
+  }
 }
 
 //bool testCredentials(String SSID, String pass);

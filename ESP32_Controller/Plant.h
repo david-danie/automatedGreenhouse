@@ -12,8 +12,6 @@ class Plant {
 
     Plant();
 
-    String jwtToken;
-
     void begin();
     byte processPostBody(String body);
     char* getSystemStatus(char* buffer);
@@ -38,6 +36,7 @@ class Plant {
     String exitHTML();
 
     bool getToken();
+    void downloadOTA();
     //bool testCredentials(String SSID, String pass);
 
   private:
@@ -45,6 +44,9 @@ class Plant {
     SemaphoreHandle_t mutex;
     byte _systemStatus[15];
     byte _currentTime[10];
+    String jwtToken;
+    String firmwareVersion;
+    String macID;
     
     Preferences preferences;
     HTTPClient http;

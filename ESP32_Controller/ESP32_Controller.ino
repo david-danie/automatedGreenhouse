@@ -26,10 +26,6 @@ void setup() {
   
   Serial.begin(115200);
   planta.begin();
-
-  String mac = WiFi.macAddress();           // "24:6F:28:9A:2C:40"
-  mac.replace(":", "");   
-  Serial.print(mac);                  // "246F289A2C40"
   
   hasRegisteredUser = planta.getRegisteredUser();
 
@@ -73,12 +69,8 @@ void setup() {
     Serial.println("NO HAY usuario registrado");
   server.begin();
 
-  if (planta.getToken())
-    Serial.print(planta.jwtToken);
-  else
-    Serial.print("no se obtuvo token");
-
   xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(downloadBin, "downloadBin", 3000, NULL, 1, NULL, 1);
  
 }
 
@@ -88,10 +80,6 @@ void loop() {
   if (currentMillis - previousMillis >= intervalToSend) {
     previousMillis = currentMillis;
     Serial.println(planta.getSystemStatus(buffer));
-    if (planta.getToken())
-      Serial.println(planta.jwtToken);
-    else
-      Serial.println("no se obtuvo token");
   } 
   //dnsServer.processNextRequest();
   //server.handleClient();
@@ -155,5 +143,13 @@ void serverTask(void *pvParameters) {
     dnsServer.processNextRequest();
     server.handleClient();
     vTaskDelay(1000 / portTICK_PERIOD_MS); // Espera 1 segundo
+  }
+}
+
+void downloadBin(void *pvParameters) {
+  while (true) {
+    planta.getToken();
+    planta.downloadOTA();
+    vTaskDelay(10000 / portTICK_PERIOD_MS); // Espera 1 segundo
   }
 }

@@ -49,10 +49,15 @@ const byte ctrl = 8;
 const uint8_t  DS3231Adress = 0x68;
 const byte rtcReadBytes = 7;
 
-const byte onceAday = 1; // 8 times
-const byte eachThreeHours = 2; // 8 times
-const byte eachEightHours = 3; // 3 times
-const byte eachHour = 4; // 24 times
+enum WateringFrequency {
+  WATERING_ONCE_A_DAY = 1,
+  WATERING_TWICE_A_DAY = 2,
+  WATERING_4X_PER_DAY = 4,
+  WATERING_6X_PER_DAY = 6,
+  WATERING_8X_PER_DAY = 8,
+  WATERING_12X_PER_DAY = 12,
+  WATERING_EVERY_HOUR = 24
+};
 
 const byte BuzzerOn = 50;  // interval at which to blink (milliseconds)
 const byte BuzzerOff = 80;  // interval at which to blink (milliseconds)
