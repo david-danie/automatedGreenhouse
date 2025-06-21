@@ -52,11 +52,11 @@ const byte rtcReadBytes = 7;
 enum WateringFrequency {
   WATERING_ONCE_A_DAY = 1,
   WATERING_TWICE_A_DAY = 2,
-  WATERING_4X_PER_DAY = 4,
-  WATERING_6X_PER_DAY = 6,
-  WATERING_8X_PER_DAY = 8,
-  WATERING_12X_PER_DAY = 12,
-  WATERING_EVERY_HOUR = 24
+  WATERING_4X_PER_DAY = 3,
+  WATERING_6X_PER_DAY = 4,
+  WATERING_8X_PER_DAY = 5,
+  WATERING_12X_PER_DAY = 6,
+  WATERING_EVERY_HOUR = 7
 };
 
 const byte BuzzerOn = 50;  // interval at which to blink (milliseconds)

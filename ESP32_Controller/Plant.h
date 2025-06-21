@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <Update.h>
 
 class Plant {
 

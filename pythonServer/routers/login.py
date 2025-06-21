@@ -1,8 +1,8 @@
-import jwt
+from fastapi import APIRouter, HTTPException, Depends, Header, status
 from fastapi.responses import FileResponse
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import jwt
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from models import *
@@ -10,6 +10,8 @@ from models import *
 ALGORITHM = "HS256"
 ACCESS_TOKEN_DURATION = 5
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+
+currentFirmwareVersion = "1.0.0"  
 
 router = APIRouter(tags=["Login for devices"])
 oauth2 = OAuth2PasswordBearer(tokenUrl="login")
@@ -56,13 +58,14 @@ async def autenticateUser(form: OAuth2PasswordRequestForm = Depends()):
     return {"accessToken": token, "tokenType": "bearer"}
 
 @router.get("/firmware/{deviceId}", response_class=FileResponse, status_code=200, summary="Descarga binario de la actualización OTA")
-async def getFirmware(deviceId: str, authDevice: DeviceData = Depends(authDevice)):
-    print(f"Device: {deviceId}")
-    firmwareVersion = "1.0.0"  
-    headers = {"version": firmwareVersion}  # asfd
+async def getFirmware(deviceId: str, authDevice: DeviceData = Depends(authDevice), firmwareDevice: str = Header(default="1.0.0")):
+    print(f" *** Device:{deviceId} Version:{firmwareDevice} *** ")
+    
     if not deviceId == authDevice.deviceId:
         raise  HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
+    if firmwareDevice == currentFirmwareVersion:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="No hay actualización disponible")
     try:    
-        return FileResponse("firmware/newVer.bin", filename="newVer.bin", media_type="application/octet-stream", headers=headers)
+        return FileResponse("firmware/newVer.bin", filename="newVer.bin", media_type="application/octet-stream")
     except Exception:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Firmware no encontrado")

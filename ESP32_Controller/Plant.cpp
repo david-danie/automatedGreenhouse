@@ -337,32 +337,48 @@ bool Plant::getToken() {
 
 void Plant::downloadOTA() {
 
+  char firmwarePath[50];
+  strcpy(firmwarePath, FIRMWARE_URL);
+  strcat(firmwarePath, macID.c_str());
 
-
-  http.begin(firmwareURL);
+  http.begin(firmwarePath);
   // Incluir el token en el header Authorization
   http.addHeader("Authorization", "Bearer " + jwtToken);
+  http.addHeader("Version", firmwareVersion);
   int httpCode = http.GET();
 
   if (httpCode == 200) {
-    String newVersion = http.header("version");
+    int contentLength = http.getSize();
+    String otaVersion = http.header("version");
+
+    WiFiClient& stream = http.getStream();
+    bool canBegin = Update.begin(contentLength);
+
+    if (canBegin) {
+      size_t written = Update.writeStream(stream);
+      if (written == contentLength) 
+        Serial.println("[OTA] Binario descargado completamente.");      
+      else 
+        Serial.printf("[OTA] Descarga incompleta (%d/%d bytes)\n", written, contentLength);
+
+      if (Update.end() && Update.isFinished()) {
+        Serial.println("[OTA] ¡Actualización exitosa!");
+        // Guarda versión si quieres aquí...
+        ESP.restart();
+      } 
+      else 
+        Serial.println("[OTA] Error al finalizar la actualización.\n");
+      
+    } 
+    else 
+      Serial.println("[OTA] No se pudo iniciar la actualización.\n");
     
-    Serial.printf("Versión actual: %s\n", firmwareVersion);
-    Serial.printf("Versión nueva: %s\n", newVersion.c_str());
-
-    if (newVersion == firmwareVersion) {
-      Serial.println("No es necesaria la actualización.");
-      http.end();
-      return;
-    }
-
-    Serial.println("AQUI SE DESCARGA EL BINARIO\n");
-    // [ ... iniciar Update ... ]
-    //if (Update.end() && Update.isFinished()) {
-    //  saveFirmwareVersion(newVersion);  // guardar nueva versión
-    //  ESP.restart();
-    //}
-  }
+  } 
+  else if (httpCode == 204) 
+    Serial.printf("[OTA] Código HTTP: %d. No hay actualización disponible.\n\n", httpCode);
+  else
+    Serial.printf("[OTA] Código HTTP: %d. No se realizó la descarga del binario.\n\n", httpCode);
+  http.end();
 }
 
 //bool testCredentials(String SSID, String pass);

@@ -44,7 +44,7 @@ exampleDB = {
     "Davzig": {
         "userName": "Davzig",
         "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", 
-        "deviceId": "124EW698AA",
+        "deviceId": "10061C81EE7C",
         "deviceVer": "1.0.0",
         "status": True,
         "photoperiod": 18,
