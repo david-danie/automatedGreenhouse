@@ -310,14 +310,14 @@ bool Plant::getToken() {
   char bodyRequest[100];
 
   strcpy(loginPath, SERVER_URL);
-  strcat(loginPath, "login");
+  strcat(loginPath, "device/login");
   strcpy(bodyRequest, userName);
   strcat(bodyRequest, userPass);
   
   http.begin(loginPath);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
-  sprintf(bodyRequest, "username=%s&password=%s", userName, userPass);
+  sprintf(bodyRequest, "username=%s&password=%s&client_id=%s", userName, userPass, macID);
   int httpCode = http.POST(bodyRequest);
   //Serial.println(httpCode);
 
@@ -327,11 +327,11 @@ bool Plant::getToken() {
     DeserializationError error = deserializeJson(doc, payload);
     if (!error) {
       jwtToken = doc["accessToken"].as<String>();
-      Serial.println("Token:" + jwtToken);
+      Serial.printf("[AUTH] Código HTTP: %d. Token:%s \n", httpCode, jwtToken.c_str());
       return true;
     }
   }
-  Serial.println("HTTP error code " + String(httpCode) + ": " + http.errorToString(httpCode));
+  Serial.println("[AUTH] HTTP error code " + String(httpCode) + ": " + http.errorToString(httpCode));
   return false;
 }
 
@@ -339,22 +339,44 @@ void Plant::downloadOTA() {
 
   char firmwarePath[50];
   strcpy(firmwarePath, FIRMWARE_URL);
-  strcat(firmwarePath, macID.c_str());
-
+  strcat(firmwarePath, "firmware");
+  
   http.begin(firmwarePath);
+
   // Incluir el token en el header Authorization
   http.addHeader("Authorization", "Bearer " + jwtToken);
-  http.addHeader("Version", firmwareVersion);
+  http.addHeader("version", firmwareVersion);
+
+
+  
+    // Indica qué header recoger
+  const char* keys[] = { "version" };
+  http.collectHeaders(keys, 1);
   int httpCode = http.GET();
+  
 
   if (httpCode == 200) {
     int contentLength = http.getSize();
+    /*int headers = http.headers();
+    Serial.println("[DEBUG] Headers en respuesta:");
+    for (int i = 0; i < headers; i++) {
+      Serial.print(http.headerName(i));
+      Serial.print(": ");
+      Serial.println(http.header(i));
+    }*/
     String otaVersion = http.header("version");
+    
 
     WiFiClient& stream = http.getStream();
     bool canBegin = Update.begin(contentLength);
 
-    if (canBegin) {
+    Serial.println("[OTA] Version:" + otaVersion);
+    Serial.println("[OTA] Guardando en preferences\n");
+    preferences.begin("firmware", false);
+    preferences.putString("version", otaVersion);
+    preferences.end();
+
+    /*if (canBegin) {
       size_t written = Update.writeStream(stream);
       if (written == contentLength) 
         Serial.println("[OTA] Binario descargado completamente.");      
@@ -363,6 +385,8 @@ void Plant::downloadOTA() {
 
       if (Update.end() && Update.isFinished()) {
         Serial.println("[OTA] ¡Actualización exitosa!");
+
+       
         // Guarda versión si quieres aquí...
         ESP.restart();
       } 
@@ -371,7 +395,7 @@ void Plant::downloadOTA() {
       
     } 
     else 
-      Serial.println("[OTA] No se pudo iniciar la actualización.\n");
+      Serial.println("[OTA] No se pudo iniciar la actualización.\n");*/
     
   } 
   else if (httpCode == 204) 

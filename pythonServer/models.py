@@ -19,11 +19,6 @@ class DeviceData(BaseModel):
 class UserDB(DeviceData):
     password: str
 
-class OTARequest(BaseModel):
-    user: str
-    deviceId: str
-    deviceVersion: str
-
 def searchDevice(deviceId: str):
     user = filter(lambda d: d.deviceId == deviceId, usersDataList)
     try:
@@ -37,13 +32,10 @@ usersDataList = [DeviceData(userName = "David", deviceId = "124EW698AA", deviceV
                  DeviceData(userName = "Tania", deviceId = "154EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 9, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 6, day = 4),
                  DeviceData(userName = "Juan", deviceId = "164EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 18, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 0, day = 6)]
 
-
-#claveDavzig
-#claveDaniel
 exampleDB = {
     "Davzig": {
         "userName": "Davzig",
-        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", 
+        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", #claveDavzig
         "deviceId": "10061C81EE7C",
         "deviceVer": "1.0.0",
         "status": True,
@@ -60,7 +52,7 @@ exampleDB = {
     },
     "Daniel": {
         "userName": "Daniel",
-        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6", 
+        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6", #claveDaniel
         "deviceId": "134EW698AA",
         "deviceVer": "1.0.0",
         "status": False,
