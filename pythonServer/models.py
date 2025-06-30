@@ -14,7 +14,13 @@ class DeviceData(BaseModel):
     ventTimes: int 
     ventMinute: int 
     week: int 
-    day: int 
+    day: int
+
+class LoginForm(BaseModel):
+    username: str
+    password: str
+    client_id: str
+    client_secret: str 
 
 class UserDB(DeviceData):
     password: str

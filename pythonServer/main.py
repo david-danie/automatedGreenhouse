@@ -1,10 +1,14 @@
 from fastapi import FastAPI
-
 #from auth import login
 from routers import device, user
+from utils.utils import load_firmware_on_startup
 from models import *
 
 app = FastAPI()
+
+@app.on_event("startup")
+def startup():
+    load_firmware_on_startup()
 
 app.include_router(device.router)
 app.include_router(user.router)
