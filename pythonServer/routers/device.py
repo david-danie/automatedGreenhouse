@@ -9,13 +9,13 @@ from database import *
 router = APIRouter(prefix="/device", tags=["Devices"])
 
 @router.post("/data", summary="Actualiza información del Dispositivo")              # Aquí se recibirán los datos de los dispositivos
-async def uploadData(data: DeviceData):
+async def uploadData(data: DeviceMeasurements):
     print(data.model_dump())
     return {"status": "success"}
 
 
 @router.post("/login", summary="Autenticar usuario, dispositivo y contraseña")       #   
-async def autenticateUser(form: OAuth2PasswordRequestForm = Depends()):
+async def autenticateDevice(form: OAuth2PasswordRequestForm = Depends()):
 
     print(f"User:{form.username} [{form.password}] Device:{form.client_id} [{form.client_secret}]")  
     user_data_auth = validate_form(form)    #   Si alguna validación no se cumple, lanza un código 400
@@ -29,26 +29,21 @@ async def autenticateUser(form: OAuth2PasswordRequestForm = Depends()):
                         detail="Usuario inactivo", 
                         headers={"WWW-Authenticate": "Bearer"})
 
-    token = createToken({"sub": user.userName, "deviceId": user.deviceId})
+    token = createToken({"sub": user.username, "deviceId": user.device_id})
     return {"accessToken": token, "tokenType": "bearer"}
 
 
 @router.get("/firmware", response_class=FileResponse, status_code=200, summary="Descarga binario de la actualización OTA")
 async def getFirmware(version: str = Header(None),  authDevice: DeviceData = Depends(getAuthDevice)):
-    
-    if version is None or len(version) > 8:
-        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="Versión incorrecta")
 
     confirmation = available_OTA_update(version)
-
+    
     if confirmation is None:
         raise HTTPException(status_code=status.HTTP_204_NO_CONTENT, detail="No hay actualización disponible")
     try: 
-        filename, server_version = confirmation
-        print(f" *** Device:{authDevice.deviceId} deviceV:{version} currentV:{server_version} filename:{filename} *** ")
-        firwarePath = f"firmware/{filename}"
-        headers = {"version": server_version}
-        return FileResponse(firwarePath, filename=filename, media_type="application/octet-stream", headers=headers)
+        print(f"Path:{confirmation["filepath"]}  filename:{confirmation["filename"]}  headers:{confirmation["headers"]}")
+        return FileResponse(confirmation["filepath"], filename=confirmation["filename"], 
+                            media_type="application/octet-stream", headers={"version": confirmation["headers"]})
     except Exception:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Firmware no encontrado")
 

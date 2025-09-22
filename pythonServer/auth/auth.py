@@ -4,11 +4,11 @@ from fastapi.security import OAuth2PasswordBearer
 import jwt
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from models import *
+from models import DeviceData, exampleDB
 from sensibleData import *
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_DURATION = 5
+ACCESS_TOKEN_DURATION = 3
 SECRET_KEY = "09d25e094faa6ca2556c18166b7a9593b93f7099f6f0f6caa6cf63b88e8d3e7"
 
 oauth2 = OAuth2PasswordBearer(tokenUrl="/device/login")
