@@ -2,13 +2,13 @@
 #include <Wire.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
-
+#include <WiFi.h>
 #include "Constants.h"
 #include "Plant.h"
 #include "mainHTML.h"
 #include "updateSystemHTML.h"
 #include "wellcomeHTML.h"
-#include "sensibleData.h"
+#include "sensible.h"
 
 Plant::Plant(){
 
@@ -17,12 +17,16 @@ Plant::Plant(){
     Serial.println("Error: No se pudo crear el mutex.");  // Reiniciar.
   }
 
-  ledcSetup(blueChannel, pwmFrequency, pwmResolution);
-  ledcSetup(redChannel, pwmFrequency, pwmResolution);
-  ledcSetup(whiteChannel, pwmFrequency, pwmResolution);
-  ledcAttachPin(blueLedPin, blueChannel);
-  ledcAttachPin(redLedPin, redChannel);
-  ledcAttachPin(whiteLedPin, whiteChannel);
+  //ledcSetup(blueChannel, pwmFrequency, pwmResolution);
+  //ledcSetup(redChannel, pwmFrequency, pwmResolution);
+  //ledcSetup(whiteChannel, pwmFrequency, pwmResolution);
+
+  ledcAttachChannel(blueLedPin, pwmFrequency, pwmResolution, blueChannel);
+  ledcAttachChannel(redLedPin, pwmFrequency, pwmResolution, redChannel);
+  ledcAttachChannel(whiteLedPin, pwmFrequency, pwmResolution, whiteChannel);
+  //ledcAttachPin(blueLedPin, blueChannel);
+  //ledcAttachPin(redLedPin, redChannel);
+  //ledcAttachPin(whiteLedPin, whiteChannel);
   pinMode(whiteLedPin, OUTPUT);
   pinMode(waterPumpPin, OUTPUT);
   pinMode(fanPin, OUTPUT);

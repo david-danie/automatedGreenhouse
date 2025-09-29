@@ -18,7 +18,7 @@ __pycache__/
 .env.*
 
 # --- Nombre de red y contraseñas ---
-sensibleData.h
+sensible.h
 
 # --- Archivos de logs ---
 *.log
