@@ -5,7 +5,7 @@ import jwt
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from models import DeviceData, exampleDB
-from sensibleData import *
+from sensible import *
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_DURATION = 3

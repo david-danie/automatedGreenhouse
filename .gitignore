@@ -60,6 +60,6 @@ desktop.ini        # Windows
 .history/
 
 # pythonServer/sensibleData.py
-sensibleData.py
+sensible.py
 
 

@@ -1,4 +1,4 @@
-from sensibleData import *
+from sensible import *
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
