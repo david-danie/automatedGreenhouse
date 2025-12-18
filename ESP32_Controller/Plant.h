@@ -15,7 +15,7 @@ class Plant {
 
     void begin();
     byte processPostBody(String body);
-    char* getSystemStatus(char* buffer);
+    char* getSystemStatus(char* buffer, size_t bufferSize);
     //void readSystemStatus(byte* systemStatus, size_t length);
 
     // Funciones para el control del RTC (DS3231)

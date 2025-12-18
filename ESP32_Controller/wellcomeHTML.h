@@ -20,6 +20,7 @@ const char* welcomePage = R"rawliteral(
         width: 100%;
         max-width: 400px;
         padding: 24px;
+
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
         background-color: white;
         border-radius: 16px;

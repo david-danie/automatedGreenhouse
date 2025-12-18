@@ -46,7 +46,9 @@ void Plant::begin(){
   String mac = WiFi.macAddress();           // "24:6F:28:9A:2C:40"
   mac.replace(":", "");   
   macID = mac;
-  Serial.println(macID);                  // "246F289A2C40"
+  Serial.print("***** ");  
+  Serial.print(macID);                  // "246F289A2C40"
+  Serial.println(" *****");  
 
   preferences.begin("system", true);  // Abrir en modo lectura
   preferences.getBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
@@ -114,7 +116,7 @@ byte Plant::processPostBody(String body){
 
 }
 
-char* Plant::getSystemStatus(char* buffer){
+char* Plant::getSystemStatus(char* buffer, size_t bufferSize){
   getCurrentTime();    // ************** CORREGIR ESTA LINEA
   Serial.println("Dispositivo:" + macID + " v" + firmwareVersion);
   if (mutex != NULL && xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
@@ -124,7 +126,46 @@ char* Plant::getSystemStatus(char* buffer){
       _systemStatus[photoperiod], _systemStatus[blueDutyCycle], _systemStatus[redDutyCycle], _systemStatus[whiteDutyCycle],
       _systemStatus[irrigationHour], _systemStatus[irrigationMinute], _systemStatus[ventilationHour], _systemStatus[ventilationMinute]
     );
+
+    StaticJsonDocument<512> jsonDoc; 
+    jsonDoc["mac"] = macID;
+    jsonDoc["enable"] = _systemStatus[systemEnable];
+    jsonDoc["fp"] = _systemStatus[photoperiod];
+    jsonDoc["ledA"] = _systemStatus[blueDutyCycle];
+    jsonDoc["ledR"] = _systemStatus[redDutyCycle];
+    jsonDoc["ledW"] = _systemStatus[whiteDutyCycle];
+    jsonDoc["irrH"] = _systemStatus[irrigationHour];
+    jsonDoc["irrM"] = _systemStatus[irrigationMinute];
+    jsonDoc["ventH"] = _systemStatus[ventilationHour];
+    jsonDoc["ventM"] = _systemStatus[ventilationMinute];
+    jsonDoc["sem"] = _systemStatus[cropWeek];
+    jsonDoc["dia"] = _systemStatus[cropDay];
+      
+    
     xSemaphoreGive(mutex);
+    // Generate the minified JSON and send it to the Serial port
+
+    if(WiFi.status() == WL_CONNECTED) {
+    // Tu URL de API Gateway
+      http.begin("a1uhhs3bffugu4-ats.iot.us-east-2.amazonaws.com");
+      http.addHeader("Content-Type", "application/json");
+
+      String jsonString;
+      serializeJson(jsonDoc, jsonString);
+      
+      // Enviar POST
+      int httpCode = http.POST(jsonString);
+      
+      if(httpCode == 200) {
+        String response = http.getString();
+        Serial.println("Respuesta: " + response);
+      }
+      
+      http.end();
+    } 
+
+    Serial.println(buffer);
+    serializeJsonPretty(jsonDoc, buffer, bufferSize);
   }
   else {
     sprintf(buffer, "Error: no se pudo obtener el estado del sistema.\n");
@@ -406,6 +447,9 @@ void Plant::downloadOTA() {
     Serial.printf("[OTA] Código HTTP: %d. No se realizó la descarga del binario.\n\n", httpCode);
   http.end();
 }
+
+
+
 
 //bool testCredentials(String SSID, String pass);
 

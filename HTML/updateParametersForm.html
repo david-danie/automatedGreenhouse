@@ -500,10 +500,19 @@
         const stepAuth = document.getElementById("stepAuth");
         const btnContinue = document.getElementById("btnContinue");
 
+        const repetidosRegex = /(.)\1{3,}/;
         let errores = [];
 
         function isAlphaNumeric(str) {
-            return /^[a-zA-Z0-9 _.-]+$/.test(str);
+            return /^[a-zA-Z0-9_.-]+$/.test(str);
+        }
+
+        function isValidUsername(str) {
+            return /^[a-zA-Z0-9_.-]+$/.test(str);
+        }
+
+        function isValidPassword(str) {
+            return /^[a-zA-Z0-9!@#$%^&*()_+\-=.,]+$/.test(str);
         }
 
         /* =========================
@@ -516,7 +525,7 @@
                 alert("Errores en el formulario:\n" + errores.join("\n"));
                 return;
             }
-            
+
             stepParams.style.display = "none";  // Ocultar parámetros
             stepAuth.style.display = "block";   // Mostrar autenticación
         });
@@ -527,51 +536,76 @@
         ========================= */
         form.addEventListener("submit", function (e) {
             e.preventDefault(); // detenemos envío automático
-
-            if (!validarAuth()) {
-                alert("Usuario o contraseña inválidos");
+            errores = validarAuth();
+            if (errores.length > 0) {
+                alert("Errores en el formulario:\n" + errores.join("\n"));
                 return;
             }
-            form.submit();  // Todo OK → enviar al ESP32
+
+            const form = document.getElementById('mainForm');
+            const formData = new FormData(form);
+            const data = {};
+
+            formData.forEach((value, key) => { data[key] = value;});
+            data.enable = document.getElementById("enable").checked;
+
+            fetch("/newparams", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            })
+                .then(async (res) => {
+                    //const text = await res.text();
+                    const json = await res.json();
+                    const container = document.getElementById("form-card");
+
+                    if (res.ok && json.ok) {
+                        container.innerHTML = `<div class="mensaje-ok">${json.message}</div>`;
+                    }
+                    else {
+                        container.innerHTML = `<div class="mensaje-error">${json.error || "Error desconocido"}</div>`;
+                    }
+                }).catch(() => {
+                    document.getElementById("form-card").innerHTML =
+                        `<div class="mensaje-error">Error de comunicación con el dispositivo</div>`;
+                });
         });
 
         /* =========================
            VALIDACIONES
         ========================= */
         function validarParametros() {
-            const form = document.getElementById('mainForm');
-            const formData = new FormData(form);
-            const data = {};
+            // Ejemplos (ajusta según tu lógica real)
             errores = [];
 
-            formData.forEach((value, key) => {
-                if (key === 'pass' && (value.length < 8 || value.length > 12)) {
-                    errores.push("La contraseña debe tener al menos 8 caracteres.");
-                }
-                if (key === 'user' && (value.length < 8 || value.length > 12)) {
-                    errores.push("El usuario debe tener al menos 8 caracteres.");
-                }
-                if (key === 'fp' || key === 'irrH' || key === 'irrM' || key === 'ventH' || key === 'ventM') {
-                    if (value === "" || isNaN(value)) {
-                        errores.push(`${key} debe ser un número.`);
-                    } else {
-                        const num = parseInt(value);
-                        if ((key === 'fp' && (num < 0 || num > 23)) ||
-                            (key === 'irrH' && (num < 0 || num > 23)) ||
-                            (key === 'irrM' && (num < 0 || num > 59)) ||
-                            (key === 'ventH' && (num < 0 || num > 23)) ||
-                            (key === 'ventM' && (num < 0 || num > 59))) {
-                            errores.push(`${key} está fuera del rango permitido.`);
-                        }
-                    }
-                }
+            const planta = document.getElementById("planta").value.trim();
+            const fpInput = document.getElementById("fp").value.trim();
+            //const luzAzul = document.getElementById("ledA");
+            //const luzRoja = document.getElementById("ledR");
+            //const luzBlanca = document.getElementById("ledB");
+            //const irrigacionHoras = document.getElementById("ledB");
+            const irrMinInput = document.getElementById("irrM").value.trim();
+            //const ventilacionHoras = document.getElementById("ledB");
+            const ventMinInput = document.getElementById("ventM").value.trim();
 
-                data[key] = value;
+            if (fpInput === "" || irrMinInput === "" || ventMinInput === "") {
+                errores.push("Todos los campos son obligatorios");
+            } else {
+                const fotoperiodo = Number(fpInput);
+                const irrigacionMinutos = Number(irrMinInput);
+                const ventilacionMinutos = Number(ventMinInput);
 
-            });
+                if (planta.length < 5 || planta.length > 16 || !isAlphaNumeric(planta))
+                    errores.push("El nombre de la planta debe ser entre 5 y 16 caracteres alfanuméricos");
+                if (isNaN(fotoperiodo) || fotoperiodo < 0 || fotoperiodo > 23)
+                    errores.push("El fotoperiodo debe ser un valor entre 0 y 23 horas");
+                if (isNaN(irrigacionMinutos) || irrigacionMinutos < 0 || irrigacionMinutos > 59)
+                    errores.push("El valor de riego debe ser un valor entre 0 y 59 minutos");
+                if (isNaN(ventilacionMinutos) || ventilacionMinutos < 0 || ventilacionMinutos > 59)
+                    errores.push("El valor de ventilación debe ser un valor entre 0 y 59 minutos");
+            }
 
-
-            return data;
+            return errores;
         }
 
         function validarAuth() {
@@ -579,17 +613,20 @@
             const user = document.getElementById("user").value.trim();
             const pass = document.getElementById("password").value.trim();
 
-            if (!user.value || user.value.length < 3) {
-                user.focus();
-                return false;
-            }
+            if (!isValidUsername(user))
+                errores.push("El usuario solo debe tener caracteres alfanumericos y (_-.)");
+            if (!isValidPassword(pass))
+                errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+\-=.,)");
+            if (user.length < 4 || user.length > 16) 
+                errores.push("El usuario debe tener entre 4 y 16 caracteres.");
+            if (pass.length < 8 || pass.length > 32) 
+                errores.push("La contraseña debe tener entre 8 y 32 caracteres.");  
+            if (repetidosRegex.test(user)) 
+                errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
+            if (repetidosRegex.test(pass)) 
+                errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
 
-            if (!pass.value || pass.value.length < 4) {
-                pass.focus();
-                return false;
-            }
-
-            return true;
+            return errores;
         }
 
         /* =========================

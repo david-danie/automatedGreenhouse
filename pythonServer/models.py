@@ -3,18 +3,18 @@ from pydantic import BaseModel
 class DeviceData(BaseModel):
     username: str
     device_id: str
-    deviceVer: str
+    #deviceVer: str
     status: bool 
-    photoperiod: int 
-    blueLed: int 
-    redLed: int 
-    whiteLed: int 
-    irriTimes: int 
-    irriMinute: int 
-    ventTimes: int 
-    ventMinute: int 
-    week: int 
-    day: int
+    #photoperiod: int 
+    #blueLed: int 
+    #redLed: int 
+    #whiteLed: int 
+    #irriTimes: int 
+    #irriMinute: int 
+    #ventTimes: int 
+    #ventMinute: int 
+    #week: int 
+    #day: int
 
 class DeviceMeasurements(BaseModel):
     #userName: str
@@ -58,14 +58,16 @@ exampleDB_users = {
     "Davzig": {
         "user_id": 1,
         "username": "Davzig",
-        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", #claveDavzig
-        "device_id": "10061C81EE7C"
+        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", # claveDavzig
+        "device_id": "10061C81EE7C",
+        "status": True
     },
     "Daniel": {
         "user_id": 2,
         "username": "Daniel",
         "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6", #claveDaniel
-        "device_id": "134EW698AA"
+        "device_id": "134EW698AA",
+        "status": False
     }
 }
 
@@ -76,16 +78,6 @@ exampleDB_devices = {
         "device_id": "10061C81EE7C",
         "deviceVer": "1.0.0",
         "status": True,
-        "photoperiod": 18,
-        "blueLed": 75,
-        "redLed": 80,
-        "whiteLed": 100,
-        "irriTimes": 4,
-        "irriMinute": 5,
-        "ventTimes": 7,
-        "ventMinute": 5,
-        "week": 2,
-        "day": 3
     },
     "Daniel": {
         "username": "Daniel",
@@ -93,16 +85,6 @@ exampleDB_devices = {
         "device_id": "134EW698AA",
         "deviceVer": "1.0.0",
         "status": False,
-        "photoperiod": 6,
-        "blueLed": 75,
-        "redLed": 80,
-        "whiteLed": 100,
-        "irriTimes": 4,
-        "irriMinute": 5,
-        "ventTimes": 7,
-        "ventMinute": 5,
-        "week": 0,
-        "day": 2
     }
 }
 exampleDB_measurements = {

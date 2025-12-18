@@ -1,13 +1,21 @@
 #ifndef _CONSTANTS
 #define _CONSTANTS
 
-// Pines 
-const byte whiteLedPin = 2; // Cambia según tus conexiones
+// Pines ESP32 DEV
+/*const byte whiteLedPin = 2; // Cambia según tus conexiones
 const byte blueLedPin = 14;
 const byte redLedPin = 15;
 const byte buzzerPin = 4;
 const byte waterPumpPin = 16;
-const byte fanPin = 17;
+const byte fanPin = 17;*/
+
+// Pines ESP32-C3
+const byte whiteLedPin = 0; // Cambia según tus conexiones
+const byte blueLedPin = 1;
+const byte redLedPin = 2;
+const byte buzzerPin = 3;
+const byte waterPumpPin = 10;
+const byte fanPin = 7;
 
 // Canales PWM
 const byte blueChannel = 0; // Canal asignado a pwmPin2
@@ -62,6 +70,6 @@ enum WateringFrequency {
 const byte BuzzerOn = 50;  // interval at which to blink (milliseconds)
 const byte BuzzerOff = 80;  // interval at which to blink (milliseconds)
 
-const int intervalToSend = 10000;  // interval at which to blink (milliseconds)
+const int intervalToSend = 30000;  // 
 
 #endif

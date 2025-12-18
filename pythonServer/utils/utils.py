@@ -62,9 +62,9 @@ def validate_form(credentials: Form) -> dict:
     validate_client_id(credentials.client_id)
     validate_password(credentials.client_secret)
 
-    user_data = exampleDB_users.get(credentials.username)       # Existe el usuario en BBDD?
+    user_data = exampleDB_users.get(credentials.username)      
     #linked_device = 5                                                      
-    #   Información del usuario, tiene asociado ese dispositivo   
+    #  Solo debe regresar info si el USUARIO EXISTE y tiene el DEVICEID VINCULADO 
     if user_data and user_data.get("device_id") == credentials.client_id:      
         return user_data
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="1 Dispositivo no existe")

@@ -1,9 +1,11 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+//#include <PubSubClient.h>
 #include <WebServer.h>
 #include <DNSServer.h>
 #include "Constants.h"
-#include "sensible.h"
 #include "Plant.h"
+#include "sensible.h"
 
 char buffer[300];
 
@@ -13,6 +15,9 @@ unsigned long currentMillis = 0;
 
 Plant planta;
 //IPAddress apIP(8,8,4,4); // The default android DNS
+WiFiClientSecure net;
+//PubSubClient client(net);
+
 DNSServer dnsServer;
 WebServer server(port80);
 
@@ -21,6 +26,8 @@ void handleRootNoUser();
 void handleRegisterUser();
 void handlePost();
 void handleExit();
+
+
 
 void setup() {
   
@@ -32,7 +39,7 @@ void setup() {
   WiFi.mode(WIFI_AP_STA);
 
   delay(1000);
-  WiFi.begin(ssidUser, ssidPassU);
+  WiFi.begin(SSID, PASSWORD);
   delay(1000);
   //Serial.print("Conectando a la red: " + ssidU);
   unsigned long startTime = millis();
@@ -62,6 +69,8 @@ void setup() {
   server.on("/update", handleUpdate);  // Configura el servidor web
   server.on("/updatedata", HTTP_POST, handlePostData); 
   server.on("/exit", handleExit);
+
+  //connectAWS();
   
   if(hasRegisteredUser)
     Serial.println("YA HAY usuario registrado");
@@ -69,8 +78,8 @@ void setup() {
     Serial.println("NO HAY usuario registrado");
   server.begin();
 
-  xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL, 1);
-  xTaskCreatePinnedToCore(downloadBin, "downloadBin", 3000, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(serverTask, "serverTask", 3000, NULL, 1, NULL,0);
+  xTaskCreatePinnedToCore(downloadBin, "downloadBin", 3000, NULL, 1, NULL,0);
  
 }
 
@@ -79,12 +88,46 @@ void loop() {
   currentMillis = millis();
   if (currentMillis - previousMillis >= intervalToSend) {
     previousMillis = currentMillis;
-    Serial.println(planta.getSystemStatus(buffer));
+    String payload = planta.getSystemStatus(buffer, sizeof(buffer));
+    //client.publish("test/topic", payload.c_str());
+    Serial.println("Publicado: " + payload + '\n');
   } 
+  //client.loop();
+
   //dnsServer.processNextRequest();
   //server.handleClient();
 
 }
+
+/*void messageHandler(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Mensaje en [");
+  Serial.print(topic);
+  Serial.print("]: ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}*/
+
+/*void connectAWS() {
+  // Configurar certificados
+  net.setCACert(ROOT_CERTIFICADE);
+  net.setCertificate(CLIENT_CERTIFICADE);
+  net.setPrivateKey(CLIENT_KEY);
+
+  client.setServer(URL, MQTT_PORT);
+  client.setCallback(messageHandler);
+
+  Serial.print("Conectando a AWS IoT...");
+  while (!client.connect("esp32Client")) {  // clientID único
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println(" ✅ Conectado a AWS IoT Core!");
+
+  // Suscribirnos a un topic
+  client.subscribe("test/topic/sub");
+}*/
 
 void handleRoot() {
   if (hasRegisteredUser)

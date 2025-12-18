@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registrar usuario</title>
+
+  <style>
+    /* ========== RESET ========== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* ========== BASE ========== */
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #c6e6c6;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .form-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(76, 175, 80, 0.15);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .form-card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(76, 175, 80, 0.15);
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .form-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #4caf50, #8bc34a, #cddc39);
+    }
+
+    /* ========== HEADER ========== */
+    .form-header {
+      text-align: center;
+    }
+
+    .form-header h1 {
+      color: #2e7d32;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    /* ========== FORM ========== */
+    .form-group {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+      border: 1px solid #c8e6c9;
+      border-radius: 6px;
+    }
+
+    .form-group span  {
+      padding: 10px 12px;
+      font-size: 14px;
+      border-radius: 6px;
+      text-align: center;
+      /*background: #c6e6c6;*/
+      /*border: 1px solid #c8e6c9;*/
+    }
+
+    /* ========== LED COLOR TAGS ========== */
+    .led-container {
+      display: flex;
+      justify-content: space-around;
+      gap: 8px;
+      padding: 10px 12px;
+    }
+
+    .color-tag {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .color-tag-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .color-indicator {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color);
+    }
+
+    .color-indicator.white-led {
+      background: #ffffff;
+      border: 1px solid #000000;
+    }
+
+    .color-tag-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #000000;
+    }
+
+    .color-tag-label {
+      font-size: 14px;
+      /*color: #388e3c;*/
+      text-align: center;
+    }
+
+    /* ========== BUTTONS ========== */
+    .buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    button {
+      flex: 1;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4caf50, #66bb6a);
+      color: white;
+      box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #ff7043, #ff8a65);
+      color: white;
+      box-shadow: 0 4px 16px rgba(255, 112, 67, 0.3);
+    }
+
+    /* ==========================================
+   RANGES PERSONALIZADOS POR COLOR
+   ========================================== */
+
+
+    .footer {
+      padding-top: 32px;
+      text-align: center;
+    }
+
+    .footer p {
+      color: #558b2f;
+      font-size: 14px;
+    }
+
+    /* ========== RESPONSIVE ========== */
+    @media (max-width: 480px) {
+      .form-card {
+        padding: 24px;
+        margin: 10px;
+      }
+
+      .header h1 {
+        font-size: 20px;
+      }
+
+      .buttons {
+        flex-direction: column;
+      }
+
+      .btn {
+        padding: 14px 20px;
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 320px) {
+      .form-card {
+        padding: 20px;
+      }
+
+      .header h1 {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+
+
+  <div class="form-card">
+
+    <div class="form-header">
+      <h1>¿Quieres actualizar los parámetros?</h1>
+    </div>
+
+    <form id="mainForm" action="/updateparams">
+      <div class="form-group">
+        <span id="dispositivoActivo">Cargando...</span>
+      </div>
+
+      <div class="form-group">
+        <span id="fotoperiodo">Cargando...</span>
+      </div>
+
+      <div class="form-group">
+        <div class="led-container">
+          <div class="color-tag" style="--color:#2196F3">
+            <div class="color-tag-top">
+              <div class="color-indicator"></div>
+              <div class="color-tag-value" id="luzAzul">0%</div>
+            </div>
+            <div class="color-tag-label">Led Azul</div>
+          </div>
+
+          <div class="color-tag" style="--color:#f44336">
+            <div class="color-tag-top">
+              <div class="color-indicator"></div>
+              <div class="color-tag-value" id="luzRoja">0%</div>
+            </div>
+            <div class="color-tag-label">Led Rojo</div>
+          </div>
+
+          <div class="color-tag" style="--color:#757575">
+            <div class="color-tag-top">
+              <div class="color-indicator white-led"></div>
+              <div class="color-tag-value" id="luzBlanca">0%</div>
+            </div>
+            <div class="color-tag-label">Led Blanco</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <span id="irrigacion">Cargando...</span>
+      </div>
+
+      <div class="form-group">
+        <span id="ventilacion">Cargando...</span>
+      </div>
+
+      <div class="form-group">
+        <span id="edad">Cargando...</span>
+      </div>
+
+      <div class="buttons">
+        <button type="submit" class="btn-primary">Actualizar</button>
+        <button type="button" class="btn-secondary" onclick="location.href='/exit'">Salir</button>
+
+        <!-- <button type="button" class="btn-primary" onclick="submitRegister()">Actualizar</button>
+        <button type="button" class="btn-secondary" onclick="location.href='/exit'">Salir</button> -->
+      </div>
+    </form>
+    <div class="footer">
+      <p>© 2024 Smartplant • Versión 1.0</p>
+    </div>
+
+  </div>
+
+
+  <script>
+    var valoresESP32 = {
+      dispositivoActivo: "",
+      fotoperiodo: "",
+      semana: "",
+      dias: "",
+      luzAzul: "",
+      luzRoja: "",
+      luzBlanca: "",
+      horasIrrigacion: "",
+      minutosIrrigacion: "",
+      horasVentilador: "",
+      minutosVentilador: "",
+    };
+    document.getElementById("dispositivoActivo").innerText = `Cultivo: ${valoresESP32.dispositivoActivo}`;
+    document.getElementById("fotoperiodo").innerText = `Fotoperiodo: ${valoresESP32.fotoperiodo} horas`;
+    document.getElementById("luzAzul").innerText = `${valoresESP32.luzAzul}%`;
+    document.getElementById("luzRoja").innerText = `${valoresESP32.luzRoja}%`;
+    document.getElementById("luzBlanca").innerText = `${valoresESP32.luzBlanca}%`;
+    document.getElementById("irrigacion").innerText = `Irrigación: ${valoresESP32.horasIrrigacion} veces al día x ${valoresESP32.minutosIrrigacion} minutos`;
+    document.getElementById("ventilacion").innerText = `Ventilación: ${valoresESP32.horasVentilador} veces al día x ${valoresESP32.minutosVentilador} minutos`;
+    document.getElementById("edad").innerText = `Tiempo: ${valoresESP32.semana} semanas / ${valoresESP32.dias} días`;
+
+  </script>
+</body>
+
+</html>

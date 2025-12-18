@@ -18,10 +18,62 @@ async def uploadData(data: DeviceMeasurements):
 async def autenticateDevice(form: OAuth2PasswordRequestForm = Depends()):
 
     print(f"User:{form.username} [{form.password}] Device:{form.client_id} [{form.client_secret}]")  
-    user_data_auth = validate_form(form)    #   Si alguna validación no se cumple, lanza un código 400
-    user = UserDB(**user_data_auth)
+    #user_data_auth = validate_form(form)    #   Si alguna validación no se cumple, lanza un código 400
+    #print(f"Validacion ok") 
+    #user = UserDB(**user_data_auth)
 
-    if not crypt.verify(form.password, user.password):
+    try:
+        user_data = await authenticate_user_with_device(
+            username=form.username,
+            client_id=form.client_id,
+            db_connection_string = "postgresql://postgres:pass_9876543210@localhost/crops")
+        
+        print(user_data)
+
+        if not crypt.verify(form.password, user_data["password_hash"]):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
+                            detail="La contraseña no es correcta")
+        if not user_data:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, 
+                        detail="Usuario inactivo", 
+                        headers={"WWW-Authenticate": "Bearer"})
+    
+        # Verificar contraseña del usuario
+        '''if not pwd_context.verify(form.userpassword, user_data['password_hash']):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Contraseña incorrecta"
+            )'''
+    
+        # Verificar client_secret (por ahora es la misma contraseña)
+        '''if not pwd_context.verify(form.client_secret, user_data['password_hash']):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Client secret incorrecto"
+            )'''
+        token = createToken({"sub": user_data['username'], "deviceId": user_data['device_id']})
+        return {"accessToken": token, "tokenType": "bearer"}
+    # Autenticación exitosa
+        '''return {
+            "message": "Autenticación exitosa",
+            "user_id": user_data['user_id'],
+            "username": user_data['username'],
+            "device_id": user_data['device_id']
+        }'''
+    
+    except AuthenticationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
+
+
+    '''if not crypt.verify(form.password, user.password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
                             detail="La contraseña no es correcta")
     if not user.status:
@@ -30,7 +82,7 @@ async def autenticateDevice(form: OAuth2PasswordRequestForm = Depends()):
                         headers={"WWW-Authenticate": "Bearer"})
 
     token = createToken({"sub": user.username, "deviceId": user.device_id})
-    return {"accessToken": token, "tokenType": "bearer"}
+    return {"accessToken": token, "tokenType": "bearer"}'''
 
 
 @router.get("/firmware", response_class=FileResponse, status_code=200, summary="Descarga binario de la actualización OTA")

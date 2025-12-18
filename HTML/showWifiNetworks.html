@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conéctate</title>
+
+    <style>
+
+        /* ========== RESET ========== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ========== BASE ========== */
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #c6e6c6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(76, 175, 80, 0.15);
+            padding: 32px;
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .form-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4caf50, #8bc34a, #cddc39);
+        }
+
+        /* ========== HEADER ========== */
+        .form-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .form-header h1 {
+            color: #2e7d32;
+            font-size: 24px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        /* ========== FORM ========== */
+        .password-wrapper,
+        .form-group {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            color: #388e3c;
+        }
+
+        .select-container {
+            position: relative;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #c8e6c9;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #2e7d32;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #4caf50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+
+        /*.select-container::after {
+            content: '▼';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #4caf50;
+            pointer-events: none;
+            font-size: 12px;
+        }*/
+
+
+        .form-group input {
+            padding: 10px 12px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #c8e6c9;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 3%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #757575;
+            cursor: pointer;
+            font-size: 1.6vw;
+            padding: 2%;
+            line-height: 1;
+        }
+
+        .toggle-password:hover {
+            color: #4caf50;
+        }
+
+        /* ========== BUTTONS ========== */
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 22px;
+        }
+
+        button {
+            flex: 1;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4caf50, #66bb6a);
+            color: white;
+            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ff7043, #ff8a65);
+            color: white;
+            box-shadow: 0 4px 16px rgba(255, 112, 67, 0.3);
+        }
+
+        /* ========== FOOTER ========== */
+        .footer {
+            margin-top: 20px;
+            padding-top: 16px;
+            text-align: center;
+        }
+
+        .footer p {
+            color: #2e7d32;
+            font-size: 14px;
+
+        }
+
+        /* ========== RESPONSE ========== */
+        .mensaje-ok,
+        .mensaje-error {
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            /*margin-top: 20px;*/
+            text-align: center;
+        }
+
+        /* Reutilizando tus colores verdes */
+        .mensaje-ok {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            color: #2e7d32;
+        }
+
+        .mensaje-error {
+            background: #ffebee;
+            border: 2px solid #f44336;
+            color: #c62828;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 480px) {
+            .form-card {
+                padding: 24px;
+                margin: 10px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                padding: 14px 20px;
+                font-size: 14px;
+            }
+
+            .toggle-password {
+                font-size: 18px;
+            }
+            select, input[type="password"] {
+                padding: 14px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 320px) {
+            .form-card {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="form-card" id="form-card">
+
+        <div class="form-header">
+            <h1>Conectate a la red.</h1>
+        </div>
+
+        <form id="mainForm">
+
+            <div class="form-group">
+                <label class="form-label" for="options">Seleccione su red wifi</label>
+                <div class="select-container">
+                    <select id="options" name="options" required>
+                        <option value="">Seleccione una opción...</option>
+                        <option value="option1">Modo Automático</option>
+                        <option value="option2">Modo Manual</option>
+                        <option value="option3">Configuración WiFi</option>
+                        <option value="option4">Reset Sistema</option>
+                        <option value="option5">Modo Depuración</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Contraseña</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword()" id="toggleBtn">👁</button>
+                </div>
+                <!-- <input type="password" name="contrasena" placeholder="Contraseña" required class="input" id="passInput"> -->
+            </div>
+
+            <div class="buttons">
+                <button type="button" class="btn-primary" onclick="submitRegister()">Registrar</button>
+                <!-- <button type="submit" class="btn-primary" onclick="submitRegister()">Registrar</button>-->
+                <button type="button" class="btn-secondary" onclick="location.href='/exit'">Salir</button>
+            </div>
+
+        </form>
+
+        <div class="footer">
+            <p>© 2024 Smartplant • Versión 1.0</p>
+        </div>
+
+    </div>
+
+
+
+    <script>
+
+        function togglePassword() {
+            const type = password.type === 'password' ? 'text' : 'password';
+            password.type = type;
+            document.getElementById('toggleBtn').textContent = type === 'password' ? '👁' : '👁';
+        }
+        async function submitRegister() {
+            const user = document.getElementById("user").value.trim();
+            const pass = document.getElementById("password").value.trim();
+
+
+            const data = { user, pass };
+            let errores = [];
+            // Validación de longitud
+            if (user.length < 5 || user.length > 22) {
+                errores.push("El usuario debe tener entre 5 y 22 caracteres.");
+            }
+            if (pass.length < 5 || pass.length > 22) {
+                errores.push("La contraseña debe tener entre 5 y 22 caracteres.");
+            }
+
+            // No más de 3 caracteres repetidos seguidos
+            const repetidosRegex = /(.)\1{3,}/;
+            if (repetidosRegex.test(user)) {
+                errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
+            }
+            if (repetidosRegex.test(pass)) {
+                errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
+            }
+            if (errores.length > 0) {
+                alert("Errores en el formulario:\n" + errores.join("\n"));
+                return;
+            }
+
+            fetch("/userdata", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            })
+                .then(async (res) => {
+                    const text = await res.text();
+
+                    const container = document.getElementById("form-card");
+
+                    if (res.ok) {
+                        // El ESP32 respondió 200 OK
+                        container.innerHTML = `
+                    <div class="mensaje-ok">
+                        ${text}
+                    </div>
+                `;
+                    } else {
+                        // Error del ESP32 (400, 500, etc.)
+                        container.innerHTML = `
+                        <div class="mensaje-error">
+                            ${text}
+                        </div>
+                    `;
+                    }
+                });
+        }
+
+    </script>
+</body>
+
+</html>

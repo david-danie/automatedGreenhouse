@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 import jwt
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from models import DeviceData, exampleDB
+from models import DeviceData, exampleDB_users
 from sensible import *
 
 ALGORITHM = "HS256"
@@ -27,7 +27,7 @@ async def getAuthDevice(token: str = Depends(oauth2)):
         payload = decodeToken(token)
         username = payload.get("sub")
         deviceId = payload.get("deviceId")
-        if (deviceData := exampleDB.get(username)) is None:             #   Aqui solo se está validando el usuario, no se valida deviceId
+        if (deviceData := exampleDB_users.get(username)) is None:  #Aqui solo se está validando el usuario, no se valida deviceId
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
                                 detail="Credenciales inválidas", 
                                 headers={"WWW-Authenticate": "Bearer"})
