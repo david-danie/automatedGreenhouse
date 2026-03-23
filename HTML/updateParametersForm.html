@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Actualiza parámetros</title>
-
     <style>
         /* ========== RESET ========== */
         * {
@@ -100,23 +98,6 @@
             -moz-appearance: none;
         }
 
-        /*select:focus {
-            outline: none;
-            border-color: #4caf50;
-            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-        }*/
-
-        /*.select-container::after {
-            content: '▼';
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #4caf50;
-            pointer-events: none;
-            font-size: 12px;
-        }*/
-
         .form-group input[type="text"],
         .form-group input[type="number"],
         .form-group input[type="password"] {
@@ -126,152 +107,122 @@
             border: 1px solid #c8e6c9;
         }
 
-        /* ========== SLIDERS PERSONALIZADOS ========== */
+        /* ========== SLIDERS UNIVERSALES ========== */
+        /* Contenedor del slider con progreso visual */
+        .slider-container {
+            position: relative;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 4px;
+        }
+
+        .slider-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            width: 100%;
+        }
+
+        /* Slider base - posicionado absolutamente sobre la barra */
         input[type="range"] {
             -webkit-appearance: none;
             appearance: none;
             width: 100%;
             background: transparent;
             outline: none;
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            z-index: 2;
+            cursor: pointer;
+            height: 20px;
+            margin: 0;
         }
 
-        /* Track - Slider Azul */
-        #ledA::-webkit-slider-runnable-track {
+        /* Track (rail) - hacerlo invisible */
+        input[type="range"]::-webkit-slider-runnable-track {
             width: 100%;
             height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
+            background: transparent;
+            border: none;
         }
 
-        #ledA::-moz-range-track {
+        input[type="range"]::-moz-range-track {
             width: 100%;
             height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
+            background: transparent;
+            border: none;
         }
 
-        /* Thumb - Slider Azul */
-        #ledA::-webkit-slider-thumb {
+        /* Thumbs base para todos */
+        input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            background: #2196F3;
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.5);
             margin-top: -6px;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Slider Azul */
+        .slider-container:has(#ledA) .slider-progress {
+            background: #e0e0e0;
+        }
+
+        #ledA::-webkit-slider-thumb {
+            background: #2196F3;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.5);
         }
 
         #ledA::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
             background: #2196F3;
-            cursor: pointer;
-            border: 1px solid #000000;
             box-shadow: 0 2px 8px rgba(33, 150, 243, 0.5);
         }
 
-        /* Progress - Slider Azul */
-        #ledA::-moz-range-progress {
-            background: #2196F3;
-            height: 8px;
-            border-radius: 4px;
-            border: 1px solid #000000;
-        }
-
-        /* Track - Slider Rojo */
-        #ledR::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 8px;
+        /* Slider Rojo */
+        .slider-container:has(#ledR) .slider-progress {
             background: #e0e0e0;
-            border-radius: 4px;
         }
 
-        #ledR::-moz-range-track {
-            width: 100%;
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-        }
-
-        /* Thumb - Slider Rojo */
         #ledR::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
             background: #f44336;
-            cursor: pointer;
             box-shadow: 0 2px 8px rgba(244, 67, 54, 0.5);
-            margin-top: -6px;
         }
 
         #ledR::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
             background: #f44336;
-            cursor: pointer;
-            border: 1px solid #000000;
             box-shadow: 0 2px 8px rgba(244, 67, 54, 0.5);
         }
 
-        /* Progress - Slider Rojo */
-        #ledR::-moz-range-progress {
-            background: #f44336;
-            height: 8px;
-            border-radius: 4px;
-            border: 1px solid #000000;
-        }
-
-        /* Track - Slider Blanco */
-        #ledB::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 8px;
+        /* Slider Blanco */
+        .slider-container:has(#ledB) .slider-progress {
             background: #e0e0e0;
-            border-radius: 4px;
         }
 
-        #ledB::-moz-range-track {
-            width: 100%;
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-        }
-
-        /* Thumb - Slider Blanco */
         #ledB::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
             background: #ffffff;
-            cursor: pointer;
             border: 2px solid #9e9e9e;
             box-shadow: 0 2px 8px rgba(158, 158, 158, 0.5);
-            margin-top: -6px;
         }
 
         #ledB::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
             background: #ffffff;
-            cursor: pointer;
-            border: 1px solid #000000;
+            border: 2px solid #9e9e9e;
             box-shadow: 0 2px 8px rgba(158, 158, 158, 0.5);
-        }
-
-        /* Progress - Slider Blanco */
-        #ledB::-moz-range-progress {
-            background: #ffffff;
-            height: 8px;
-            border-radius: 4px;
-            border: 1px solid #000000;
         }
 
         .toggle-password {
@@ -283,8 +234,8 @@
             border: none;
             color: #757575;
             cursor: pointer;
-            font-size: 1.6vw;
-            padding: 2%;
+            font-size: 18px;
+            padding: 8px;
             line-height: 1;
         }
 
@@ -334,6 +285,27 @@
             font-size: 14px;
         }
 
+        /* ========== RESPONSE ========== */
+        .mensaje-ok,
+        .mensaje-error {
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .mensaje-ok {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            color: #2e7d32;
+        }
+
+        .mensaje-error {
+            background: #ffebee;
+            border: 2px solid #f44336;
+            color: #c62828;
+        }
+
         /* ========== RESPONSIVE ========== */
         @media (max-width: 480px) {
             .form-card {
@@ -370,21 +342,17 @@
         }
     </style>
 </head>
-
 <body>
-
-    <div class="form-card">
-
+    <div class="form-card" id="form-card">
         <div class="form-header">
             <h1>Actualiza los parámetros.</h1>
         </div>
 
         <form id="mainForm">
-
             <div id="stepParams">
                 <div class="form-group">
                     <label>Planta</label>
-                    <input type="text" name="planta" required id="planta">
+                    <input type="text" name="planta" autocomplete="off" id="planta" required>
                 </div>
 
                 <div class="form-group2">
@@ -401,17 +369,26 @@
 
                 <div class="form-group">
                     <label for="luzAzul">Led Azul: <span id="luzAzulValue">50%</span></label>
-                    <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="50">
+                    <div class="slider-container">
+                        <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="0">
+                        <div class="slider-progress" id="progressA"></div>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="luzRoja">Led Rojo: <span id="luzRojaValue">50%</span></label>
-                    <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="50">
+                    <div class="slider-container">
+                        <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="0">
+                        <div class="slider-progress" id="progressR"></div>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="luzBlanca">Led Blanco: <span id="luzBlancaValue">50%</span></label>
-                    <input type="range" id="ledB" name="ledB" min="0" max="100" step="5" value="50">
+                    <div class="slider-container">
+                        <input type="range" id="ledB" name="ledB" min="0" max="100" step="5" value="0">
+                        <div class="slider-progress" id="progressB"></div>
+                    </div>
                 </div>
 
                 <div class="form-group2">
@@ -457,6 +434,7 @@
                         <input type="number" name="ventM" required id="ventM" min="0" max="59">
                     </div>
                 </div>
+
                 <div class="buttons">
                     <button type="button" class="btn-primary" id="btnContinue">Continuar</button>
                     <button type="button" class="btn-secondary" onclick="window.location.href='/exit'">Salir</button>
@@ -466,35 +444,64 @@
             <div id="stepAuth" style="display:none;">
                 <div class="form-group">
                     <label>Usuario</label>
-                    <input type="text" name="user" id="user" required>
+                    <input type="text" name="user" id="user" autocomplete="off" required>
                 </div>
 
                 <div class="form-group">
                     <label>Contraseña</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" required>
-                        <button type="button" class="toggle-password" onclick="togglePassword()"
-                            id="toggleBtn">👁</button>
+                        <input type="password" id="password" name="pass" autocomplete="new-password" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword()" id="toggleBtn">👁</button>
                     </div>
                 </div>
+
                 <div class="buttons">
                     <button type="submit" class="btn-primary">Actualizar</button>
                     <button type="button" class="btn-secondary" onclick="window.location.href='/exit'">Salir</button>
                 </div>
             </div>
-
-
         </form>
+
         <div class="footer">
             <p>© 2024 Smartplant • Versión 1.0</p>
         </div>
-
     </div>
 
     <script>
-        /* =========================
-           REFERENCIAS
-        ========================= */
+        var valoresESP32 = {
+            dispositivoActivo: "",
+            fotoperiodo: "",
+            luzAzul: "",
+            luzRoja: "",
+            luzBlanca: "",
+            horasIrrigacion: "",
+            minutosIrrigacion: "",
+            horasVentilador: "",
+            minutosVentilador: "",
+        }
+
+        function actualizarFormulario() {
+            document.getElementById('enable').checked = valoresESP32.dispositivoActivo;
+            document.getElementById('fp').value = valoresESP32.fotoperiodo;
+            document.getElementById('ledA').value = valoresESP32.luzAzul;
+            document.getElementById('luzAzulValue').innerText = `${valoresESP32.luzAzul}%`;
+            document.getElementById('ledR').value = valoresESP32.luzRoja;
+            document.getElementById('luzRojaValue').innerText = `${valoresESP32.luzRoja}%`;
+            document.getElementById('ledB').value = valoresESP32.luzBlanca;
+            document.getElementById('luzBlancaValue').innerText = `${valoresESP32.luzBlanca}%`;
+            document.getElementById('irrH').value = valoresESP32.horasIrrigacion;
+            document.getElementById('irrM').value = valoresESP32.minutosIrrigacion;
+            document.getElementById('ventH').value = valoresESP32.horasVentilador;
+            document.getElementById('ventM').value = valoresESP32.minutosVentilador;
+            
+            // Actualizar barras de progreso
+            updateSliderProgress('ledA', 'progressA');
+            updateSliderProgress('ledR', 'progressR');
+            updateSliderProgress('ledB', 'progressB');
+        }
+
+        document.addEventListener('DOMContentLoaded', actualizarFormulario);
+
         const form = document.getElementById("mainForm");
         const stepParams = document.getElementById("stepParams");
         const stepAuth = document.getElementById("stepAuth");
@@ -507,89 +514,92 @@
             return /^[a-zA-Z0-9_.-]+$/.test(str);
         }
 
-        function isValidUsername(str) {
-            return /^[a-zA-Z0-9_.-]+$/.test(str);
-        }
-
         function isValidPassword(str) {
             return /^[a-zA-Z0-9!@#$%^&*()_+\-=.,]+$/.test(str);
         }
 
-        /* =========================
-           PASO 1 → CONTINUAR
-           (NO ENVÍA)
-        ========================= */
+        function togglePassword() {
+            const type = password.type === 'password' ? 'text' : 'password';
+            password.type = type;
+            document.getElementById('toggleBtn').textContent = type === 'password' ? '👁' : '👁';
+        }
+
         btnContinue.addEventListener("click", () => {
             errores = validarParametros();
             if (errores.length > 0) {
                 alert("Errores en el formulario:\n" + errores.join("\n"));
                 return;
             }
-
-            stepParams.style.display = "none";  // Ocultar parámetros
-            stepAuth.style.display = "block";   // Mostrar autenticación
+            stepParams.style.display = "none";
+            stepAuth.style.display = "block";
         });
 
-        /* =========================
-           SUBMIT FINAL
-           (SÍ ENVÍA)
-        ========================= */
         form.addEventListener("submit", function (e) {
-            e.preventDefault(); // detenemos envío automático
+            e.preventDefault();
             errores = validarAuth();
             if (errores.length > 0) {
                 alert("Errores en el formulario:\n" + errores.join("\n"));
                 return;
             }
 
-            const form = document.getElementById('mainForm');
             const formData = new FormData(form);
             const data = {};
 
-            formData.forEach((value, key) => { data[key] = value;});
+            formData.forEach((value, key) => {
+                if (key === 'fp' || key === 'irrH' || key === 'irrM' ||
+                    key === 'ventH' || key === 'ventM' ||
+                    key === 'ledA' || key === 'ledR' || key === 'ledB')
+                    data[key] = Number(value.trim())
+                else
+                    data[key] = value.trim();
+            });
+
             data.enable = document.getElementById("enable").checked;
+            const fechaHoraActual = new Date();
+            data['dia'] = Number(fechaHoraActual.getDate());
+            data['mes'] = Number(fechaHoraActual.getMonth() + 1);
+            data['anio'] = Number(fechaHoraActual.getFullYear().toString().slice(-2));
+            data['diaSem'] = Number(fechaHoraActual.getDay());
+            data['hr'] = Number(fechaHoraActual.getHours());
+            data['min'] = Number(fechaHoraActual.getMinutes());
+            data['seg'] = Number(fechaHoraActual.getSeconds());
+
+            console.log(data);
 
             fetch("/newparams", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             })
-                .then(async (res) => {
-                    //const text = await res.text();
-                    const json = await res.json();
-                    const container = document.getElementById("form-card");
+            .then(async (res) => {
+                const json = await res.json();
+                const container = document.getElementById("form-card");
 
-                    if (res.ok && json.ok) {
-                        container.innerHTML = `<div class="mensaje-ok">${json.message}</div>`;
-                    }
-                    else {
-                        container.innerHTML = `<div class="mensaje-error">${json.error || "Error desconocido"}</div>`;
-                    }
-                }).catch(() => {
-                    document.getElementById("form-card").innerHTML =
-                        `<div class="mensaje-error">Error de comunicación con el dispositivo</div>`;
-                });
+                if (res.ok && json.ok) {
+                    container.innerHTML = `<div class="mensaje-ok">${json.message}</div>`;
+                } else {
+                    container.innerHTML = `<div class="mensaje-error">${json.error || "Error desconocido"}</div>`;
+                }
+            }).catch(() => {
+                document.getElementById("form-card").innerHTML = `<div class="mensaje-error">Error de comunicación con el dispositivo</div>`;
+            });
         });
 
-        /* =========================
-           VALIDACIONES
-        ========================= */
         function validarParametros() {
-            // Ejemplos (ajusta según tu lógica real)
             errores = [];
-
             const planta = document.getElementById("planta").value.trim();
             const fpInput = document.getElementById("fp").value.trim();
-            //const luzAzul = document.getElementById("ledA");
-            //const luzRoja = document.getElementById("ledR");
-            //const luzBlanca = document.getElementById("ledB");
-            //const irrigacionHoras = document.getElementById("ledB");
             const irrMinInput = document.getElementById("irrM").value.trim();
-            //const ventilacionHoras = document.getElementById("ledB");
             const ventMinInput = document.getElementById("ventM").value.trim();
 
-            if (fpInput === "" || irrMinInput === "" || ventMinInput === "") {
-                errores.push("Todos los campos son obligatorios");
+            if (fpInput === "") {
+                errores.push("El campo fotoperiodo es obligatorio y numérico");
+            }
+            if (irrMinInput === "") {
+                errores.push("El campo riego-minutos es obligatorio y numérico");
+            }
+            if (ventMinInput === "") {
+                errores.push("El campo ventilación-minutos es obligatorio y numérico");
             } else {
                 const fotoperiodo = Number(fpInput);
                 const irrigacionMinutos = Number(irrMinInput);
@@ -613,44 +623,63 @@
             const user = document.getElementById("user").value.trim();
             const pass = document.getElementById("password").value.trim();
 
-            if (!isValidUsername(user))
+            if (!isAlphaNumeric(user))
                 errores.push("El usuario solo debe tener caracteres alfanumericos y (_-.)");
             if (!isValidPassword(pass))
                 errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+\-=.,)");
-            if (user.length < 4 || user.length > 16) 
+            if (user.length < 4 || user.length > 16)
                 errores.push("El usuario debe tener entre 4 y 16 caracteres.");
-            if (pass.length < 8 || pass.length > 32) 
-                errores.push("La contraseña debe tener entre 8 y 32 caracteres.");  
-            if (repetidosRegex.test(user)) 
+            if (pass.length < 8 || pass.length > 32)
+                errores.push("La contraseña debe tener entre 8 y 32 caracteres.");
+            if (repetidosRegex.test(user))
                 errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
-            if (repetidosRegex.test(pass)) 
+            if (repetidosRegex.test(pass))
                 errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
 
             return errores;
         }
 
-        /* =========================
-           SLIDERS (DISPLAY %)
-        ========================= */
-        function updateLampValue(sliderId, valueId) {
+        // Función universal para actualizar progreso y valor
+        function updateSliderProgress(sliderId, progressId) {
+            const slider = document.getElementById(sliderId);
+            const progress = document.getElementById(progressId);
+            
+            if (!slider || !progress) return;
+            
+            const percent = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+            
+            // Crear el gradiente según el slider
+            let color;
+            if (sliderId === 'ledA') color = '#2196F3';
+            else if (sliderId === 'ledR') color = '#f44336';
+            else if (sliderId === 'ledB') color = '#ffffff';
+            
+            if (sliderId === 'ledB') {
+                progress.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
+                progress.style.border = '1px solid #9e9e9e';
+            } else {
+                progress.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
+            }
+        }
+
+        function updateLampValue(sliderId, valueId, progressId) {
             const slider = document.getElementById(sliderId);
             const valueLabel = document.getElementById(valueId);
 
             if (!slider || !valueLabel) return;
 
             valueLabel.textContent = `${slider.value}%`;
+            updateSliderProgress(sliderId, progressId);
 
             slider.addEventListener("input", () => {
                 valueLabel.textContent = `${slider.value}%`;
+                updateSliderProgress(sliderId, progressId);
             });
         }
 
-        updateLampValue('luzAzul', 'luzAzulValue');
-        updateLampValue('luzRoja', 'luzRojaValue');
-        updateLampValue('luzBlanca', 'luzBlancaValue');
+        updateLampValue('ledA', 'luzAzulValue', 'progressA');
+        updateLampValue('ledR', 'luzRojaValue', 'progressR');
+        updateLampValue('ledB', 'luzBlancaValue', 'progressB');
     </script>
-
-
 </body>
-
 </html>

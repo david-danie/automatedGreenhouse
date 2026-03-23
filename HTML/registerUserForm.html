@@ -245,12 +245,14 @@
 
     <script>
 
-        function isValidUsername(texto) {
-            return /^[a-zA-Z0-9_.-]{4,16}$/.test(texto);
+        const repetidosRegex = /(.)\1{3,}/;
+
+        function isValidUsername(str) {
+            return /^[a-zA-Z0-9_.-]+$/.test(str);
         }
 
-        function isValidPassword(texto) {
-            return /^[a-zA-Z0-9!@#$%^&*()_+\-=.,]{8,32}$/.test(texto);
+        function isValidPassword(str) {
+            return /^[a-zA-Z0-9!@#$%^&*()_+\-=.,]+$/.test(str);
         }
 
         function togglePassword() {
@@ -266,21 +268,19 @@
             const data = { user, pass };
             let errores = [];
             // Validación de longitud
-            if (user.length < 4 || user.length > 16) {
+            if (!isValidUsername(user))
+                errores.push("El usuario solo debe tener caracteres alfanumericos y (_-.)");
+            if (!isValidPassword(pass))
+                errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+\-=.,)");
+            if (user.length < 4 || user.length > 16) 
                 errores.push("El usuario debe tener entre 4 y 16 caracteres.");
-            }
-            if (pass.length < 8 || pass.length > 32) {
-                errores.push("La contraseña debe tener entre 8 y 32 caracteres.");
-            }
-
+            if (pass.length < 8 || pass.length > 32) 
+                errores.push("La contraseña debe tener entre 8 y 32 caracteres.");  
             // No más de 3 caracteres repetidos seguidos
-            const repetidosRegex = /(.)\1{3,}/;
-            if (repetidosRegex.test(user)) {
+            if (repetidosRegex.test(user)) 
                 errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
-            }
-            if (repetidosRegex.test(pass)) {
+            if (repetidosRegex.test(pass)) 
                 errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
-            }
             if (errores.length > 0) {
                 alert("Errores en el formulario:\n" + errores.join("\n"));
                 return;
@@ -290,8 +290,7 @@
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
-            })
-                .then(async (res) => {
+            }).then(async (res) => {
                     //const text = await res.text();
                     const json = await res.json();
                     const container = document.getElementById("form-card");
