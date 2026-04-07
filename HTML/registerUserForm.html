@@ -286,7 +286,7 @@
                 return;
             }
 
-            fetch("/userdata", {
+            fetch("/usercredentials", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
@@ -295,11 +295,16 @@
                     const json = await res.json();
                     const container = document.getElementById("form-card");
 
-                    if (res.ok && json.ok) {
+                    if (res.ok && json.status) {
                         container.innerHTML = `<div class="mensaje-ok">${json.message}</div>`;
+
+                        // Espera 3 segundos antes de hacer algo (redirigir o nada)
+                        setTimeout(() => {
+                            window.location.href = "/"; // o recargar
+                        }, 5000);
                     }
                     else {
-                        container.innerHTML = `<div class="mensaje-error">${json.error || "Error desconocido"}</div>`;
+                        container.innerHTML = `<div class="mensaje-error">${json.message || "Error desconocido"}</div>`;
                     }
                 }).catch(() => {
                     document.getElementById("form-card").innerHTML =
