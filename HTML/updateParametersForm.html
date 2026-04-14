@@ -345,7 +345,7 @@
 <body>
     <div class="form-card" id="form-card">
         <div class="form-header">
-            <h1 id="headerCon">Actualiza los parámetros.</h1>
+            <h1>Actualiza los parámetros.</h1>
         </div>
 
         <form id="mainForm">
@@ -363,14 +363,14 @@
 
                     <div class="form-group">
                         <label for="fotoperiodo">Fotoperiodo (h):</label>
-                        <input type="number" id="fp" name="fp" min="0" max="23">
+                        <input type="number" id="fp" name="fp" min="0" max="23" step="1">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="luzAzul">Led Azul: <span id="luzAzulValue">50%</span></label>
                     <div class="slider-container">
-                        <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="0">
+                        <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="50">
                         <div class="slider-progress" id="progressA"></div>
                     </div>
                 </div>
@@ -378,7 +378,7 @@
                 <div class="form-group">
                     <label for="luzRoja">Led Rojo: <span id="luzRojaValue">50%</span></label>
                     <div class="slider-container">
-                        <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="0">
+                        <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="50">
                         <div class="slider-progress" id="progressR"></div>
                     </div>
                 </div>
@@ -386,7 +386,7 @@
                 <div class="form-group">
                     <label for="luzBlanca">Led Blanco: <span id="luzBlancaValue">50%</span></label>
                     <div class="slider-container">
-                        <input type="range" id="ledB" name="ledB" min="0" max="100" step="5" value="0">
+                        <input type="range" id="ledB" name="ledB" min="0" max="100" step="5" value="50">
                         <div class="slider-progress" id="progressB"></div>
                     </div>
                 </div>
@@ -409,7 +409,7 @@
 
                     <div class="form-group">
                         <label>minutos</label>
-                        <input type="number" name="irrM" required id="irrM" min="0" max="59">
+                        <input type="number" name="irrM" required id="irrM" min="0" max="59" step="1">
                     </div>
                 </div>
 
@@ -431,7 +431,7 @@
 
                     <div class="form-group">
                         <label>minutos</label>
-                        <input type="number" name="ventM" required id="ventM" min="0" max="59">
+                        <input type="number" name="ventM" required id="ventM" min="0" max="59" step="1">
                     </div>
                 </div>
 
@@ -518,6 +518,10 @@
             return /^[a-zA-Z0-9!@#$%^&*()_+\-=.,]+$/.test(str);
         }
 
+        function isStrictInteger(value) {
+            return /^[0-9]+$/.test(value);
+        }
+
         function togglePassword() {
             const type = password.type === 'password' ? 'text' : 'password';
             password.type = type;
@@ -564,8 +568,6 @@
             data['min'] = Number(fechaHoraActual.getMinutes());
             data['seg'] = Number(fechaHoraActual.getSeconds());
 
-            console.log(data);
-
             fetch("/newparams", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -575,10 +577,10 @@
                 const json = await res.json();
                 const container = document.getElementById("form-card");
 
-                if (res.ok && json.ok) {
+                if (res.ok && json.status) {
                     container.innerHTML = `<div class="mensaje-ok">${json.message}</div>`;
                 } else {
-                    container.innerHTML = `<div class="mensaje-error">${json.error || "Error desconocido"}</div>`;
+                    container.innerHTML = `<div class="mensaje-error">${json.message || "Error desconocido"}</div>`;
                 }
             }).catch(() => {
                 document.getElementById("form-card").innerHTML = `<div class="mensaje-error">Error de comunicación con el dispositivo</div>`;
@@ -592,14 +594,14 @@
             const irrMinInput = document.getElementById("irrM").value.trim();
             const ventMinInput = document.getElementById("ventM").value.trim();
 
-            if (fpInput === "") {
-                errores.push("El campo fotoperiodo es obligatorio y numérico");
+            if (fpInput === "" || !isStrictInteger(fpInput)) {
+                errores.push("El campo fotoperiodo es obligatorio, numérico y sin decimales");
             }
-            if (irrMinInput === "") {
-                errores.push("El campo riego-minutos es obligatorio y numérico");
+            if (irrMinInput === "" || !isStrictInteger(irrMinInput)) {
+                errores.push("El campo riego-minutos es obligatorio, numérico y sin decimales");
             }
-            if (ventMinInput === "") {
-                errores.push("El campo ventilación-minutos es obligatorio y numérico");
+            if (ventMinInput === "" || !isStrictInteger(ventMinInput)) {
+                errores.push("El campo ventilación-minutos es obligatorio, numérico y sin decimales");
             } else {
                 const fotoperiodo = Number(fpInput);
                 const irrigacionMinutos = Number(irrMinInput);

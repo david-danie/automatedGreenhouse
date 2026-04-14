@@ -1,0 +1,5 @@
+1. LOGS (Corregir riego y ventilación)
+2. LOGS (Agregar SSID y PASS)
+3. Agregar guardado de nombre de cultivo
+4. Quitar el reset cuando swe reciben nuevos parametros correctamente (Solo actualizarlos)
+5. Agragar RTC
