@@ -594,6 +594,9 @@
             const irrMinInput = document.getElementById("irrM").value.trim();
             const ventMinInput = document.getElementById("ventM").value.trim();
 
+            if (planta === "") {
+                errores.push("El nombre de la planta es obligatorio");
+            }
             if (fpInput === "" || !isStrictInteger(fpInput)) {
                 errores.push("El campo fotoperiodo es obligatorio, numérico y sin decimales");
             }
@@ -607,8 +610,15 @@
                 const irrigacionMinutos = Number(irrMinInput);
                 const ventilacionMinutos = Number(ventMinInput);
 
-                if (planta.length < 5 || planta.length > 16 || !isAlphaNumeric(planta))
-                    errores.push("El nombre de la planta debe ser entre 5 y 16 caracteres alfanuméricos");
+
+                if (planta.length < 3 || planta.length > 20)
+                    errores.push("Debe tener entre 3 y 20 caracteres");
+                if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ _.-]+$/.test(planta))
+                    errores.push("Solo se permiten letras, números, espacios y (_-.)");
+                if (/\s{2,}/.test(planta))
+                    errores.push("No uses espacios repetidos");
+                if (/^\d+$/.test(planta))
+                    errores.push("No puede ser solo números");
                 if (isNaN(fotoperiodo) || fotoperiodo < 0 || fotoperiodo > 23)
                     errores.push("El fotoperiodo debe ser un valor entre 0 y 23 horas");
                 if (isNaN(irrigacionMinutos) || irrigacionMinutos < 0 || irrigacionMinutos > 59)
