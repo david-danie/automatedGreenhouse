@@ -639,10 +639,10 @@
                 errores.push("El usuario solo debe tener caracteres alfanumericos y (_-.)");
             if (!isValidPassword(pass))
                 errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+\-=.,)");
-            if (user.length < 4 || user.length > 16)
-                errores.push("El usuario debe tener entre 4 y 16 caracteres.");
-            if (pass.length < 8 || pass.length > 32)
-                errores.push("La contraseña debe tener entre 8 y 32 caracteres.");
+            if (user.length < 4 || user.length > 31)
+                errores.push("El usuario debe tener entre 4 y 32 caracteres.");
+            if (pass.length < 8 || pass.length > 63)
+                errores.push("La contraseña debe tener entre 8 y 64 caracteres.");
             if (repetidosRegex.test(user))
                 errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
             if (repetidosRegex.test(pass))

@@ -1,6 +1,9 @@
 1. LOGS (Corregir riego y ventilación)
 2. LOGS (Agregar SSID y PASS)
-3. Agregar guardado de nombre de cultivo (aceptar espacios bug)
+3. Agregar guardado de nombre de cultivo (aceptar espacios bug) xxx
 4. Quitar el reset cuando se reciben nuevos parametros correctamente (Solo actualizarlos)
 5. Agregar RTC
 6. Actualizar formularios en dispositivo
+7. Especificar las respuestas de las solicitudes
+8. macAddres cambiar tipo de variable
+
