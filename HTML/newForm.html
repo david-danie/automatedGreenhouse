@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>HydroController Dashboard</title>
+    <!-- Tailwind is kept as per system instructions for styling, but configured to use system fonts -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <style>
+        /* System Sans-Serif Stack to replace Inter */
+        :root {
+            --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+
+        body {
+            font-family: var(--font-sans);
+            -webkit-tap-highlight-color: transparent;
+            min-height: max(884px, 100dvh);
+        }
+
+        /* Custom Toggle Switch */
+        .toggle-checkbox:checked+.toggle-label {
+            background-color: #3e6a00;
+        }
+
+        .toggle-checkbox:checked+.toggle-label .toggle-dot {
+            transform: translateX(100%);
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Custom Slider Styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 4px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -6px;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        #blueSpectrum::-webkit-slider-thumb {
+            background-color: rgb(59, 130, 246);
+        }
+
+        #redSpectrum::-webkit-slider-thumb {
+            background-color: rgb(239, 68, 68);
+        }
+
+        #whiteSpectrum::-webkit-slider-thumb {
+            background-color: white;
+            border: 2px solid black;
+        }
+
+        #blueSpectrum::-moz-range-thumb {
+            background-color: rgb(59, 130, 246);
+            border: 2px solid white;
+            border-radius: 50%;
+            height: 20px;
+            width: 20px;
+        }
+
+        #redSpectrum::-moz-range-thumb {
+            background-color: rgb(239, 68, 68);
+            border: 2px solid white;
+            border-radius: 50%;
+            height: 20px;
+            width: 20px;
+        }
+
+        #whiteSpectrum::-moz-range-thumb {
+            background-color: white;
+            border: 2px solid black;
+            border-radius: 50%;
+            height: 20px;
+            width: 20px;
+        }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#c7edbc",
+                        "tertiary-container": "#385833",
+                        "inverse-on-surface": "#eff2ed",
+                        "on-primary-fixed": "#002201",
+                        "primary-container": "#2d5a27",
+                        "surface-tint": "#3b6934",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#9dd090",
+                        "outline": "#72796e",
+                        "inverse-surface": "#2d312e",
+                        "surface-container": "#ecefea",
+                        "on-secondary-fixed": "#0f2000",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#a8cd9e",
+                        "outline-variant": "#c2c9bb",
+                        "on-tertiary": "#ffffff",
+                        "surface-dim": "#d8dbd6",
+                        "tertiary": "#21401e",
+                        "on-secondary-fixed-variant": "#2e4f00",
+                        "background": "#f7faf5",
+                        "error": "#ba1a1a",
+                        "surface": "#f7faf5",
+                        "primary-fixed-dim": "#a1d494",
+                        "on-secondary-container": "#437000",
+                        "on-surface-variant": "#42493e",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed": "#032104",
+                        "surface-container-high": "#e6e9e4",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#abd1a1",
+                        "surface-container-low": "#f1f4ef",
+                        "inverse-primary": "#a1d494",
+                        "surface-bright": "#f7faf5",
+                        "secondary-fixed-dim": "#9ed75b",
+                        "primary": "#154212",
+                        "on-tertiary-fixed-variant": "#2e4e2a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-background": "#191c1a",
+                        "surface-container-highest": "#e0e3df",
+                        "on-error-container": "#93000a",
+                        "secondary": "#3e6a00",
+                        "secondary-container": "#b9f474",
+                        "secondary-fixed": "#b9f474",
+                        "on-surface": "#191c1a",
+                        "primary-fixed": "#bcf0ae",
+                        "surface-variant": "#e0e3df",
+                        "on-primary-fixed-variant": "#23501e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "container-max": "1200px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "base": "8px",
+                        "gutter": "16px",
+                        "sm": "8px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["ui-sans-serif", "system-ui"],
+                        "label-caps": ["ui-sans-serif", "system-ui"],
+                        "headline-lg": ["ui-sans-serif", "system-ui"],
+                        "headline-lg-mobile": ["ui-sans-serif", "system-ui"],
+                        "headline-md": ["ui-sans-serif", "system-ui"],
+                        "display-reading": ["ui-sans-serif", "system-ui"],
+                        "body-lg": ["ui-sans-serif", "system-ui"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display-reading": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+
+<body class="bg-background text-on-background min-h-screen pb-24">
+    <!-- TopAppBar -->
+    <header
+        class="fixed top-0 w-full z-50 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-md h-16">
+        <div class="flex items-center gap-base">
+            <!-- Potted Plant SVG -->
+            <svg class="fill-primary dark:fill-primary-fixed-dim" height="24px" viewbox="0 -960 960 960" width="24px"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="M480-480q-46 0-77.5-31.5T371-589q0-38 23-69t60-44l26-178 26 178q37 13 60 44t23 69q0 46-31.5 77.5T480-480ZM200-80v-240h560v240H200Zm80-80h400v-80H280v80Z">
+                </path>
+            </svg>
+            <h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">
+                HydroController</h1>
+        </div>
+        <button class="hover:bg-surface-container-high p-2 rounded-full transition-colors active:scale-95 duration-100">
+            <!-- Logout SVG -->
+            <svg class="fill-on-surface-variant" height="24px" viewbox="0 -960 960 960" width="24px"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z">
+                </path>
+            </svg>
+        </button>
+    </header>
+    <main class="mt-20 px-md max-w-container-max mx-auto space-y-md">
+        <!-- General Category -->
+        <section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
+            <div class="flex items-center justify-between mb-md">
+                <div class="flex items-center gap-sm">
+                    <!-- Settings Power SVG -->
+                    <svg class="fill-primary" height="24px" viewbox="0 -960 960 960" width="24px"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M440-120v-240h80v240h-80Zm0-320v-400h80v400h-80ZM160-280q-33 0-56.5-23.5T80-360v-240q0-33 23.5-56.5T160-680h80v80h-80v240h80v80h-80Zm560 0v-80h80v-240h-80v-80h80q33 0 56.5 23.5T880-600v240q0-33-23.5-56.5T720-280h-80Z">
+                        </path>
+                    </svg>
+                    <h2 class="font-headline-md text-headline-md">General</h2>
+                </div>
+                <div class="relative inline-block w-12 h-6 transition duration-200 ease-in">
+                    <input checked=""
+                        class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-2 border-outline-variant appearance-none cursor-pointer z-10 checked:right-0 duration-200"
+                        id="systemEnable" name="systemEnable" type="checkbox" />
+                    <label
+                        class="toggle-label block overflow-hidden h-6 rounded-full bg-surface-container-highest cursor-pointer duration-200"
+                        for="systemEnable">
+                        <span
+                            class="toggle-dot block w-6 h-6 rounded-full bg-white shadow-md transform duration-200"></span>
+                    </label>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div class="space-y-sm">
+                    <label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Crop
+                        Progress</label>
+                    <div class="flex gap-base">
+                        <div class="flex-1">
+                            <label class="text-[10px] text-on-surface-variant font-bold">WEEK</label>
+                            <input
+                                class="w-full bg-surface-container border border-outline-variant rounded-lg p-base focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                                type="number" value="4" />
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-[10px] text-on-surface-variant font-bold">DAY</label>
+                            <input
+                                class="w-full bg-surface-container border border-outline-variant rounded-lg p-base focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                                type="number" value="3" />
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-sm">
+                    <label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Photoperiod</label>
+                    <div
+                        class="flex items-center gap-base bg-surface-container p-base rounded-lg border border-outline-variant">
+                        <input class="bg-transparent text-body-lg font-body-lg outline-none w-full" type="time"
+                            value="06:00" />
+                        <span class="text-on-surface-variant">to</span>
+                        <input class="bg-transparent text-body-lg font-body-lg outline-none w-full" type="time"
+                            value="22:00" />
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Lighting Category -->
+        <section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
+            <div class="flex items-center gap-sm mb-md">
+                <!-- Light Mode SVG -->
+                <svg class="fill-primary" height="24px" viewbox="0 -960 960 960" width="24px"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M480-360q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35Zm0 80q-83 0-141.5-58.5T280-480q0-83 58.5-141.5T480-680q83 0 141.5 58.5T680-480q0 83-58.5 141.5T480-280ZM480-800q-17 0-28.5-11.5T440-840v-40q0-17 11.5-28.5T480-920q17 0 28.5 11.5T520-880v40q0 17-11.5 28.5T480-800Zm0 720q-17 0-28.5-11.5T440-120v-40q0-17 11.5-28.5T480-200q17 0 28.5 11.5T520-160v40q0 17-11.5 28.5T480-80ZM200-706l-28-28q-12-12-12-28.5t12-28.5q12-12 28.5-12t28.5 12l28 28q12 12 12 28.5T257-706q-12 12-28.5 12t-28.5-12Zm532 534-28-28q-12-12-12-28.5t12-28.5q12-12 28.5-12t28.5 12l28 28q12 12 12 28.5T789-172q-12 12-28.5 12t-28.5-12ZM80-440q-17 0-28.5-11.5T40-480q0-17 11.5-28.5T80-520h40q17 0 28.5 11.5T160-480q0 17-11.5 28.5T120-440H80Zm720 0q-17 0-28.5-11.5T760-480q0-17 11.5-28.5T800-520h40q17 0 28.5 11.5T880-480q0 17-11.5 28.5T840-440h-40ZM200-254q-12-12-12-28.5t12-28.5l28-28q12-12 28.5-12t28.5 12q12 12 12 28.5T257-254l-28 28q-12 12-28.5 12t-28.5-12Zm532-534q-12-12-12-28.5t12-28.5l28-28q12-12 28.5-12t28.5 12q12 12 12 28.5T789-788l-28 28q-12 12-28.5 12t-28.5-12Z">
+                    </path>
+                </svg>
+                <h2 class="font-headline-md text-headline-md">Lighting Control</h2>
+            </div>
+            <div class="space-y-lg">
+                <div class="space-y-xs">
+                    <div class="flex justify-between items-center">
+                        <label class="font-label-caps text-label-caps text-on-surface-variant">BLUE SPECTRUM</label>
+                        <span class="text-primary font-bold">43%</span>
+                    </div>
+                    <input class="w-full h-2 rounded-full appearance-none cursor-pointer spectrum-slider"
+                        data-color="rgb(59, 130, 246)" id="blueSpectrum" max="100" min="0" type="range" value="43" />
+                </div>
+                <div class="space-y-xs">
+                    <div class="flex justify-between items-center">
+                        <label class="font-label-caps text-label-caps text-on-surface-variant">RED SPECTRUM</label>
+                        <span class="text-primary font-bold">38%</span>
+                    </div>
+                    <input class="w-full h-2 rounded-full appearance-none cursor-pointer spectrum-slider"
+                        data-color="rgb(239, 68, 68)" id="redSpectrum" max="100" min="0" type="range" value="38" />
+                </div>
+                <div class="space-y-xs">
+                    <div class="flex justify-between items-center">
+                        <label class="font-label-caps text-label-caps text-on-surface-variant">WHITE SPECTRUM</label>
+                        <span class="text-primary font-bold">38%</span>
+                    </div>
+                    <input class="w-full h-2 rounded-full appearance-none cursor-pointer spectrum-slider"
+                        data-color="white" id="whiteSpectrum" max="100" min="0" type="range" value="38" />
+                </div>
+            </div>
+        </section>
+        <!-- Irrigation Category -->
+        <section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
+            <div class="flex items-center gap-sm mb-md">
+                <!-- Water Drop SVG -->
+                <svg class="fill-primary" height="24px" viewbox="0 -960 960 960" width="24px"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M480-80q-125 0-212.5-87.5T180-380q0-54 18-105t52-95l230-300 230 300q34 44 52 95t18 105q0 125-87.5 212.5T480-80Zm0-120q29 0 54-12.5t41-33.5q16-21 16-47t-16-47q-16-21-41-33.5T480-386q-29 0-54 12.5T385-340q-16 21-16 47t16 47q16 21 41 33.5T480-200Z">
+                    </path>
+                </svg>
+                <h2 class="font-headline-md text-headline-md">Irrigation</h2>
+            </div>
+            <div class="grid grid-cols-2 gap-md">
+                <div class="space-y-xs">
+                    <label class="font-label-caps text-label-caps text-on-surface-variant uppercase">FRECUENCIA</label>
+                    <div
+                        class="flex items-center bg-surface-container rounded-lg px-base py-sm border border-outline-variant relative">
+                        <select
+                            class="bg-transparent w-full outline-none font-body-lg text-body-lg appearance-none z-10">
+                            <option value="FREQ_NONE">Ninguna</option>
+                            <option value="FREQ_ONCE_A_DAY">Una vez al día</option>
+                            <option value="FREQ_TWICE_A_DAY">Dos veces al día</option>
+                            <option value="FREQ_4X_PER_DAY">4 veces al día</option>
+                            <option value="FREQ_6X_PER_DAY">6 veces al día</option>
+                            <option value="FREQ_8X_PER_DAY">8 veces al día</option>
+                            <option value="FREQ_12X_PER_DAY">12 veces al día</option>
+                            <option value="FREQ_EVERY_HOUR">Cada hora</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Duration</label>
+                    <div
+                        class="flex items-center bg-surface-container rounded-lg px-base py-sm border border-outline-variant">
+                        <input class="bg-transparent w-full outline-none font-body-lg text-body-lg" type="number"
+                            value="45" />
+                        <span class="text-on-surface-variant font-label-caps text-label-caps">MIN</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Ventilation Category -->
+        <section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
+            <div class="flex items-center gap-sm mb-md">
+                <!-- Air SVG -->
+                <svg class="fill-primary" height="24px" viewbox="0 -960 960 960" width="24px"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M280-320q-50 0-85-35t-35-85q0-50 35-85t85-35q14 0 26.5 3t23.5 9l-43 43q-3 0-5-.5t-2-.5q-25 0-42.5 17.5T220-440q0 25 17.5 42.5T280-380q25 0 42.5-17.5T340-440v-10h80v10q0 58-41 99t-99 41Zm440-120q-33 0-56.5-23.5T640-520q0-33 23.5-56.5T720-600q13 0 24.5 4t20.5 11l-38 38q-3-1-7-1.5t-7-.5q-17 0-28.5 11.5T700-520q0 17 11.5 28.5T740-480q17 0 28.5-11.5T780-520v-5h80v5q0 66-47 113t-113 47ZM480-160q-100 0-170-70t-70-170q0-100 70-170t170-70q29 0 55.5 6.5T586-544l-57 57q-11-7-23.5-10t-25.5-3q-66 0-113 47t-47 113q0 66 47 113t113 47q66 0 113-47t47-113v-12l80-80v92q0 100-70 170t-170 70Z">
+                    </path>
+                </svg>
+                <h2 class="font-headline-md text-headline-md">Ventilation</h2>
+            </div>
+            <div class="grid grid-cols-2 gap-md">
+                <div class="space-y-xs">
+                    <label class="font-label-caps text-label-caps text-on-surface-variant uppercase">FRECUENCIA</label>
+                    <div
+                        class="flex items-center bg-surface-container rounded-lg px-base py-sm border border-outline-variant relative">
+                        <select
+                            class="bg-transparent w-full outline-none font-body-lg text-body-lg appearance-none z-10">
+                            <option value="FREQ_NONE">Ninguna</option>
+                            <option value="FREQ_ONCE_A_DAY">Una vez al día</option>
+                            <option value="FREQ_TWICE_A_DAY">Dos veces al día</option>
+                            <option value="FREQ_4X_PER_DAY">4 veces al día</option>
+                            <option value="FREQ_6X_PER_DAY">6 veces al día</option>
+                            <option value="FREQ_8X_PER_DAY">8 veces al día</option>
+                            <option value="FREQ_12X_PER_DAY">12 veces al día</option>
+                            <option value="FREQ_EVERY_HOUR">Cada hora</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-xs">
+                    <label class="font-label-caps text-label-caps text-on-surface-variant uppercase">Duration</label>
+                    <div
+                        class="flex items-center bg-surface-container rounded-lg px-base py-sm border border-outline-variant">
+                        <input class="bg-transparent w-full outline-none font-body-lg text-body-lg" type="number"
+                            value="180" />
+                        <span class="text-on-surface-variant font-label-caps text-label-caps">MIN</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <!-- BottomNavBar -->
+    <nav
+        class="fixed bottom-0 w-full z-50 bg-surface dark:bg-surface-dim border-t border-outline-variant dark:border-outline flex justify-around items-center h-20 px-base pb-safe">
+        <button
+            class="flex flex-col items-center justify-center bg-secondary-container dark:bg-secondary text-on-secondary-container dark:text-on-secondary rounded-full px-4 py-1 active:scale-90 transition-transform duration-150">
+            <!-- Dashboard SVG -->
+            <svg class="fill-current" height="24px" viewbox="0 -960 960 960" width="24px"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="M120-520v-320h320v320H120Zm0 400v-320h320v320H120Zm400-400v-320h320v320H520Zm0 400v-320h320v320H520Z">
+                </path>
+            </svg>
+            <span class="font-label-caps text-label-caps">Dashboard</span>
+        </button>
+        <button
+            class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container-low active:scale-90 transition-transform duration-150">
+            <!-- Calendar SVG -->
+            <svg class="fill-current" height="24px" viewbox="0 -960 960 960" width="24px"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="M200-80q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0-33-23.5-56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Z">
+                </path>
+            </svg>
+            <span class="font-label-caps text-label-caps">Schedule</span>
+        </button>
+        <button
+            class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container-low active:scale-90 transition-transform duration-150">
+            <!-- System SVG -->
+            <svg class="fill-current" height="24px" viewbox="0 -960 960 960" width="24px"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="M240-80v-240h80v240h-80Zm200-280v-240h80v240h-80Zm200-240v-240h80v240h-80ZM120-120v-80h80v80h-80Zm0-120v-80h80v80h-80Zm0-120v-80h80v80h-80Zm400 360v-80h80v80h-80Zm0-120v-80h80v80h-80Zm0-120v-80h80v80h-80Zm200 360v-80h80v80h-80Zm0-120v-80h80v80h-80Zm0-120v-80h80v80h-80Z">
+                </path>
+            </svg>
+            <span class="font-label-caps text-label-caps">System</span>
+        </button>
+        <button
+            class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:bg-surface-container-low active:scale-90 transition-transform duration-150">
+            <!-- Settings SVG -->
+            <svg class="fill-current" height="24px" viewbox="0 -960 960 960" width="24px"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5t1-13.5l-103-78 110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5t-1 13.5l103 78-110 190-119-50q-11 8-23 15t-24 12L590-80H370Zm110-280q42 0 71-29t29-71q0-42-29-71t-71-29q-42 0-71 29t-29 71q0 42 29 71t71 29Z">
+                </path>
+            </svg>
+            <span class="font-label-caps text-label-caps">Settings</span>
+        </button>
+    </nav>
+    <script>
+        function updateSliderTrack(slider) {
+            const val = slider.value;
+            const min = slider.min || 0;
+            const max = slider.max || 100;
+            const color = slider.dataset.color || '#3b6934';
+            const percent = (val - min) / (max - min) * 100;
+            slider.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percent}%, #ecefea ${percent}%, #ecefea 100%)`;
+            const label = slider.closest('.space-y-xs').querySelector('.font-bold');
+            if (label) label.textContent = `${val}%`;
+        }
+
+        const rangeInputs = document.querySelectorAll('.spectrum-slider');
+        rangeInputs.forEach(input => {
+            updateSliderTrack(input);
+            input.addEventListener('input', (e) => {
+                updateSliderTrack(e.target);
+            });
+        });
+
+        const sysToggle = document.getElementById('systemEnable');
+        sysToggle.addEventListener('change', (e) => {
+            // Functionality remains unchanged
+        });
+    </script>
+</body>
+
+</html>
