@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -67,13 +68,27 @@
         }
 
         @keyframes stepFromRight {
-            from { opacity: 0; transform: translateX(28px); }
-            to   { opacity: 1; transform: translateX(0); }
+            from {
+                opacity: 0;
+                transform: translateX(28px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
 
         @keyframes stepFromLeft {
-            from { opacity: 0; transform: translateX(-28px); }
-            to   { opacity: 1; transform: translateX(0); }
+            from {
+                opacity: 0;
+                transform: translateX(-28px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
 
         /* Stepper "1 · 2" */
@@ -99,10 +114,18 @@
 
         /* Respeta a quienes prefieren menos movimiento */
         @media (prefers-reduced-motion: reduce) {
-            #mainForm { transition: none; }
+            #mainForm {
+                transition: none;
+            }
+
             .step-enter-forward,
-            .step-enter-back { animation: none; }
-            .step-dot { transition: none; }
+            .step-enter-back {
+                animation: none;
+            }
+
+            .step-dot {
+                transition: none;
+            }
         }
 
         /* ========== HEADER ========== */
@@ -115,6 +138,36 @@
             font-size: 24px;
             font-weight: 500;
             margin-bottom: 8px;
+        }
+
+        /* ========== ENCABEZADOS DE SECCIÓN ========== */
+        /* Resaltan a qué se refiere cada grupo de campos (General, Iluminación, etc.). */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 22px 0 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #c8e6c9;
+            color: #2e7d32;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .section-header:first-child {
+            margin-top: 0;
+        }
+
+        /* Toggle "Sistema activo" alineado a la derecha del encabezado (como params2). */
+        .section-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 400;
+            color: #388e3c;
+            cursor: pointer;
         }
 
         /* ========== FORM ========== */
@@ -181,6 +234,21 @@
             font-size: 14px;
             border-radius: 6px;
             border: 1px solid #c8e6c9;
+            color: #383838;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        /* Mantén el fondo blanco también cuando los campos están deshabilitados
+           (modo vista), para que inputs y selects se vean idénticos.
+           Se excluyen los sliders (range), que deben quedar transparentes. */
+        .form-group input[type="text"]:disabled,
+        .form-group input[type="number"]:disabled,
+        .form-group input[type="password"]:disabled,
+        select:disabled {
+            background: white;
+            opacity: 1;
+            -webkit-text-fill-color: #383838;
         }
 
         /* ========== SLIDERS UNIVERSALES ========== */
@@ -418,6 +486,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="form-card" id="form-card">
         <div class="form-header">
@@ -430,21 +499,33 @@
 
         <form id="mainForm">
             <div id="stepParams">
+                <div class="section-header">
+                    <span>General</span>
+                    <label class="section-toggle" for="enable">
+                        Sistema activo
+                        <input type="checkbox" id="enable" name="enable">
+                    </label>
+                </div>
+
                 <div class="form-group">
-                    <label for="planta">Planta</label>
+                    <label for="planta">Nombre de la planta</label>
                     <input type="text" name="planta" autocomplete="off" id="planta" required>
                 </div>
 
                 <div class="form-group2">
                     <div class="form-group">
-                        <label for="enable">Sistema activo:</label>
-                        <input type="checkbox" id="enable" name="enable">
+                        <label for="fpOn">Prendido (h)</label>
+                        <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="fp">Fotoperiodo (h):</label>
-                        <input type="number" id="fp" name="fp" min="0" max="23" step="1" required>
+                        <label for="fpOff">Apagado (h)</label>
+                        <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
                     </div>
+                </div>
+
+                <div class="section-header">
+                    <span>Iluminación</span>
                 </div>
 
                 <div class="form-group">
@@ -471,9 +552,13 @@
                     </div>
                 </div>
 
+                <div class="section-header">
+                    <span>Riego</span>
+                </div>
+
                 <div class="form-group2">
                     <div class="form-group">
-                        <label for="irrH">Riego</label>
+                        <label for="irrH">Frecuencia</label>
                         <div class="select-container">
                             <select id="irrH" name="irrH" required>
                                 <option value="0">0 veces al día</option>
@@ -488,14 +573,18 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="irrM">minutos</label>
+                        <label for="irrM">Minutos</label>
                         <input type="number" name="irrM" required id="irrM" min="0" max="59" step="1">
                     </div>
                 </div>
 
+                <div class="section-header">
+                    <span>Ventilación</span>
+                </div>
+
                 <div class="form-group2">
                     <div class="form-group">
-                        <label for="ventH">Ventilación</label>
+                        <label for="ventH">Frecuencia</label>
                         <div class="select-container">
                             <select id="ventH" name="ventH" required>
                                 <option value="0">0 veces al día</option>
@@ -510,14 +599,14 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="ventM">minutos</label>
+                        <label for="ventM">Minutos</label>
                         <input type="number" name="ventM" required id="ventM" min="0" max="59" step="1">
                     </div>
                 </div>
 
                 <div class="buttons" id="paramsButtonsView">
                     <button type="button" class="btn-primary" id="btnEdit">Editar parámetros</button>
-                    <button type="button" class="btn-secondary" id="btnExit" onclick="window.location.href='/exit'">Salir</button>
+                    <button type="button" class="btn-secondary" id="btnExit">Salir</button>
                 </div>
                 <div class="buttons" id="paramsButtonsEdit" style="display:none;">
                     <button type="submit" class="btn-primary">Actualizar</button>
@@ -535,7 +624,8 @@
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
                         <input type="password" id="password" name="pass" autocomplete="new-password" required>
-                        <button type="button" class="toggle-password" onclick="togglePassword()" id="toggleBtn" aria-label="Mostrar contraseña">👁</button>
+                        <button type="button" class="toggle-password" onclick="togglePassword()" id="toggleBtn"
+                            aria-label="Mostrar contraseña">👁</button>
                     </div>
                 </div>
 
@@ -555,6 +645,7 @@
         var valoresESP32 = {
             dispositivoActivo: "",
             fotoperiodo: "",
+            fotoperiodoApagado: "",
             luzAzul: "",
             luzRoja: "",
             luzBlanca: "",
@@ -566,7 +657,8 @@
 
         function actualizarFormulario() {
             document.getElementById('enable').checked = valoresESP32.dispositivoActivo === true || valoresESP32.dispositivoActivo === "true";
-            document.getElementById('fp').value = valoresESP32.fotoperiodo;
+            document.getElementById('fpOn').value = valoresESP32.fotoperiodo;
+            document.getElementById('fpOff').value = valoresESP32.fotoperiodoApagado;
             document.getElementById('ledA').value = valoresESP32.luzAzul;
             document.getElementById('luzAzulValue').innerText = `${valoresESP32.luzAzul}%`;
             document.getElementById('ledR').value = valoresESP32.luzRoja;
@@ -577,7 +669,7 @@
             document.getElementById('irrM').value = valoresESP32.minutosIrrigacion;
             document.getElementById('ventH').value = valoresESP32.horasVentilador;
             document.getElementById('ventM').value = valoresESP32.minutosVentilador;
-            
+
             // Actualizar barras de progreso
             updateSliderProgress('ledA', 'progressA');
             updateSliderProgress('ledR', 'progressR');
@@ -593,6 +685,7 @@
         const stepParams = document.getElementById("stepParams");
         const stepAuth = document.getElementById("stepAuth");
         const btnEdit = document.getElementById("btnEdit");
+        const btnExit = document.getElementById("btnExit");
         const btnCancel = document.getElementById("btnCancel");
         const btnBack = document.getElementById("btnBack");
         const btnAuthContinue = document.getElementById("btnAuthContinue");
@@ -715,6 +808,11 @@
             cambiarPaso(stepParams, stepAuth, "forward");
         });
 
+        // Salir de la pantalla.
+        btnExit.addEventListener("click", () => {
+            window.location.href = "/exit";
+        });
+
         // Credenciales → solo lectura (cancelar el ingreso)
         btnBack.addEventListener("click", () => {
             setEstado("view");
@@ -790,7 +888,7 @@
             const data = {};
 
             formData.forEach((value, key) => {
-                if (key === 'fp' || key === 'irrH' || key === 'irrM' ||
+                if (key === 'fpOn' || key === 'fpOff' || key === 'irrH' || key === 'irrM' ||
                     key === 'ventH' || key === 'ventM' ||
                     key === 'ledA' || key === 'ledR' || key === 'ledB')
                     data[key] = Number(value.trim())
@@ -817,29 +915,30 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
             })
-            .then(async (res) => {
-                const json = await res.json();
-                const container = document.getElementById("form-card");
+                .then(async (res) => {
+                    const json = await res.json();
+                    const container = document.getElementById("form-card");
 
-                const div = document.createElement("div");
-                if (res.ok && json.status) {
-                    div.className = "mensaje-ok";
-                    div.textContent = json.message;
-                } else {
-                    div.className = "mensaje-error";
-                    div.textContent = json.message || "Error desconocido";
-                }
-                container.innerHTML = "";
-                container.appendChild(div);
-            }).catch(() => {
-                document.getElementById("form-card").innerHTML = `<div class="mensaje-error">Error de comunicación con el dispositivo</div>`;
-            });
+                    const div = document.createElement("div");
+                    if (res.ok && json.status) {
+                        div.className = "mensaje-ok";
+                        div.textContent = json.message;
+                    } else {
+                        div.className = "mensaje-error";
+                        div.textContent = json.message || "Error desconocido";
+                    }
+                    container.innerHTML = "";
+                    container.appendChild(div);
+                }).catch(() => {
+                    document.getElementById("form-card").innerHTML = `<div class="mensaje-error">Error de comunicación con el dispositivo</div>`;
+                });
         });
 
         function validarParametros() {
             errores = [];
             const planta = document.getElementById("planta").value.trim();
-            const fpInput = document.getElementById("fp").value.trim();
+            const fpOnInput = document.getElementById("fpOn").value.trim();
+            const fpOffInput = document.getElementById("fpOff").value.trim();
             const irrMinInput = document.getElementById("irrM").value.trim();
             const ventMinInput = document.getElementById("ventM").value.trim();
             const irrHInput = document.getElementById("irrH").value.trim();
@@ -862,11 +961,26 @@
                     errores.push("La planta no puede ser solo números");
             }
 
-            // --- Fotoperiodo ---
-            if (fpInput === "" || !isStrictInteger(fpInput)) {
-                errores.push("El campo fotoperiodo es obligatorio, numérico y sin decimales");
-            } else if (Number(fpInput) < 0 || Number(fpInput) > 23) {
-                errores.push("El fotoperiodo debe ser un valor entre 0 y 23 horas");
+            // --- Fotoperiodo: hora de prendido ---
+            if (fpOnInput === "" || !isStrictInteger(fpOnInput)) {
+                errores.push("La hora de prendido es obligatoria, numérica y sin decimales");
+            } else if (Number(fpOnInput) < 0 || Number(fpOnInput) > 23) {
+                errores.push("La hora de prendido debe ser un valor entre 0 y 23 horas");
+            }
+
+            // --- Fotoperiodo: hora de apagado ---
+            if (fpOffInput === "" || !isStrictInteger(fpOffInput)) {
+                errores.push("La hora de apagado es obligatoria, numérica y sin decimales");
+            } else if (Number(fpOffInput) < 0 || Number(fpOffInput) > 23) {
+                errores.push("La hora de apagado debe ser un valor entre 0 y 23 horas");
+            }
+
+            // --- Fotoperiodo: prendido y apagado no pueden ser la misma hora
+            //     (sería ambiguo: 0 h o 24 h de luz). El ciclo sí puede cruzar
+            //     medianoche, así que no se exige prendido < apagado. ---
+            if (isStrictInteger(fpOnInput) && isStrictInteger(fpOffInput) &&
+                Number(fpOnInput) === Number(fpOffInput)) {
+                errores.push("La hora de prendido y apagado no pueden ser iguales");
             }
 
             // --- Riego: minutos ---
@@ -911,8 +1025,8 @@
                 errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+-=.,)");
             if (user.length < 4 || user.length > 32)
                 errores.push("El usuario debe tener entre 4 y 32 caracteres.");
-            if (pass.length < 8 || pass.length > 64)
-                errores.push("La contraseña debe tener entre 8 y 64 caracteres.");
+            if (pass.length < 4 || pass.length > 64)
+                errores.push("La contraseña debe tener entre 4 y 64 caracteres.");
             if (repetidosRegex.test(user))
                 errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
             if (repetidosRegex.test(pass))
@@ -925,17 +1039,17 @@
         function updateSliderProgress(sliderId, progressId) {
             const slider = document.getElementById(sliderId);
             const progress = document.getElementById(progressId);
-            
+
             if (!slider || !progress) return;
-            
+
             const percent = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
-            
+
             // Crear el gradiente según el slider
             let color;
             if (sliderId === 'ledA') color = '#2196F3';
             else if (sliderId === 'ledR') color = '#f44336';
             else if (sliderId === 'ledB') color = '#ffffff';
-            
+
             if (sliderId === 'ledB') {
                 // Solo la parte llena lleva borde; el resto lo muestra el riel gris del contenedor
                 progress.style.background = color;
@@ -966,4 +1080,5 @@
         updateLampValue('ledB', 'luzBlancaValue', 'progressB');
     </script>
 </body>
+
 </html>
