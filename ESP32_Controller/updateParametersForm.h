@@ -1,3 +1,4 @@
+static const char updateParametersForm[] = R"===(
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -468,21 +469,12 @@
     </div>
 
     <script>
-        var valoresESP32 = {
-            plantName : "",
-            dispositivoActivo: "",
-            fotoperiodo: "",
-            luzAzul: "",
-            luzRoja: "",
-            luzBlanca: "",
-            horasIrrigacion: "",
-            minutosIrrigacion: "",
-            horasVentilador: "",
-            minutosVentilador: "",
-        }
+        var valoresESP32 = 
+)===";
 
+static const char updateParametersForm2[] = R"===(
         function actualizarFormulario() {
-            document.getElementById('planta').checked = valoresESP32.plantName;
+            //document.getElementById('planta').value = valoresESP32.plantName;
             document.getElementById('enable').checked = valoresESP32.dispositivoActivo;
             document.getElementById('fp').value = valoresESP32.fotoperiodo;
             document.getElementById('ledA').value = valoresESP32.luzAzul;
@@ -643,8 +635,8 @@
                 errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+\-=.,)");
             if (user.length < 4 || user.length > 31)
                 errores.push("El usuario debe tener entre 4 y 32 caracteres.");
-            if (pass.length < 4 || pass.length > 63)
-                errores.push("La contraseña debe tener entre 4 y 64 caracteres.");
+            if (pass.length < 8 || pass.length > 63)
+                errores.push("La contraseña debe tener entre 8 y 64 caracteres.");
             if (repetidosRegex.test(user))
                 errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
             if (repetidosRegex.test(pass))
@@ -697,3 +689,4 @@
     </script>
 </body>
 </html>
+)===";
