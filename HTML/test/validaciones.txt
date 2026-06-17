@@ -1,0 +1,165 @@
+    // NOTA: estas dos constantes son nuevas y deben agregarse al enum de
+    // errores (paridad con las validaciones extra del formulario para la planta):
+    //   PLANTNAME_REPEATED_SPACES   -> espacios dobles en el nombre
+    //   PLANTNAME_ONLY_DIGITS       -> nombre formado solo por dígitos
+
+        if (!doc.containsKey("user") || !doc.containsKey("pass")) { // Los campos no llegan
+        return MISSING_CREDENTIALS;
+    }
+
+    String username = doc["user"] | "";
+    username.trim();
+    String userpass = doc["pass"] | "";
+    userpass.trim();
+
+
+    // ---- 3. Validación de longitud ----
+    // Se cuenta por caracteres (utf8Len), no por bytes, para que los límites
+    // coincidan con los del formulario aunque haya acentos/ñ.
+    if (utf8Len(username) < 4 || utf8Len(username) > 32) //4-32
+      return INVALID_USERNAME_LENGTH;
+    if (utf8Len(userpass) < 8 || utf8Len(userpass) > 64) //8-64
+      return INVALID_USERPASS_LENGTH;
+
+    // ---- 4. Validación de caracteres permitidos ----
+    if (!isValidReadableString(username, false))
+      return INVALID_USERNAME_CHARS;
+    if (!isValidReadableString(userpass, false))
+      return INVALID_USERPASS_CHARS;
+
+    // ---- 5. Validación de repetidos ----
+    if (hasTooManyRepeatedChars(username))
+      return USERNAME_REPEATED_CHARS;
+    if (hasTooManyRepeatedChars(userpass))
+      return USERPASS_REPEATED_CHARS;
+
+
+  String plantNameBuff = doc["planta"] | "";
+  plantNameBuff.trim();
+  // Longitud 3-20 caracteres (igual que el formulario), contando por caracteres.
+  if (utf8Len(plantNameBuff) < 3 || utf8Len(plantNameBuff) > 20)
+    return INVALID_PLANTNAME_LENGTH;
+  if (!isValidReadableString(plantNameBuff, true))
+      return INVALID_PLANTNAME_CHARS;
+  // Extras de paridad con el formulario:
+  if (hasConsecutiveSpaces(plantNameBuff))   // equivale a /\s{2,}/ del form
+    return PLANTNAME_REPEATED_SPACES;
+  if (isAllDigits(plantNameBuff))            // equivale a /^\d+$/ del form
+    return PLANTNAME_ONLY_DIGITS;
+  if (hasTooManyRepeatedChars(plantNameBuff))
+    return PLANTNAME_REPEATED_CHARS;
+  strlcpy(_plantName, plantNameBuff.c_str(), sizeof(_plantName));
+
+
+// Cuenta caracteres (code points) en una cadena UTF-8, ignorando los bytes
+// de continuación (10xxxxxx). Así "Jalapeño" cuenta 8 y no 9, y los límites
+// de longitud coinciden con los del formulario (String.length de JS).
+int utf8Len(const String& s) {
+  int count = 0;
+  for (int i = 0; i < s.length(); i++) {
+    if (((unsigned char)s[i] & 0xC0) != 0x80) count++;
+  }
+  return count;
+}
+
+// ¿Hay dos o más espacios consecutivos? Equivale a /\s{2,}/ del formulario
+// (los demás caracteres de espacio ya los rechaza isValidReadableString).
+bool hasConsecutiveSpaces(const String& s) {
+  for (int i = 1; i < s.length(); i++) {
+    if (s[i] == ' ' && s[i - 1] == ' ') return true;
+  }
+  return false;
+}
+
+// ¿La cadena está formada únicamente por dígitos? Equivale a /^\d+$/ del
+// formulario (cadena vacía cuenta como "no solo dígitos").
+bool isAllDigits(const String& s) {
+  if (s.length() == 0) return false;
+  for (int i = 0; i < s.length(); i++) {
+    if (!isdigit((unsigned char)s[i])) return false;
+  }
+  return true;
+}
+
+// Vocales acentuadas y ñ/Ñ del español en UTF-8: secuencias de 2 bytes cuyo
+// primer byte (lead) es 0xC3. Devuelve true si (lead, cont) forman una de
+// esas letras: á é í ó ú ü Á É Í Ó Ú Ü ñ Ñ.
+bool isSpanishAccentUtf8(unsigned char lead, unsigned char cont) {
+  if (lead != 0xC3) return false;
+  switch (cont) {
+    case 0xA1: case 0xA9: case 0xAD: case 0xB3: case 0xBA: case 0xBC: // á é í ó ú ü
+    case 0x81: case 0x89: case 0x8D: case 0x93: case 0x9A: case 0x9C: // Á É Í Ó Ú Ü
+    case 0xB1: case 0x91:                                             // ñ Ñ
+      return true;
+  }
+  return false;
+}
+
+bool isValidReadableString(const String& s, bool allowSpaces) {
+  int n = s.length();
+  for (int i = 0; i < n; i++) {
+    unsigned char c = (unsigned char)s[i];
+
+    if (isalnum(c)) continue; // alfanumérico ASCII
+
+    if (c == '_' || c == '-' || c == '.' || c == '@' ||
+        c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
+        c == '*' || c == '?' || c == '+' || c == '=')
+      continue;
+
+    if (allowSpaces && c == ' ') continue;
+
+    // Vocal acentuada o ñ/Ñ (UTF-8, 2 bytes): se aceptan ambos bytes.
+    if (i + 1 < n && isSpanishAccentUtf8(c, (unsigned char)s[i + 1])) {
+      i++; // consume el segundo byte de la secuencia
+      continue;
+    }
+
+    return false;
+  }
+  return true;
+}
+
+// Longitud en bytes del carácter UTF-8 que empieza con el byte c.
+int utf8CharLen(unsigned char c) {
+  if (c < 0x80) return 1;            // 0xxxxxxx (ASCII)
+  if ((c & 0xE0) == 0xC0) return 2;  // 110xxxxx
+  if ((c & 0xF0) == 0xE0) return 3;  // 1110xxxx
+  if ((c & 0xF8) == 0xF0) return 4;  // 11110xxx
+  return 1;                          // byte inválido: avanza 1 para no atascarse
+}
+
+// Rechaza 4 o más caracteres idénticos consecutivos, comparando por carácter
+// UTF-8 completo (no byte a byte), para que repetidos acentuados como "ññññ"
+// o "áááá" se detecten igual que en el formulario.
+bool hasTooManyRepeatedChars(const String& s) {
+  int n = s.length();
+  int count = 1;
+  int prevStart = 0;
+  int prevLen = 0; // 0 = aún no hay carácter previo
+
+  for (int i = 0; i < n; ) {
+    int len = utf8CharLen((unsigned char)s[i]);
+    if (i + len > n) len = n - i; // secuencia truncada al final
+
+    bool same = false;
+    if (prevLen == len) {
+      same = true;
+      for (int k = 0; k < len; k++) {
+        if (s[prevStart + k] != s[i + k]) { same = false; break; }
+      }
+    }
+
+    if (same) {
+      count++;
+      if (count > 3) return true;
+    } else {
+      count = 1;
+    }
+
+    prevStart = i;
+    prevLen = len;
+    i += len;
+  }
+  return false;
+}

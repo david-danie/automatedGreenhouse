@@ -148,8 +148,6 @@
             justify-content: space-between;
             gap: 8px;
             margin: 22px 0 12px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #c8e6c9;
             color: #2e7d32;
             font-size: 15px;
             font-weight: 600;
@@ -186,6 +184,14 @@
             justify-content: space-between;
             flex-direction: row;
             gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        /* Los campos dentro de una fila doble no llevan su propio margen inferior:
+           el espaciado lo aporta .form-group2, para que todas las filas (simples
+           o dobles) queden separadas de forma uniforme. */
+        .form-group2 .form-group {
+            margin-bottom: 0;
         }
 
         .form-group label {
@@ -237,18 +243,6 @@
             color: #383838;
             background: white;
             transition: all 0.3s ease;
-        }
-
-        /* Mantén el fondo blanco también cuando los campos están deshabilitados
-           (modo vista), para que inputs y selects se vean idénticos.
-           Se excluyen los sliders (range), que deben quedar transparentes. */
-        .form-group input[type="text"]:disabled,
-        .form-group input[type="number"]:disabled,
-        .form-group input[type="password"]:disabled,
-        select:disabled {
-            background: white;
-            opacity: 1;
-            -webkit-text-fill-color: #383838;
         }
 
         /* ========== SLIDERS UNIVERSALES ========== */
@@ -450,6 +444,201 @@
             color: #c62828;
         }
 
+        /* ========== DASHBOARD (modo vista) ========== */
+        /* Presenta los datos del dispositivo como tarjetas en vez de un form
+           deshabilitado: escala mejor conforme se agreguen más parámetros. */
+        .dash-hero {
+            background: linear-gradient(135deg, #4caf50, #66bb6a);
+            border-radius: 12px;
+            padding: 18px 20px;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .dash-hero-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .dash-plant {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        /* Píldora de estado (Activo / Inactivo) con punto indicador. */
+        .dash-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.22);
+            white-space: nowrap;
+        }
+
+        .dash-status::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        .dash-status.is-off {
+            opacity: 0.85;
+        }
+
+        .dash-status.is-off::before {
+            background: #ffcdd2;
+        }
+
+        /* Semana / Día del ciclo del cultivo. */
+        .dash-cycle {
+            display: flex;
+            gap: 12px;
+        }
+
+        .dash-cycle-item {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .dash-cycle-num {
+            display: block;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .dash-cycle-lbl {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            opacity: 0.9;
+        }
+
+        .dash-section {
+            margin-bottom: 18px;
+        }
+
+        .dash-section-title {
+            color: #2e7d32;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .dash-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        /* Las dos tarjetas del fotoperiodo (horas + espectros) se apilan. */
+        .dash-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Tarjeta de horas: Prendido | Apagado dentro de una sola card. */
+        .dash-duo {
+            display: flex;
+            align-items: center;
+        }
+
+        .dash-duo-item {
+            flex: 1;
+        }
+
+        .dash-duo-sep {
+            align-self: stretch;
+            width: 1px;
+            background: #c8e6c9;
+            margin: 0 12px;
+        }
+
+        /* Tarjeta de espectros: 3 columnas (azul, rojo, blanco), cada una con
+           su punto de color, porcentaje y etiqueta. */
+        .dash-spectrum-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            text-align: center;
+        }
+
+        .dash-spectrum-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Punto de color a la izquierda del porcentaje, en la misma línea. */
+        .dash-spectrum-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dash-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        /* El punto blanco necesita borde para verse sobre el fondo claro. */
+        .dash-dot.is-white {
+            border: 1px solid #9e9e9e;
+        }
+
+        .dash-spectrum-val {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2e3a2e;
+        }
+
+        .dash-spectrum-col .dash-stat-label {
+            margin-bottom: 0;
+        }
+
+        /* Mismos border-radius/borde que los inputs del form para mantener
+           la coherencia visual entre el modo vista y el modo edición. */
+        .dash-stat {
+            background: #f1f8e9;
+            border: 1px solid #c8e6c9;
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .dash-stat-label {
+            font-size: 11px;
+            color: #689f38;
+            margin-bottom: 4px;
+        }
+
+        .dash-stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2e3a2e;
+        }
+
+        .dash-stat-value small {
+            font-size: 12px;
+            font-weight: 500;
+            color: #7a8a7a;
+        }
+
         /* ========== RESPONSIVE ========== */
         @media (max-width: 480px) {
             .form-card {
@@ -498,7 +687,103 @@
         </div>
 
         <form id="mainForm">
-            <div id="stepParams">
+            <div id="dashboard">
+                <div class="dash-hero">
+                    <div class="dash-hero-top">
+                        <span class="dash-plant" id="dashPlanta">—</span>
+                        <span class="dash-status" id="dashStatus">—</span>
+                    </div>
+                    <div class="dash-cycle">
+                        <div class="dash-cycle-item">
+                            <span class="dash-cycle-num" id="dashSemana">—</span>
+                            <span class="dash-cycle-lbl">Semana</span>
+                        </div>
+                        <div class="dash-cycle-item">
+                            <span class="dash-cycle-num" id="dashDia">—</span>
+                            <span class="dash-cycle-lbl">Día</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dash-section">
+                    <div class="dash-section-title">Fotoperiodo</div>
+                    <div class="dash-stack">
+                        <div class="dash-stat">
+                            <div class="dash-duo">
+                                <div class="dash-duo-item">
+                                    <div class="dash-stat-label">Prendido</div>
+                                    <div class="dash-stat-value"><span id="dashFpOn">—</span> <small>h</small></div>
+                                </div>
+                                <div class="dash-duo-sep"></div>
+                                <div class="dash-duo-item">
+                                    <div class="dash-stat-label">Apagado</div>
+                                    <div class="dash-stat-value"><span id="dashFpOff">—</span> <small>h</small></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dash-stat">
+                            <div class="dash-spectrum-grid">
+                                <div class="dash-spectrum-col">
+                                    <div class="dash-spectrum-top">
+                                        <span class="dash-dot" style="background:#2196F3"></span>
+                                        <span class="dash-spectrum-val" id="dashLedA">—</span>
+                                    </div>
+                                    <span class="dash-stat-label">Espectro Azul</span>
+                                </div>
+                                <div class="dash-spectrum-col">
+                                    <div class="dash-spectrum-top">
+                                        <span class="dash-dot" style="background:#f44336"></span>
+                                        <span class="dash-spectrum-val" id="dashLedR">—</span>
+                                    </div>
+                                    <span class="dash-stat-label">Espectro Rojo</span>
+                                </div>
+                                <div class="dash-spectrum-col">
+                                    <div class="dash-spectrum-top">
+                                        <span class="dash-dot is-white" style="background:#ffffff"></span>
+                                        <span class="dash-spectrum-val" id="dashLedB">—</span>
+                                    </div>
+                                    <span class="dash-stat-label">Espectro Blanco</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dash-section">
+                    <div class="dash-section-title">Riego</div>
+                    <div class="dash-grid">
+                        <div class="dash-stat">
+                            <div class="dash-stat-label">Frecuencia</div>
+                            <div class="dash-stat-value" id="dashIrrH">—</div>
+                        </div>
+                        <div class="dash-stat">
+                            <div class="dash-stat-label">Duración</div>
+                            <div class="dash-stat-value"><span id="dashIrrM">—</span> <small>min</small></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dash-section">
+                    <div class="dash-section-title">Ventilación</div>
+                    <div class="dash-grid">
+                        <div class="dash-stat">
+                            <div class="dash-stat-label">Frecuencia</div>
+                            <div class="dash-stat-value" id="dashVentH">—</div>
+                        </div>
+                        <div class="dash-stat">
+                            <div class="dash-stat-label">Duración</div>
+                            <div class="dash-stat-value"><span id="dashVentM">—</span> <small>min</small></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="buttons">
+                    <button type="button" class="btn-primary" id="btnEdit">Editar parámetros</button>
+                    <button type="button" class="btn-secondary" id="btnExit">Salir</button>
+                </div>
+            </div>
+
+            <div id="stepParams" style="display:none;">
                 <div class="section-header">
                     <span>General</span>
                     <label class="section-toggle" for="enable">
@@ -509,7 +794,11 @@
 
                 <div class="form-group">
                     <label for="planta">Nombre de la planta</label>
-                    <input type="text" name="planta" autocomplete="off" id="planta" required>
+                    <input type="text" name="planta" autocomplete="off" id="planta" maxlength="20" required>
+                </div>
+
+                <div class="section-header">
+                    <span>Fotoperiodo</span>
                 </div>
 
                 <div class="form-group2">
@@ -522,10 +811,6 @@
                         <label for="fpOff">Apagado (h)</label>
                         <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
                     </div>
-                </div>
-
-                <div class="section-header">
-                    <span>Iluminación</span>
                 </div>
 
                 <div class="form-group">
@@ -604,11 +889,7 @@
                     </div>
                 </div>
 
-                <div class="buttons" id="paramsButtonsView">
-                    <button type="button" class="btn-primary" id="btnEdit">Editar parámetros</button>
-                    <button type="button" class="btn-secondary" id="btnExit">Salir</button>
-                </div>
-                <div class="buttons" id="paramsButtonsEdit" style="display:none;">
+                <div class="buttons">
                     <button type="submit" class="btn-primary">Actualizar</button>
                     <button type="button" class="btn-secondary" id="btnCancel">Cancelar</button>
                 </div>
@@ -617,13 +898,13 @@
             <div id="stepAuth" style="display:none;">
                 <div class="form-group">
                     <label for="user">Usuario</label>
-                    <input type="text" name="user" id="user" autocomplete="off" required>
+                    <input type="text" name="user" id="user" autocomplete="off" maxlength="32" required>
                 </div>
 
                 <div class="form-group">
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="pass" autocomplete="new-password" required>
+                        <input type="password" id="password" name="pass" autocomplete="new-password" maxlength="64" required>
                         <button type="button" class="toggle-password" onclick="togglePassword()" id="toggleBtn"
                             aria-label="Mostrar contraseña">👁</button>
                     </div>
@@ -642,20 +923,98 @@
     </div>
 
     <script>
+        // Endpoint del ESP32 que devuelve los parámetros actuales (GET → JSON).
+        // Es la contraparte de lectura de /newparams (escritura). Si el firmware
+        // expone otra ruta, cámbiala aquí.
+        const PARAMS_ENDPOINT = "/getparams";
+
+        // Valores que reporta el dispositivo. semana/dia = avance del ciclo del
+        // cultivo (no es la fecha del reloj que se envía en /newparams).
+        // Estos valores son solo un respaldo: si /getparams no responde, el
+        // dashboard se sigue pudiendo visualizar sin backend.
         var valoresESP32 = {
-            dispositivoActivo: "",
-            fotoperiodo: "",
-            fotoperiodoApagado: "",
-            luzAzul: "",
-            luzRoja: "",
-            luzBlanca: "",
-            horasIrrigacion: "",
-            minutosIrrigacion: "",
-            horasVentilador: "",
-            minutosVentilador: "",
+            nombrePlanta: "Albahaca",
+            dispositivoActivo: true,
+            fotoperiodo: 18,
+            fotoperiodoApagado: 6,
+            luzAzul: 70,
+            luzRoja: 45,
+            luzBlanca: 30,
+            horasIrrigacion: 3,
+            minutosIrrigacion: 15,
+            horasVentilador: 4,
+            minutosVentilador: 20,
+            semana: 4,
+            dia: 26,
+        }
+
+        // Etiquetas legibles para los selects de frecuencia (valor → texto).
+        const FREQ_LABELS = {
+            0: "0 ×/día", 1: "1 ×/día", 2: "2 ×/día", 3: "4 ×/día",
+            4: "8 ×/día", 5: "12 ×/día", 6: "24 ×/día"
+        };
+
+        // Mapa de las claves internas de valoresESP32 a los alias que puede
+        // mandar el dispositivo. La primera coincidencia presente en el JSON
+        // gana. Se aceptan tanto las claves de /newparams (planta, fpOn, ledA…)
+        // como los nombres internos, por si el firmware cambia de esquema.
+        const PARAM_ALIASES = {
+            nombrePlanta: ["planta", "nombrePlanta"],
+            dispositivoActivo: ["enable", "dispositivoActivo"],
+            fotoperiodo: ["fpOn", "fotoperiodo"],
+            fotoperiodoApagado: ["fpOff", "fotoperiodoApagado"],
+            luzAzul: ["ledA", "luzAzul"],
+            luzRoja: ["ledR", "luzRoja"],
+            luzBlanca: ["ledB", "luzBlanca"],
+            horasIrrigacion: ["irrH", "horasIrrigacion"],
+            minutosIrrigacion: ["irrM", "minutosIrrigacion"],
+            horasVentilador: ["ventH", "horasVentilador"],
+            minutosVentilador: ["ventM", "minutosVentilador"],
+            semana: ["semana"],
+            dia: ["dia"],
+        };
+
+        // Vuelca un JSON crudo del dispositivo sobre valoresESP32, tomando solo
+        // las claves presentes (las ausentes conservan su valor de respaldo).
+        function aplicarValoresDispositivo(json) {
+            if (!json || typeof json !== "object") return;
+            for (const [interna, alias] of Object.entries(PARAM_ALIASES)) {
+                const clave = alias.find((k) => json[k] !== undefined && json[k] !== null);
+                if (clave === undefined) continue;
+                valoresESP32[interna] = json[clave];
+            }
+        }
+
+        // Lee los parámetros actuales del ESP32 y los vuelca en valoresESP32.
+        // Devuelve true si la lectura fue exitosa; si falla, conserva los valores
+        // previos (respaldo) y avisa en consola, sin romper la pantalla.
+        async function obtenerValoresDispositivo() {
+            try {
+                const res = await fetch(PARAMS_ENDPOINT, {
+                    headers: { "Accept": "application/json" }
+                });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                aplicarValoresDispositivo(await res.json());
+                return true;
+            } catch (e) {
+                console.warn(
+                    "No se pudieron cargar los parámetros del dispositivo; " +
+                    "se usan los valores de respaldo.", e
+                );
+                return false;
+            }
+        }
+
+        // Carga inicial: pide los datos al ESP32 y pinta el dashboard + el form.
+        async function cargarParametros() {
+            await obtenerValoresDispositivo();
+            actualizarFormulario();
+            actualizarDashboard();
+            setEstado("view");
         }
 
         function actualizarFormulario() {
+            document.getElementById('planta').value = valoresESP32.nombrePlanta || "";
             document.getElementById('enable').checked = valoresESP32.dispositivoActivo === true || valoresESP32.dispositivoActivo === "true";
             document.getElementById('fpOn').value = valoresESP32.fotoperiodo;
             document.getElementById('fpOff').value = valoresESP32.fotoperiodoApagado;
@@ -676,12 +1035,46 @@
             updateSliderProgress('ledB', 'progressB');
         }
 
+        // Vuelca los valores del dispositivo en el dashboard (modo vista).
+        function actualizarDashboard() {
+            const v = valoresESP32;
+            const activo = v.dispositivoActivo === true || v.dispositivoActivo === "true";
+
+            document.getElementById('dashPlanta').textContent = v.nombrePlanta || "Sin nombre";
+
+            const status = document.getElementById('dashStatus');
+            status.textContent = activo ? "Activo" : "Inactivo";
+            status.classList.toggle('is-off', !activo);
+
+            document.getElementById('dashSemana').textContent = v.semana ?? "—";
+            document.getElementById('dashDia').textContent = v.dia ?? "—";
+
+            document.getElementById('dashFpOn').textContent = v.fotoperiodo;
+            document.getElementById('dashFpOff').textContent = v.fotoperiodoApagado;
+
+            setDashLed('dashLedA', v.luzAzul);
+            setDashLed('dashLedR', v.luzRoja);
+            setDashLed('dashLedB', v.luzBlanca);
+
+            document.getElementById('dashIrrH').textContent = FREQ_LABELS[v.horasIrrigacion] ?? "—";
+            document.getElementById('dashIrrM').textContent = v.minutosIrrigacion;
+            document.getElementById('dashVentH').textContent = FREQ_LABELS[v.horasVentilador] ?? "—";
+            document.getElementById('dashVentM').textContent = v.minutosVentilador;
+        }
+
+        function setDashLed(valueId, val) {
+            const n = Number(val) || 0;
+            document.getElementById(valueId).textContent = `${n}%`;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            actualizarFormulario();
-            setEstado("view");
+            // Pide los datos al ESP32 y, con la respuesta (o el respaldo si
+            // falla), pinta el dashboard y prepara el form de edición.
+            cargarParametros();
         });
 
         const form = document.getElementById("mainForm");
+        const dashboard = document.getElementById("dashboard");
         const stepParams = document.getElementById("stepParams");
         const stepAuth = document.getElementById("stepAuth");
         const btnEdit = document.getElementById("btnEdit");
@@ -689,8 +1082,6 @@
         const btnCancel = document.getElementById("btnCancel");
         const btnBack = document.getElementById("btnBack");
         const btnAuthContinue = document.getElementById("btnAuthContinue");
-        const paramsButtonsView = document.getElementById("paramsButtonsView");
-        const paramsButtonsEdit = document.getElementById("paramsButtonsEdit");
         const stepper = document.getElementById("stepper");
         const cardTitle = document.getElementById("cardTitle");
 
@@ -699,15 +1090,43 @@
 
         document.getElementById("year").textContent = new Date().getFullYear();
 
-        const repetidosRegex = /(.)\1{3,}/;
         let errores = [];
 
-        function isAlphaNumeric(str) {
-            return /^[a-zA-Z0-9_.-]+$/.test(str);
+        // ── Validaciones unificadas con el ESP32 ──────────────────────────
+        // Réplica en JS de isValidReadableString() y hasTooManyRepeatedChars()
+        // del firmware, para que el formulario rechace EXACTAMENTE lo mismo que
+        // el dispositivo (mismo set de caracteres y misma regla de repetidos) y
+        // no queden validaciones que pasen aquí pero el ESP32 rechace después.
+
+        // Caracteres permitidos: letras (incluidas vocales acentuadas y ñ/Ñ del
+        // español), dígitos y (_-.@!#$%&*?+=). El espacio solo se admite cuando
+        // allowSpaces es true (p. ej. el nombre de la planta). Replica el mismo
+        // set que isValidReadableString() del ESP32, acentos y ñ incluidos.
+        const READABLE_SYMBOLS = "_-.@!#$%&*?+=";
+        const READABLE_LETTER = /[a-zA-Z0-9áéíóúüÁÉÍÓÚÜñÑ]/;
+
+        function isValidReadableString(str, allowSpaces) {
+            for (const c of str) {
+                if (READABLE_LETTER.test(c)) continue;
+                if (READABLE_SYMBOLS.includes(c)) continue;
+                if (allowSpaces && c === ' ') continue;
+                return false;
+            }
+            return true;
         }
 
-        function isValidPassword(str) {
-            return /^[a-zA-Z0-9!@#$%^&*()_+\-=.,]+$/.test(str);
+        // Rechaza 4 o más caracteres idénticos consecutivos (aaaa, 1111…),
+        // igual que hasTooManyRepeatedChars() del ESP32 (count > 3).
+        function hasTooManyRepeatedChars(str) {
+            let count = 1;
+            for (let i = 1; i < str.length; i++) {
+                if (str[i] === str[i - 1]) {
+                    if (++count > 3) return true;
+                } else {
+                    count = 1;
+                }
+            }
+            return false;
         }
 
         function isStrictInteger(value) {
@@ -773,21 +1192,11 @@
             if (primerCampo) primerCampo.focus({ preventScroll: true });
         }
 
-        // Habilita/deshabilita los campos de parámetros y alterna los grupos de botones.
-        function aplicarModoParams(modo) {
-            const editable = modo === "edit";
-            stepParams.querySelectorAll("input, select").forEach((campo) => {
-                campo.disabled = !editable;
-            });
-            paramsButtonsView.style.display = editable ? "none" : "flex";
-            paramsButtonsEdit.style.display = editable ? "flex" : "none";
-        }
-
-        // Configura toda la pantalla según el estado (título, stepper y modo de los campos).
+        // Configura el título y el stepper según el estado. El modo vista usa el
+        // dashboard (#dashboard); el form (#stepParams) solo aparece en edición.
         function setEstado(nuevo) {
             estado = nuevo;
             if (nuevo === "view") {
-                aplicarModoParams("view");
                 stepper.style.display = "none";
                 cardTitle.textContent = "Parámetros del dispositivo";
             } else if (nuevo === "auth") {
@@ -795,17 +1204,16 @@
                 actualizarStepper(1);
                 cardTitle.textContent = "Inicia sesión para editar";
             } else if (nuevo === "edit") {
-                aplicarModoParams("edit");
                 stepper.style.display = "flex";
                 actualizarStepper(2);
                 cardTitle.textContent = "Actualiza los parámetros.";
             }
         }
 
-        // Solo lectura → credenciales
+        // Dashboard → credenciales
         btnEdit.addEventListener("click", () => {
             setEstado("auth");
-            cambiarPaso(stepParams, stepAuth, "forward");
+            cambiarPaso(dashboard, stepAuth, "forward");
         });
 
         // Salir de la pantalla.
@@ -813,10 +1221,10 @@
             window.location.href = "/exit";
         });
 
-        // Credenciales → solo lectura (cancelar el ingreso)
+        // Credenciales → dashboard (cancelar el ingreso)
         btnBack.addEventListener("click", () => {
             setEstado("view");
-            cambiarPaso(stepAuth, stepParams, "back");
+            cambiarPaso(stepAuth, dashboard, "back");
         });
 
         // Credenciales → edición: valida el formato y luego verifica las
@@ -857,15 +1265,21 @@
                 btnAuthContinue.textContent = textoOriginal;
             }
 
-            // Credenciales válidas → desbloquea el modo edición.
+            // Credenciales válidas → vuelca en el formulario los valores ya
+            // cargados del dispositivo (los mismos del dashboard, sin re-fetch),
+            // por si una edición previa dejó campos modificados sin guardar.
+            actualizarFormulario();
+
             setEstado("edit");
             cambiarPaso(stepAuth, stepParams, "forward");
         });
 
-        // Edición → solo lectura (descarta cambios recargando los valores del dispositivo)
+        // Edición → dashboard (descarta cambios recargando los valores del dispositivo)
         btnCancel.addEventListener("click", () => {
             actualizarFormulario();
+            actualizarDashboard();
             setEstado("view");
+            cambiarPaso(stepParams, dashboard, "back");
         });
 
         form.addEventListener("submit", function (e) {
@@ -947,18 +1361,23 @@
             const ledRInput = document.getElementById("ledR").value.trim();
             const ledBInput = document.getElementById("ledB").value.trim();
 
-            // --- Planta ---
+            // --- Planta (validación unificada con el ESP32) ---
             if (planta === "") {
                 errores.push("El nombre de la planta es obligatorio");
             } else {
                 if (planta.length < 3 || planta.length > 20)
                     errores.push("La planta debe tener entre 3 y 20 caracteres");
-                if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ _.-]+$/.test(planta))
-                    errores.push("Solo se permiten letras, números, espacios y (_-.)");
+                // Mismo set de caracteres que el dispositivo (con espacios).
+                // Admite acentos y ñ, igual que el ESP32.
+                if (!isValidReadableString(planta, true))
+                    errores.push("La planta solo admite letras, números, espacios y (_-.@!#$%&*?+=)");
+                // Extras del formulario (el ESP32 no los valida, pero suman robustez):
                 if (/\s{2,}/.test(planta))
                     errores.push("No uses espacios repetidos");
                 if (/^\d+$/.test(planta))
                     errores.push("La planta no puede ser solo números");
+                if (hasTooManyRepeatedChars(planta))
+                    errores.push("La planta no puede contener más de 3 caracteres repetidos seguidos");
             }
 
             // --- Fotoperiodo: hora de prendido ---
@@ -1019,17 +1438,22 @@
             const user = document.getElementById("user").value.trim();
             const pass = document.getElementById("password").value.trim();
 
-            if (!isAlphaNumeric(user))
-                errores.push("El usuario solo debe tener caracteres alfanumericos y (_-.)");
-            if (!isValidPassword(pass))
-                errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+-=.,)");
+            // Longitud (igual que el ESP32: usuario 4–32, contraseña 8–64).
             if (user.length < 4 || user.length > 32)
                 errores.push("El usuario debe tener entre 4 y 32 caracteres.");
-            if (pass.length < 4 || pass.length > 64)
-                errores.push("La contraseña debe tener entre 4 y 64 caracteres.");
-            if (repetidosRegex.test(user))
+            if (pass.length < 8 || pass.length > 64)
+                errores.push("La contraseña debe tener entre 8 y 64 caracteres.");
+
+            // Caracteres permitidos: alfanuméricos y (_-.@!#$%&*?+=), sin espacios.
+            if (!isValidReadableString(user, false))
+                errores.push("El usuario solo admite letras, números y (_-.@!#$%&*?+=).");
+            if (!isValidReadableString(pass, false))
+                errores.push("La contraseña solo admite letras, números y (_-.@!#$%&*?+=).");
+
+            // No más de 3 caracteres idénticos seguidos.
+            if (hasTooManyRepeatedChars(user))
                 errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
-            if (repetidosRegex.test(pass))
+            if (hasTooManyRepeatedChars(pass))
                 errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
 
             return errores;

@@ -303,7 +303,7 @@ requestStatus Plant::validateCropParameters(const String& body) {
   _currentTime[month] = doc["mes"];
   _currentTime[year] = doc["anio"];
 
-  startClock();
+  //startClock();
   setCurrentTime();
 
   if (!p.begin("system", false)) 
