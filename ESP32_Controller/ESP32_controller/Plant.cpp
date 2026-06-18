@@ -1,16 +1,11 @@
-//#include <Arduino.h>
 #include <Wire.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
-//#include <ctype.h>
 #include "esp_mac.h" 
 #include "Constants.h"
 #include "Plant.h"
-#include "showParametersForm.h"
-#include "updateParametersForm.h"
 #include "sensible.h"
-
 
 Plant::Plant(){
 
@@ -65,50 +60,15 @@ void Plant::begin(){
 
   p.end();
 
-  Serial.printf("\n===================== ESTADO DEL SISTEMA =====================\n");
-
-  Serial.printf("[SYS] MAC:%s | Usuario:%s | Sistema:%s\n",
-                _MAC,
-                _systemStatus[hasRegisteredUser] ? "REGISTRADO" : "NO REGISTRADO",
-                _systemStatus[systemEnable] ? "ACTIVO" : "INACTIVO");
-
-  Serial.printf("[AUTH] Username:%s | Pass:%s\n", _username, maskPassword(_userpass).c_str());
-
-  /*Serial.printf("[WIFI] SSID:%s | Pass:%s | Conexion:%s\n",
-                ssid,
-                maskPassword(wifiPass).c_str(),
-                _systemStatus[hasWifiCredentials] ? "SI" : "NO");*/
-
-  Serial.printf("[LUZ] Fotoperiodo:%dh | Azul:%d%% | Roja:%d%% | Blanca:%d%%\n",
-                _systemStatus[photoperiod],
-                _systemStatus[blueDutyCycle],
-                _systemStatus[redDutyCycle],
-                _systemStatus[whiteDutyCycle]);
-
-  Serial.printf("[RIEGO] Frecuencia:%02d veces al dia por %02d minutos\n",
-                _systemStatus[irrigationFrequency],
-                _systemStatus[irrigationDuration]);
-
-  Serial.printf("[VENT] Frecuencia:%02d veces al dia por %02d minutos\n",
-                _systemStatus[ventilationFrequency],
-                _systemStatus[ventilationDuration]);
-
-  Serial.printf("[CULTIVO] %02d/%02d/%02d %02d:%02d:%02d Semana:%d | Dia:%d\n",
-                _currentTime[day], _currentTime[month], _currentTime[year], 
-                _currentTime[hour], _currentTime[minute], _currentTime[second],
-                _systemStatus[cropWeek],
-                _systemStatus[cropDay]);
-  Serial.printf("[CROP] Planta:%s\n", _plantName);
-
-  Serial.printf("================================\n\n");
+  printSystemData();
 
   //startClock();
 
 }
 
-bool Plant::getRegisteredUser(){
+/*bool Plant::getRegisteredUser(){
   return _systemStatus[hasRegisteredUser];
-}
+}*/
 
 requestStatus Plant::validateUserCredentials(const String& body) {
 
@@ -199,6 +159,7 @@ requestStatus Plant::validateCropParameters(const String& body) {
   if (!doc.containsKey("planta")  ||
       !doc.containsKey("enable")  ||
       !doc.containsKey("fp")      ||
+      !doc.containsKey("fpOff")   ||
       !doc.containsKey("ledA")    ||
       !doc.containsKey("ledR")    ||
       !doc.containsKey("ledB")    ||
@@ -254,20 +215,39 @@ requestStatus Plant::validateCropParameters(const String& body) {
 
   String plantNameBuff = doc["planta"] | "";
   plantNameBuff.trim();
-  if (plantNameBuff.length() < 3 || plantNameBuff.length() > 23)
+  if (utf8Len(plantNameBuff) < minPlantNameChars || utf8Len(plantNameBuff) > maxPlantNameChars)
     return INVALID_PLANTNAME_LENGTH;
-  if (!isValidReadableString(plantNameBuff, true)) 
-      return INVALID_PLANTNAME_CHARS;
+  if (!isValidReadableString(plantNameBuff, true))
+    return INVALID_PLANTNAME_CHARS;
+  if (hasConsecutiveSpaces(plantNameBuff))   // equivale a /\s{2,}/ del form
+    return PLANTNAME_REPEATED_SPACES;
+  if (isAllDigits(plantNameBuff))            // equivale a /^\d+$/ del form
+    return PLANTNAME_ONLY_DIGITS;
   if (hasTooManyRepeatedChars(plantNameBuff))
     return PLANTNAME_REPEATED_CHARS;
   strlcpy(_plantName, plantNameBuff.c_str(), sizeof(_plantName));
 
-  if (!doc["fp"].is<uint8_t>())
+  // Fotoperiodo: hora de prendido y de apagado (0-23). El ciclo puede cruzar
+  // medianoche (prendido > apagado), pero no pueden ser iguales (0h o 24h de luz).
+  if (!doc["fpOn"].is<uint8_t>() || doc["fpOn"] > 23 ||
+      !doc["fpOff"].is<uint8_t>() || doc["fpOff"] > 23)
     return INVALID_PHOTOPERIOD_TYPE;
-  if (!doc["irrH"].is<uint8_t>() || !doc["irrM"].is<uint8_t>())
+  if ((uint8_t)doc["fpOn"] == (uint8_t)doc["fpOff"])
+    return INVALID_PHOTOPERIOD_TYPE;
+  // irrH/ventH = veces/día (cantidad real): frecuencia permitida.
+  // irrM/ventM = minutos de duración del encendido (0-59, igual que el form).
+  if (!doc["irrH"].is<uint8_t>() || !doc["irrM"].is<uint8_t>() ||
+      !isValidFrequency(doc["irrH"]) || doc["irrM"] > 59)
     return INVALID_IRRIGATION_TYPE;
-  if (!doc["ventH"].is<uint8_t>() || !doc["ventM"].is<uint8_t>())
+  if (!doc["ventH"].is<uint8_t>() || !doc["ventM"].is<uint8_t>() ||
+      !isValidFrequency(doc["ventH"]) || doc["ventM"] > 59)
     return INVALID_VENTILATION_TYPE;
+
+  // LEDs = duty cycle 0-100% (igual que el form).
+  if (!doc["ledA"].is<uint8_t>() || doc["ledA"] > 100 ||
+      !doc["ledR"].is<uint8_t>() || doc["ledR"] > 100 ||
+      !doc["ledB"].is<uint8_t>() || doc["ledB"] > 100)
+    return INVALID_LED_VALUE;
 
   // Validaciones combinadas (tipo + rango en una sola línea)
   if (!doc["seg"].is<uint8_t>() || doc["seg"] > 59)           
@@ -286,7 +266,8 @@ requestStatus Plant::validateCropParameters(const String& body) {
     return INVALID_YEAR_FORMAT;
 
   _systemStatus[systemEnable] = doc["enable"] | false;
-  _systemStatus[photoperiod] = doc["fp"] | 0;
+  _systemStatus[photoperiodOn] = doc["fpOn"] | 0;
+  _systemStatus[photoperiodOff] = doc["fpOff"] | 0;
   _systemStatus[blueDutyCycle] = doc["ledA"] | 0;
   _systemStatus[redDutyCycle] = doc["ledR"] | 0;
   _systemStatus[whiteDutyCycle] = doc["ledB"] | 0;
@@ -324,7 +305,14 @@ requestStatus Plant::validateCropParameters(const String& body) {
 
 void Plant::turnOnDevices(){
   // ** Control de Luces **
-  if (_currentTime[hour] < _systemStatus[photoperiod]) {
+  // Ventana de fotoperiodo [prendido, apagado). Si prendido < apagado la ventana
+  // es continua; si prendido > apagado, cruza medianoche.
+  uint8_t h = _currentTime[hour];
+  uint8_t on = _systemStatus[photoperiodOn];
+  uint8_t off = _systemStatus[photoperiodOff];
+  bool luzEncendida = (on < off) ? (h >= on && h < off) : (h >= on || h < off);
+
+  if (luzEncendida) {
     // Ajusta las luces según los duty cycles configurados
     ledcWrite(whiteChannel, map(_systemStatus[whiteDutyCycle], 0, 100, 0, maxDutyCycle));
     ledcWrite(blueChannel, map(_systemStatus[blueDutyCycle], 0, 100, 0, maxDutyCycle));
@@ -343,99 +331,87 @@ void Plant::turnOnDevices(){
 }
 
 /**
- * @brief Controla un dispositivo de acuerdo a la frecuencia configurada.
- * 
- * @param devicePin       Pin del dispositivo (bomba o ventilador).
- * @param scheduleHour    Frecuencia de activación (onceAday, eachThreeHours, etc.).
- * @param scheduleMinute  Duración en minutos del encendido.
+ * @brief Controla un dispositivo según su frecuencia diaria.
+ *
+ * La frecuencia llega como la cantidad real de veces/día (0,1,2,4,8,12,24). Se
+ * traduce a un intervalo de horas (24 / veces) y el dispositivo se enciende
+ * durante los primeros `durationMinutes` de cada hora múltiplo del intervalo.
+ * Ej.: 8 veces/día → cada 3 h → enciende a las 0,3,6,9,... por N minutos.
+ *
+ * @param devicePin         Pin del dispositivo (bomba o ventilador).
+ * @param timesPerDay       Veces al día (debe dividir 24; ya validado en la entrada).
+ * @param durationMinutes   Duración en minutos del encendido.
  */
-void Plant::manageDevice(int devicePin, int scheduleHour, int scheduleMinute) {
+void Plant::manageDevice(int devicePin, int timesPerDay, int durationMinutes) {
   bool activeDevice = false;
 
-  switch (scheduleHour) {
-    case FREQ_ONCE_A_DAY:
-      activeDevice = (_currentTime[hour] == 0 && _currentTime[minute] < scheduleMinute);
-      break;
-
-    case FREQ_TWICE_A_DAY:
-      activeDevice = ((_currentTime[hour] == 0 || _currentTime[hour] == 12) && _currentTime[minute] < scheduleMinute);
-      break;
-
-    case FREQ_4X_PER_DAY:
-      activeDevice = ((_currentTime[hour] % 6 == 0) &&   _currentTime[minute] < scheduleMinute);  // 24 / 4 = cada 6 horas
-      break;
-
-    case FREQ_6X_PER_DAY:
-      activeDevice = (
-        (_currentTime[hour] % 4 == 0) && _currentTime[minute] < scheduleMinute);  // 24 / 6 = cada 4 horas
-      break;
-
-    case FREQ_8X_PER_DAY:
-      activeDevice = (
-        (_currentTime[hour] % 3 == 0) &&  _currentTime[minute] < scheduleMinute);  // 24 / 8 = cada 3 horas
-      break;
-
-    case FREQ_12X_PER_DAY:
-      activeDevice = (
-        (_currentTime[hour] % 2 == 0) &&   _currentTime[minute] < scheduleMinute);  // 24 / 12 = cada 2 horas
-      break;
-
-    case FREQ_EVERY_HOUR:
-      activeDevice = (_currentTime[minute] < scheduleMinute);
-      break;
-
-    default:
-      activeDevice = false;
+  if (timesPerDay > 0) {
+    uint8_t intervalHours = 24 / timesPerDay;  // divisor exacto de 24
+    activeDevice = (_currentTime[hour] % intervalHours == 0) &&
+                   (_currentTime[minute] < durationMinutes);
   }
 
   digitalWrite(devicePin, activeDevice ? HIGH : LOW);
 }
 
+// Serializa el estado del dispositivo a JSON para GET /getparams. El cliente
+// (dashboardForm) decide qué pintar según "hasRegisteredUser": si es false solo
+// se manda ese flag; si es true se incluyen todos los parámetros con las mismas
+// claves que espera el formulario (planta, fpOn, fpOff, ledA, irrH, etc.).
+String Plant::buildParamsJson() {
+  StaticJsonDocument<512> doc;
 
+  doc["hasRegisteredUser"] = (bool)_systemStatus[hasRegisteredUser];
 
-String Plant::buildShowParametersForm() {
-  String HTML;
-  String dispositivoActivo = _systemStatus[systemEnable] ? "Activo" : "Inactivo";
-  HTML += showParametersForm;
-  HTML += "{\n";
-  HTML += "dispositivoActivo: \"" + dispositivoActivo + "\",\n";
-  HTML += "fotoperiodo: " + String(_systemStatus[photoperiod]) + ",\n";
-  HTML += "semana: " + String(_systemStatus[cropWeek]) + ",\n";
-  HTML += "dias: " + String(_systemStatus[cropDay]) + ",\n";
-  HTML += "luzAzul: " + String(_systemStatus[blueDutyCycle]) + ",\n";
-  HTML += "luzRoja: " + String(_systemStatus[redDutyCycle]) + ",\n";
-  HTML += "luzBlanca: " + String(_systemStatus[whiteDutyCycle]) + ",\n";
-  HTML += "horasIrrigacion: " + String(_systemStatus[irrigationFrequency]) + ",\n";
-  HTML += "minutosIrrigacion: " + String(_systemStatus[irrigationDuration]) + ",\n";
-  HTML += "horasVentilador: " + String(_systemStatus[ventilationFrequency]) + ",\n";
-  HTML += "minutosVentilador: " + String(_systemStatus[ventilationDuration]) + "\n";
-  HTML += "};\n";
-  HTML += showParametersForm2;
-  return HTML;
+  if (_systemStatus[hasRegisteredUser]) {
+    doc["planta"] = _plantName;
+    doc["enable"] = (bool)_systemStatus[systemEnable];
+    doc["fpOn"]   = _systemStatus[photoperiodOn];
+    doc["fpOff"]  = _systemStatus[photoperiodOff];
+    doc["ledA"]   = _systemStatus[blueDutyCycle];
+    doc["ledR"]   = _systemStatus[redDutyCycle];
+    doc["ledB"]   = _systemStatus[whiteDutyCycle];
+    doc["irrH"]   = _systemStatus[irrigationFrequency];
+    doc["irrM"]   = _systemStatus[irrigationDuration];
+    doc["ventH"]  = _systemStatus[ventilationFrequency];
+    doc["ventM"]  = _systemStatus[ventilationDuration];
+    doc["semana"] = _systemStatus[cropWeek];
+    doc["dia"]    = _systemStatus[cropDay];
+  }
+
+  String out;
+  serializeJson(doc, out);
+  return out;
 }
 
-String Plant::buildUpdateParametersForm() {
-  String HTML;
-  Serial.printf("\nFlag %s", (_systemStatus[systemEnable] ? "true.\n" : "false.\n"));
-  String dispositivoActivo = (_systemStatus[systemEnable] ? "true" : "false");
-  HTML += updateParametersForm;
-  HTML += "{\n";
-  //HTML += "plantName: " + String(_plantName) + ",\n";
-  HTML += "dispositivoActivo: " + dispositivoActivo + ",\n";
-  HTML += "fotoperiodo: " + String(_systemStatus[photoperiod]) + ",\n";
-  HTML += "luzAzul: " + String(_systemStatus[blueDutyCycle]) + ",\n";
-  HTML += "luzRoja: " + String(_systemStatus[redDutyCycle]) + ",\n";
-  HTML += "luzBlanca: " + String(_systemStatus[whiteDutyCycle]) + ",\n";
-  HTML += "horasIrrigacion: " + String(_systemStatus[irrigationFrequency]) + ",\n";
-  HTML += "minutosIrrigacion: " + String(_systemStatus[irrigationDuration]) + ",\n";
-  HTML += "horasVentilador: " + String(_systemStatus[ventilationFrequency]) + ",\n";
-  HTML += "minutosVentilador: " + String(_systemStatus[ventilationDuration]) + "\n";
-  HTML += "};\n";
-  HTML += updateParametersForm2;
-  return HTML;
+// Valida credenciales contra las guardadas, sin escribir nada. Sirve para
+// desbloquear el modo edición del dashboard (POST /authusercredentials) antes
+// de permitir el guardado real en /newparams.
+requestStatus Plant::authUserCredentials(const String& body) {
+  StaticJsonDocument<128> doc;
+  if (deserializeJson(doc, body))
+    return INVALID_JSON;
+
+  if (!doc.containsKey("user") || !doc.containsKey("pass"))
+    return MISSING_CREDENTIALS;
+
+  String username = doc["user"] | "";
+  username.trim();
+  String userpass = doc["pass"] | "";
+  userpass.trim();
+
+  if (utf8Len(username) < minUsernameChars || utf8Len(username) > maxUsernameChars)
+    return INVALID_USERNAME_LENGTH;
+  if (utf8Len(userpass) < minUserpassChars || utf8Len(userpass) > maxUserpassChars)
+    return INVALID_USERPASS_LENGTH;
+
+  if (username != _username || userpass != _userpass)
+    return MISMATCH_CREDENTIALS;
+
+  return STATUS_OK;
 }
 
-void Plant::startClock(){
+/*void Plant::startClock(){
   Wire.begin();
 
   Wire.beginTransmission(DS3231Adress);
@@ -445,7 +421,7 @@ void Plant::startClock(){
       Wire.write(bin2bcd(0));
 
   Wire.endTransmission();
-}
+}*/
 
 bool Plant::setCurrentTime(){
   //Wire.begin();
@@ -512,8 +488,9 @@ void Plant::printSystemData() {
                 maskPassword(wifiPass).c_str(),
                 _systemStatus[hasWifiCredentials] ? "SI" : "NO");*/
 
-  Serial.printf("[LUZ] Fotoperiodo:%dh | Azul:%d%% | Roja:%d%% | Blanca:%d%%\n",
-                _systemStatus[photoperiod],
+  Serial.printf("[LUZ] Prende:%02dh | Apaga:%02dh | Azul:%d%% | Roja:%d%% | Blanca:%d%%\n",
+                _systemStatus[photoperiodOn],
+                _systemStatus[photoperiodOff],
                 _systemStatus[blueDutyCycle],
                 _systemStatus[redDutyCycle],
                 _systemStatus[whiteDutyCycle]);
@@ -553,9 +530,9 @@ HttpResponse buildHttpResponse(requestStatus status) {
     case MISSING_CREDENTIALS:
         return {400, "application/json", "{\"status\":false,\"message\":\"Los campos de usuario y contraseña son obligatorios.\"}"};
     case INVALID_USERNAME_LENGTH:
-        return {400, "application/json", "{\"status\":false,\"message\":\"Longitud de usuario inválida (5-16 caracteres).\"}"};
+        return {400, "application/json", "{\"status\":false,\"message\":\"Longitud de usuario inválida (4-32 caracteres).\"}"};
     case INVALID_USERPASS_LENGTH:
-        return {400, "application/json", "{\"status\":false,\"message\":\"Longitud de contraseña inválida (8-32 caracteres).\"}"};
+        return {400, "application/json", "{\"status\":false,\"message\":\"Longitud de contraseña inválida (8-64 caracteres).\"}"};
     case INVALID_USERNAME_CHARS: //
         return {400, "application/json", "{\"status\":false,\"message\":\"El nombre de usuario solo permite los caracteres (_-.@!#$%&*?+=).\"}"};
     case INVALID_USERPASS_CHARS: 
@@ -570,19 +547,25 @@ HttpResponse buildHttpResponse(requestStatus status) {
     case MISSING_PLANTNAME_FIELD:
         return {400, "application/json", "{\"status\":false,\"message\":\"El campo planta es obligatorio.\"}"};
     case INVALID_PLANTNAME_LENGTH:
-        return {400, "application/json", "{\"status\":false,\"message\":\"Longitud de planta inválida (5-22 caracteres).\"}"};  
+        return {400, "application/json", "{\"status\":false,\"message\":\"Longitud de planta inválida (3-20 caracteres).\"}"};
     case INVALID_PLANTNAME_CHARS: // ESPECIFICAR DE QUE CAMPO
         return {400, "application/json", "{\"status\":false,\"message\":\"EL nombre de la planta solo permite los caracteres (_-.@!#$%&*?+=).\"}"};
     case PLANTNAME_REPEATED_CHARS: //
         return {400, "application/json", "{\"status\":false,\"message\":\"EL nombre de la planta tiene un caracter repetido más de 3 veces.\"}"};
-    
-    
+    case PLANTNAME_REPEATED_SPACES:
+        return {400, "application/json", "{\"status\":false,\"message\":\"El nombre de la planta no puede tener espacios consecutivos.\"}"};
+    case PLANTNAME_ONLY_DIGITS:
+        return {400, "application/json", "{\"status\":false,\"message\":\"El nombre de la planta no puede ser solo números.\"}"};
+
+
     case INVALID_PHOTOPERIOD_TYPE:
         return {400, "application/json", "{\"status\":false,\"message\":\"Valor de fotoperiodo inválido (solamente enteros).\"}"};
     case INVALID_IRRIGATION_TYPE:
-        return {400, "application/json", "{\"status\":false,\"message\":\"Valores de irrigación inválidos (solamente enteros).\"}"};
+        return {400, "application/json", "{\"status\":false,\"message\":\"Valores de irrigación inválidos (frecuencia permitida y minutos 0-59).\"}"};
     case INVALID_VENTILATION_TYPE:
-        return {400, "application/json", "{\"status\":false,\"message\":\"Valores de ventilación inválidos (solamente enteros).\"}"};
+        return {400, "application/json", "{\"status\":false,\"message\":\"Valores de ventilación inválidos (frecuencia permitida y minutos 0-59).\"}"};
+    case INVALID_LED_VALUE:
+        return {400, "application/json", "{\"status\":false,\"message\":\"Los valores de los LEDs deben estar entre 0 y 100%.\"}"};
 
     case INVALID_SECOND_FORMAT:
         return {400, "application/json", "{\"status\":false,\"message\":\"El campo segundo debe ser un entero sin signo (0-59).\"}"};
@@ -604,7 +587,6 @@ HttpResponse buildHttpResponse(requestStatus status) {
   }
 }
 
-
 uint8_t bcd2bin(uint8_t bcd){
   return (bcd / 16 * 10) + (bcd % 16);
 }
@@ -612,75 +594,126 @@ uint8_t bin2bcd(uint8_t bin){
   return (bin / 10 * 16) + (bin % 10);
 }
 
-/*bool isValidString(const String& s) {
-  for (char c : s) {
-    if (!isValidChar(c)) 
-      return false; 
+// Cuenta caracteres (code points) en una cadena UTF-8, ignorando los bytes de
+// continuación (10xxxxxx). Así "Jalapeño" cuenta 8 y no 9, y los límites de
+// longitud coinciden con los del formulario (String.length de JS).
+int utf8Len(const String& s) {
+  int count = 0;
+  for (int i = 0; i < s.length(); i++) {
+    if (((unsigned char)s[i] & 0xC0) != 0x80) count++;
   }
-  return true;
-}*/
-
-/*bool isValidChar(char c) {
-  if (isalnum(c)) return true;
-  const char* allowed = "._-@!#$%&*?";
-  for (int i = 0; allowed[i] != 0; i++) {
-    if (c == allowed[i]) return true;
-  }
-  return false;
-}*/
-
-/*bool isValidString(const char* s) {
-  if (!s || s[0] == '\0') return false;
-
-  for (int i = 0; s[i] != '\0'; i++) {
-    if (!isValidChar(s[i])) {
-      return false;
-    }
-  }
-  return true;
-}*/
-
-/*bool isValidChar(char c) { // Solo caracteres permitidos para username y planta
-  if (isalnum((unsigned char)c)) return true;
-
-  switch (c) {
-    case '.': case '_': case '-':
-    case '@': case '!': case '#':
-    case '$': case '%': case '&':
-    case '*': case '?':
-      return true;
-    default:
-      return false;
-  }
-}*/
-
-
-bool isValidReadableString(const String& s, bool allowSpaces) {
-    for (char c : s) {
-      if (isalnum(c)) continue;
-      if (c == '_' || c == '-' || c == '.' || c == '@' || 
-          c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
-          c == '*' || c == '?' || c == '+' || c == '=')
-        continue;
-      if (allowSpaces && c == ' ') continue;
-      // Si quieres permitir más símbolos para passwords:
-      return false;
-    }
-    return true;
+  return count;
 }
 
-bool hasTooManyRepeatedChars(const String& s) {
-    int count = 1;
+// Longitud en bytes del carácter UTF-8 que empieza con el byte c.
+int utf8CharLen(unsigned char c) {
+  if (c < 0x80) return 1;            // 0xxxxxxx (ASCII)
+  if ((c & 0xE0) == 0xC0) return 2;  // 110xxxxx
+  if ((c & 0xF0) == 0xE0) return 3;  // 1110xxxx
+  if ((c & 0xF8) == 0xF0) return 4;  // 11110xxx
+  return 1;                          // byte inválido: avanza 1 para no atascarse
+}
 
-    for (int i = 1; i < s.length(); i++) {
-        if (s[i] == s[i - 1]) {
-            count++;
-            if (count > 3) return true;
-        } else {
-            count = 1;
-        }
+// ¿Hay dos o más espacios consecutivos? Equivale a /\s{2,}/ del formulario
+// (los demás caracteres de espacio ya los rechaza isValidReadableString).
+bool hasConsecutiveSpaces(const String& s) {
+  for (int i = 1; i < s.length(); i++) {
+    if (s[i] == ' ' && s[i - 1] == ' ') return true;
+  }
+  return false;
+}
+
+// ¿La cadena está formada únicamente por dígitos? Equivale a /^\d+$/ del
+// formulario (cadena vacía cuenta como "no solo dígitos").
+bool isAllDigits(const String& s) {
+  if (s.length() == 0) return false;
+  for (int i = 0; i < s.length(); i++) {
+    if (!isdigit((unsigned char)s[i])) return false;
+  }
+  return true;
+}
+
+// Vocales acentuadas y ñ/Ñ del español en UTF-8: secuencias de 2 bytes cuyo
+// primer byte (lead) es 0xC3. Devuelve true si (lead, cont) forman una de
+// esas letras: á é í ó ú ü Á É Í Ó Ú Ü ñ Ñ.
+bool isSpanishAccentUtf8(unsigned char lead, unsigned char cont) {
+  if (lead != 0xC3) return false;
+  switch (cont) {
+    case 0xA1: case 0xA9: case 0xAD: case 0xB3: case 0xBA: case 0xBC: // á é í ó ú ü
+    case 0x81: case 0x89: case 0x8D: case 0x93: case 0x9A: case 0x9C: // Á É Í Ó Ú Ü
+    case 0xB1: case 0x91:                                             // ñ Ñ
+      return true;
+  }
+  return false;
+}
+
+// Mismo set de caracteres que el formulario: letras (incluidas vocales
+// acentuadas y ñ/Ñ del español), dígitos y (_-.@!#$%&*?+=). El espacio solo se
+// admite cuando allowSpaces es true (p. ej. el nombre de la planta).
+bool isValidReadableString(const String& s, bool allowSpaces) {
+  int n = s.length();
+  for (int i = 0; i < n; i++) {
+    unsigned char c = (unsigned char)s[i];
+
+    if (isalnum(c)) continue; // alfanumérico ASCII
+
+    if (c == '_' || c == '-' || c == '.' || c == '@' ||
+        c == '!' || c == '#' || c == '$' || c == '%' || c == '&' ||
+        c == '*' || c == '?' || c == '+' || c == '=')
+      continue;
+
+    if (allowSpaces && c == ' ') continue;
+
+    // Vocal acentuada o ñ/Ñ (UTF-8, 2 bytes): se aceptan ambos bytes.
+    if (i + 1 < n && isSpanishAccentUtf8(c, (unsigned char)s[i + 1])) {
+      i++; // consume el segundo byte de la secuencia
+      continue;
     }
+
     return false;
+  }
+  return true;
+}
+
+// Rechaza 4 o más caracteres idénticos consecutivos, comparando por carácter
+// UTF-8 completo (no byte a byte), para que repetidos acentuados como "ññññ" o
+// "áááá" se detecten igual que en el formulario (count > 3).
+bool hasTooManyRepeatedChars(const String& s) {
+  int n = s.length();
+  int count = 1;
+  int prevStart = 0;
+  int prevLen = 0; // 0 = aún no hay carácter previo
+
+  for (int i = 0; i < n; ) {
+    int len = utf8CharLen((unsigned char)s[i]);
+    if (i + len > n) len = n - i; // secuencia truncada al final
+
+    bool same = false;
+    if (prevLen == len) {
+      same = true;
+      for (int k = 0; k < len; k++) {
+        if (s[prevStart + k] != s[i + k]) { same = false; break; }
+      }
+    }
+
+    if (same) {
+      count++;
+      if (count > 3) return true;
+    } else {
+      count = 1;
+    }
+
+    prevStart = i;
+    prevLen = len;
+    i += len;
+  }
+  return false;
+}
+
+bool isValidFrequency(uint8_t f) {
+  for (uint8_t v : validFrequencies)
+    if (f == v) return true;
+  return false;
 }
 
 String maskPassword(const char* pass) {
@@ -725,4 +758,3 @@ if (!isValidReadableString(ssidPass))
     return INVALID_CHARS;
 
 */
-

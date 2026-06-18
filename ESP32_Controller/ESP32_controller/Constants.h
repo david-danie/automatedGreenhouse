@@ -50,7 +50,8 @@ enum SystemStatus : uint8_t {
     hasRegisteredUser = 1,
     hasWifiCredentials,
     systemEnable,
-    photoperiod,
+    photoperiodOn,            // hora de prendido de las luces (0-23)
+    photoperiodOff,            // hora de apagado de las luces (0-23). 
     blueDutyCycle,
     redDutyCycle,
     whiteDutyCycle,
@@ -59,7 +60,7 @@ enum SystemStatus : uint8_t {
     ventilationFrequency,
     ventilationDuration,
     cropWeek,
-    cropDay
+    cropDay,
 };
 
 enum currentTime : uint8_t {
@@ -75,6 +76,20 @@ enum currentTime : uint8_t {
 
 const uint8_t  DS3231Adress = 0x68;
 const uint8_t rtcReadBytes = 7;
+
+// ===== Límites de longitud de los campos (en caracteres / code points) =====
+// Deben coincidir con las validaciones del formulario (String.length de JS).
+const uint8_t minUsernameChars  = 4;
+const uint8_t maxUsernameChars  = 32;
+const uint8_t minUserpassChars  = 8;
+const uint8_t maxUserpassChars  = 64;
+const uint8_t minPlantNameChars = 3;
+const uint8_t maxPlantNameChars = 20;
+
+// Peor caso UTF-8 de los caracteres permitidos: ASCII = 1 byte, vocales
+// acentuadas y ñ/Ñ = 2 bytes. Los buffers se dimensionan a maxChars * 2 + 1
+// (terminador nulo) para que un valor válido nunca se trunque al guardarlo.
+const uint8_t utf8MaxBytesPerChar = 2;
 
 enum requestStatus {
     STATUS_OK,
@@ -97,10 +112,13 @@ enum requestStatus {
     INVALID_PLANTNAME_LENGTH,
     INVALID_PLANTNAME_CHARS,
     PLANTNAME_REPEATED_CHARS,
+    PLANTNAME_REPEATED_SPACES,
+    PLANTNAME_ONLY_DIGITS,
 
     INVALID_PHOTOPERIOD_TYPE,
     INVALID_IRRIGATION_TYPE,
     INVALID_VENTILATION_TYPE,
+    INVALID_LED_VALUE,
 
     INVALID_SECOND_FORMAT,
     INVALID_MINUTE_FORMAT,
@@ -109,23 +127,19 @@ enum requestStatus {
     INVALID_DAY_FORMAT,
     INVALID_MONTH_FORMAT,
     INVALID_YEAR_FORMAT
- 
 };
 
-enum ActivationFrequency {
-    FREQ_NONE,
-    FREQ_ONCE_A_DAY,
-    FREQ_TWICE_A_DAY,
-    FREQ_4X_PER_DAY,
-    FREQ_6X_PER_DAY,
-    FREQ_8X_PER_DAY,
-    FREQ_12X_PER_DAY,
-    FREQ_EVERY_HOUR
-};
+// Frecuencias válidas (veces/día). Deben dividir exactamente 24 para poder
+// traducirse a un intervalo entero de horas en manageDevice().
+const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24};
 
 const uint8_t buzzerOn = 50;  // interval at which to blink (milliseconds)
 const uint8_t buzzerOff = 80;  // interval at which to blink (milliseconds)
 
-const int intervalToSend = 30000;  // 
+const uint16_t intervalToSend = 30000;  // 
+// Cada cuánto se re-evalúa el control de luces/riego/ventilación en loop().
+// turnOnDevices() solo depende del reloj (hora/minuto), así que 1 s sobra; lo
+// importante es no bloquear server.handleClient() entre llamadas.
+const uint16_t deviceUpdateInterval = 1000;
 
 #endif

@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include "Constants.h" 
 //#include <Update.h>
 
 class Plant {
@@ -14,21 +15,24 @@ class Plant {
     Plant();
     void begin();
 
-    bool getRegisteredUser();
+    //bool getRegisteredUser();
 
     requestStatus validateUserCredentials(const String& body);
 
     requestStatus validateCropParameters(const String& body);
 
+    // Valida credenciales (sin guardar nada) para desbloquear la edición.
+    requestStatus authUserCredentials(const String& body);
+
     void manageDevice(int devicePin, int scheduleHour, int scheduleMinute);
 
     void turnOnDevices();
 
-    String buildShowParametersForm();
-    String buildUpdateParametersForm();
+    // Serializa el estado actual del dispositivo a JSON para GET /getparams.
+    String buildParamsJson();
 
     // Funciones para el control del RTC (DS3231)
-    void startClock();
+    //void startClock();
     bool setCurrentTime();
     bool getCurrentTime();
 
@@ -53,15 +57,17 @@ class Plant {
 
   private:
 
-    uint8_t _systemStatus[15] = {0};  
+    uint8_t _systemStatus[18] = {0};  
     uint8_t _currentTime[10];
 
-    char _plantName[24];
+    // Buffers dimensionados al peor caso UTF-8 (maxChars * 2 + 1) para que un
+    // valor válido del formulario nunca se trunque al guardarse.
+    char _plantName[maxPlantNameChars * utf8MaxBytesPerChar + 1];   // 41
+    char _username[maxUsernameChars  * utf8MaxBytesPerChar + 1];    // 65
+    char _userpass[maxUserpassChars  * utf8MaxBytesPerChar + 1];    // 129
 
     char _SSID[32];
     char _SSIDpass[64];
-    char _username[32];
-    char _userpass[64];
     char _MAC[18];
 
     String firmwareVersion;
@@ -92,8 +98,17 @@ String maskPassword(const char* pass);
 bool isValidReadableString(const String& s, bool allowSpaces);
 bool hasTooManyRepeatedChars(const String& s);
 
+// ¿La frecuencia (veces/día) es una de las permitidas (divisores de 24)?
+bool isValidFrequency(uint8_t f);
+
+// Validadores unificados con el formulario (cuentan por carácter UTF-8, para que
+// los límites coincidan con String.length de JS aunque haya acentos/ñ).
+int  utf8Len(const String& s);
+int  utf8CharLen(unsigned char c);
+bool hasConsecutiveSpaces(const String& s);
+bool isAllDigits(const String& s);
+bool isSpanishAccentUtf8(unsigned char lead, unsigned char cont);
+
 void setBuzzer();
 
 #endif
-
-

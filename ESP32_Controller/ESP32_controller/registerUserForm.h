@@ -72,14 +72,18 @@ static const char registerUserForm[] = R"===(
 
         .form-group label {
             font-size: 13px;
-            color: #388e3c;
+            color: #2e7d32;
         }
 
-        .form-group input {
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
             padding: 10px 12px;
             font-size: 14px;
             border-radius: 6px;
             border: 1px solid #c8e6c9;
+            color: #383838;
+            background: white;
+            transition: all 0.3s ease;
         }
 
         .toggle-password {
@@ -91,8 +95,8 @@ static const char registerUserForm[] = R"===(
             border: none;
             color: #757575;
             cursor: pointer;
-            font-size: 1.6vw;
-            padding: 2%;
+            font-size: 18px;
+            padding: 8px;
             line-height: 1;
         }
 
@@ -142,7 +146,6 @@ static const char registerUserForm[] = R"===(
         .footer p {
             color: #2e7d32;
             font-size: 14px;
-
         }
 
         /* ========== RESPONSE ========== */
@@ -175,7 +178,7 @@ static const char registerUserForm[] = R"===(
                 margin: 10px;
             }
 
-            .header h1 {
+            .form-header h1 {
                 font-size: 20px;
             }
 
@@ -183,7 +186,7 @@ static const char registerUserForm[] = R"===(
                 flex-direction: column;
             }
 
-            .btn {
+            button {
                 padding: 14px 20px;
                 font-size: 14px;
             }
@@ -198,7 +201,7 @@ static const char registerUserForm[] = R"===(
                 padding: 20px;
             }
 
-            .header h1 {
+            .form-header h1 {
                 font-size: 18px;
             }
         }
@@ -216,16 +219,15 @@ static const char registerUserForm[] = R"===(
         <form id="mainForm">
 
             <div class="form-group">
-                <label>Usuario</label>
-                <input type="text" name="user" required id="user">
-                <!-- <input type="text" name="user" placeholder="Usuario" required class="input" id="user">-->
+                <label for="user">Usuario</label>
+                <input type="text" name="user" id="user" autocomplete="off" required>
             </div>
 
             <div class="form-group">
-                <label>Contraseña</label>
+                <label for="password">Contraseña</label>
                 <div class="password-wrapper">
-                    <input type="password" id="password" name="password" required>
-                    <button type="button" class="toggle-password" onclick="togglePassword()" id="toggleBtn">👁</button>
+                    <input type="password" id="password" name="password" autocomplete="new-password" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword()" id="toggleBtn" aria-label="Mostrar contraseña">👁</button>
                 </div>
             </div>
 
@@ -237,7 +239,7 @@ static const char registerUserForm[] = R"===(
         </form>
 
         <div class="footer">
-            <p>© 2024 Smartplant • Versión 1.0</p>
+            <p>© <span id="year">2026</span> Smartplant • Versión 1.0</p>
         </div>
 
     </div>
@@ -248,7 +250,7 @@ static const char registerUserForm[] = R"===(
 
         const repetidosRegex = /(.)\1{3,}/;
 
-        function isValidUsername(str) {
+        function isAlphaNumeric(str) {
             return /^[a-zA-Z0-9_.-]+$/.test(str);
         }
 
@@ -256,10 +258,14 @@ static const char registerUserForm[] = R"===(
             return /^[a-zA-Z0-9!@#$%^&*()_+\-=.,]+$/.test(str);
         }
 
+        document.getElementById("year").textContent = new Date().getFullYear();
+
         function togglePassword() {
             const type = password.type === 'password' ? 'text' : 'password';
             password.type = type;
-            document.getElementById('toggleBtn').textContent = type === 'password' ? '👁' : '👁';
+            const btn = document.getElementById('toggleBtn');
+            btn.textContent = type === 'password' ? '👁' : '🙈';
+            btn.setAttribute('aria-label', type === 'password' ? 'Mostrar contraseña' : 'Ocultar contraseña');
         }
         async function submitRegister() {
             const user = document.getElementById("user").value.trim();
@@ -269,14 +275,14 @@ static const char registerUserForm[] = R"===(
             const data = { user, pass };
             let errores = [];
             // Validación de longitud
-            if (!isValidUsername(user))
+            if (!isAlphaNumeric(user))
                 errores.push("El usuario solo debe tener caracteres alfanumericos y (_-.)");
             if (!isValidPassword(pass))
-                errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+\-=.,)");
-            if (user.length < 4 || user.length > 31) 
+                errores.push("La contraseña solo debe tener caracteres alfanumericos y (!@#$%^&*()_+-=.,)");
+            if (user.length < 4 || user.length > 32)
                 errores.push("El usuario debe tener entre 4 y 32 caracteres.");
-            if (pass.length < 8 || pass.length > 63) 
-                errores.push("La contraseña debe tener entre 8 y 64 caracteres.");  
+            if (pass.length < 8 || pass.length > 64)
+                errores.push("La contraseña debe tener entre 8 y 64 caracteres.");
             // No más de 3 caracteres repetidos seguidos
             if (repetidosRegex.test(user)) 
                 errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");

@@ -4,11 +4,10 @@
 #include <WebServer.h>
 #include "Constants.h"
 #include "Plant.h"
-#include "wellcomeForm.h"
+#include "mainForm.h"
 #include "registerUserForm.h"
-//#include "updateParametersForm.h"
 
-uint8_t systemStatus[5] = {0}; 
+//uint8_t systemStatus[5] = {0}; 
 
 DNSServer dnsServer;
 WebServer server(80);
@@ -19,10 +18,12 @@ HttpResponse response;
 
 // index page handler
 void handleRoot();
-void handleNotFound(); 
+void handleNotFound();
 void handleRegisterUser();
-void handleUpdatedParameters();
+void handleUserCredentials();
+void handleGetParameters();
 void handleNewParameters();
+void handleAuthUserCredentials();
 void handleExit();
 
 void setup() {
@@ -49,8 +50,9 @@ void setup() {
   server.on("/", handleRoot);
   server.on("/registeru", handleRegisterUser);
   server.on("/usercredentials", HTTP_POST, handleUserCredentials);
-  server.on("/updateparams", HTTP_GET, handleUpdateParameters);
+  server.on("/getparams", HTTP_GET, handleGetParameters);
   server.on("/newparams", HTTP_POST, handleNewParameters);
+  server.on("/authusercredentials", HTTP_POST, handleAuthUserCredentials);
   server.on("/exit", handleExit);
   server.onNotFound(handleNotFound);
   server.begin();
@@ -74,10 +76,7 @@ void loop() {
 }
 
 void handleRoot() {
-  if (planta.getRegisteredUser())
-    server.send(200, "text/html", planta.buildShowParametersForm());
-  else
-    server.send(200, "text/html", wellcomeForm);
+  server.send(200, "text/html", dashboardForm);
   Serial.println(server.uri());  
 }
 
@@ -98,16 +97,29 @@ void handleUserCredentials() {
   response = buildHttpResponse(status);
 
   server.send(response.code, response.contentType, response.body);
-  if (status == STATUS_OK || status == HARD_RESET) {
+
+  if(status == HARD_RESET){
       Serial.println("[System] Hard reset\n");
       delay(1000);
       ESP.restart();
-    }
+  }
 }
 
-void handleUpdateParameters() {
-  server.send(200, "text/html", planta.buildUpdateParametersForm());
+void handleGetParameters() {
+  // Devuelve el estado del dispositivo en JSON (incluye hasRegisteredUser).
+  server.send(200, "application/json", planta.buildParamsJson());
   Serial.println(server.uri());
+}
+
+void handleAuthUserCredentials() {
+  String body = server.arg("plain");
+  Serial.println(server.uri());
+
+  requestStatus status = planta.authUserCredentials(body);
+  response = buildHttpResponse(status);
+
+  // Solo valida para desbloquear la edición: NO reinicia el dispositivo.
+  server.send(response.code, response.contentType, response.body);
 }
 
 void handleNewParameters() {

@@ -164,7 +164,7 @@
             gap: 8px;
             font-size: 13px;
             font-weight: 400;
-            color: #388e3c;
+            color: #2e7d32;
             cursor: pointer;
         }
 
@@ -196,7 +196,7 @@
 
         .form-group label {
             font-size: 13px;
-            color: #388e3c;
+            color: #2e7d32;
         }
 
         .select-container {
@@ -317,10 +317,6 @@
         }
 
         /* Slider Azul */
-        .slider-container:has(#ledA) .slider-progress {
-            background: #e0e0e0;
-        }
-
         #ledA::-webkit-slider-thumb {
             background: #2196F3;
             box-shadow: 0 2px 8px rgba(33, 150, 243, 0.5);
@@ -332,10 +328,6 @@
         }
 
         /* Slider Rojo */
-        .slider-container:has(#ledR) .slider-progress {
-            background: #e0e0e0;
-        }
-
         #ledR::-webkit-slider-thumb {
             background: #f44336;
             box-shadow: 0 2px 8px rgba(244, 67, 54, 0.5);
@@ -347,10 +339,6 @@
         }
 
         /* Slider Blanco */
-        .slider-container:has(#ledB) .slider-progress {
-            background: #e0e0e0;
-        }
-
         #ledB::-webkit-slider-thumb {
             background: #ffffff;
             border: 2px solid #9e9e9e;
@@ -419,7 +407,7 @@
         }
 
         .footer p {
-            color: #558b2f;
+            color: #2e7d32;
             font-size: 14px;
         }
 
@@ -918,7 +906,7 @@
         </form>
 
         <div class="footer">
-            <p>© <span id="year">2024</span> Smartplant • Versión 1.0</p>
+            <p>© <span id="year">2026</span> Smartplant • Versión 1.0</p>
         </div>
     </div>
 
@@ -933,25 +921,25 @@
         // Estos valores son solo un respaldo: si /getparams no responde, el
         // dashboard se sigue pudiendo visualizar sin backend.
         var valoresESP32 = {
-            nombrePlanta: "Albahaca",
-            dispositivoActivo: true,
-            fotoperiodo: 18,
-            fotoperiodoApagado: 6,
-            luzAzul: 70,
-            luzRoja: 45,
-            luzBlanca: 30,
-            horasIrrigacion: 3,
-            minutosIrrigacion: 15,
-            horasVentilador: 4,
-            minutosVentilador: 20,
-            semana: 4,
-            dia: 26,
+            nombrePlanta: "Planta",
+            dispositivoActivo: false,
+            fotoperiodo: 0,
+            fotoperiodoApagado: 0,
+            luzAzul: 0,
+            luzRoja: 0,
+            luzBlanca: 0,
+            horasIrrigacion: 0,
+            minutosIrrigacion: 0,
+            horasVentilador: 0,
+            minutosVentilador: 0,
+            semana: 0,
+            dia: 0,
         }
 
         // Etiquetas legibles para los selects de frecuencia (valor → texto).
         const FREQ_LABELS = {
-            0: "0 ×/día", 1: "1 ×/día", 2: "2 ×/día", 3: "4 ×/día",
-            4: "8 ×/día", 5: "12 ×/día", 6: "24 ×/día"
+            0: "0 × día", 1: "1 × día", 2: "2 × día", 3: "4 × día",
+            4: "8 × día", 5: "12 × día", 6: "24 × día"
         };
 
         // Mapa de las claves internas de valoresESP32 a los alias que puede
@@ -1040,7 +1028,7 @@
             const v = valoresESP32;
             const activo = v.dispositivoActivo === true || v.dispositivoActivo === "true";
 
-            document.getElementById('dashPlanta').textContent = v.nombrePlanta || "Sin nombre";
+            document.getElementById('dashPlanta').textContent = v.nombrePlanta || "Planta";
 
             const status = document.getElementById('dashStatus');
             status.textContent = activo ? "Activo" : "Inactivo";
