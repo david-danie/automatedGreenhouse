@@ -11,6 +11,6 @@
 
 9. Cuando se hace reset no se muestra un mensaje que avise al usuario el factory reset exitoso.
 10. Cuando no hay usuario registrado el form pasa inmediatamente a el formulario para registrar credenciales, 
-debe de haber un mensaje de bienvenida, invitando a registrar o salir.
-11. 
+debe de haber un mensaje de bienvenida invitando a registrar o salir.
+11. Implementar 30 minutos de sesion o mantener las credenciales para poder editar durante el registro
 
