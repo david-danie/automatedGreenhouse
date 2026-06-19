@@ -8,7 +8,7 @@ static const char registerUserForm[] = R"===(
     <title>Registrar usuario</title>
 
     <style>
-        /* ========== RESET ========== */
+        /* ========== RESET ========== */x
         * {
             box-sizing: border-box;
             margin: 0;
