@@ -1,9 +1,16 @@
 1. LOGS (Corregir riego y ventilación) ✓
 2. LOGS (Agregar SSID y PASS) ✓
 3. Agregar guardado de nombre de cultivo (aceptar espacios bug) ✓
-4. Quitar el reset cuando se reciben nuevos parametros correctamente (Solo actualizarlos)
+4. Quitar el reset cuando se reciben nuevos parametros correctamente (Solo actualizarlos) ✓
 5. Agregar RTC ✓
-6. Actualizar formularios en dispositivo
+6. Actualizar formularios en dispositivo ✓
 7. Especificar las respuestas de las solicitudes 
 8. macAddres cambiar tipo de variable ✓
+
+**
+
+9. Cuando se hace reset no se muestra un mensaje que avise al usuario el factory reset exitoso.
+10. Cuando no hay usuario registrado el form pasa inmediatamente a el formulario para registrar credenciales, 
+debe de haber un mensaje de bienvenida, invitando a registrar o salir.
+11. 
 

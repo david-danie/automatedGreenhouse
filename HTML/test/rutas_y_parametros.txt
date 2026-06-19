@@ -1,0 +1,193 @@
+================================================================================
+ SmartPlant ESP32-C3 — RUTAS HTTP Y PARÁMETROS ESPERADOS
+ (portal captivo en AP "SmartPlant", servidor en puerto 80)
+ Fuente: ESP32_Controller/CaptiveCrop.ino, Plant.cpp, Constants.h
+================================================================================
+
+Convenciones:
+- Todas las respuestas son JSON: {"status": <bool>, "message": "<texto>"}
+  -> HTTP 200 en éxito, HTTP 400 en error de validación.
+- Los POST esperan body JSON con Content-Type: application/json.
+- Tras OK, /newparams reinicia el dispositivo; /usercredentials NO reinicia;
+  /authusercredentials reinicia SOLO si recibió el comando de reset.
+
+
+--------------------------------------------------------------------------------
+ GET /
+--------------------------------------------------------------------------------
+Handler: handleRoot
+Body de entrada: (ninguno)
+Devuelve: HTML (la página única embebida en dashboardForm.h). text/html.
+
+
+--------------------------------------------------------------------------------
+ GET /getparams
+--------------------------------------------------------------------------------
+Handler: handleGetParameters -> Plant::buildParamsJson
+Body de entrada: (ninguno)
+Devuelve: JSON con el estado del dispositivo.
+
+  Siempre presente:
+    hasRegisteredUser : bool   (decide registro vs dashboard en el front)
+
+  Presentes SOLO si hasRegisteredUser == true:
+    planta : string            nombre de la planta
+    enable : bool              sistema activo
+    fpOn   : number (0-23)     hora de prendido del fotoperiodo
+    fpOff  : number (0-23)     hora de apagado del fotoperiodo
+    ledA   : number (0-100)    espectro azul  (%)
+    ledR   : number (0-100)    espectro rojo  (%)
+    ledB   : number (0-100)    espectro blanco(%)
+    irrH   : number            frecuencia de riego        (ver NOTA frecuencias)
+    irrM   : number (0-59)     duración de riego (min)
+    ventH  : number            frecuencia de ventilación  (ver NOTA frecuencias)
+    ventM  : number (0-59)     duración de ventilación (min)
+    semana : number            semana del ciclo del cultivo
+    dia    : number            día del ciclo del cultivo
+
+
+--------------------------------------------------------------------------------
+ POST /usercredentials      (alta de usuario — primer arranque)
+--------------------------------------------------------------------------------
+Handler: handleUserCredentials -> Plant::validateUserCredentials
+NO reinicia el dispositivo.
+
+Body esperado:
+    {
+      "user": "<string 4-32 chars>",
+      "pass": "<string 8-64 chars>"
+    }
+
+Validación (campos obligatorios -> MISSING_CREDENTIALS si faltan):
+    - user: 4-32 caracteres; charset letras/dígitos/(_-.@!#$%&*?+=), SIN espacios.
+    - pass: 8-64 caracteres; mismo charset, SIN espacios.
+    - Ninguno con 4+ caracteres idénticos consecutivos.
+Efecto en éxito: guarda user/pass en Preferences (namespace "config") y marca
+    hasRegisteredUser=1 (namespace "system"). Responde STATUS_OK.
+NOTA: el registro NO acepta el comando de reset de fábrica.
+
+
+--------------------------------------------------------------------------------
+ POST /authusercredentials  (login para editar + comando de reset)
+--------------------------------------------------------------------------------
+Handler: handleAuthUserCredentials -> Plant::authUserCredentials
+Reinicia SOLO si se recibió el comando de reset.
+
+Body esperado:
+    {
+      "user": "<string>",
+      "pass": "<string>"
+    }
+
+Lógica:
+    1. Si pass == "**reset**"  -> hardReset() (borra Preferences config+system)
+                                  -> responde HARD_RESET y el ESP32 reinicia.
+                                  (Se evalúa ANTES de comparar credenciales:
+                                   funciona aunque se olvide la contraseña.)
+    2. Si no: valida longitudes (user 4-32, pass 8-64) y compara contra las
+       credenciales guardadas. STATUS_OK desbloquea la edición (no reinicia);
+       si no coinciden -> MISMATCH_CREDENTIALS.
+
+
+--------------------------------------------------------------------------------
+ POST /newparams            (guardar parámetros del cultivo + hora)
+--------------------------------------------------------------------------------
+Handler: handleNewParameters -> Plant::validateCropParameters
+Reinicia el dispositivo tras guardar con éxito (STATUS_OK).
+
+Body esperado (TODAS estas claves son obligatorias):
+
+  -- Parámetros del cultivo (su ausencia -> MISSING_FIELDS) --
+    planta : string (3-20)     nombre de la planta
+    enable : bool              sistema activo
+    fpOn   : number (0-23)     hora de prendido del fotoperiodo
+    fpOff  : number (0-23)     hora de apagado   (fpOn != fpOff)
+    ledA   : number (0-100)    espectro azul  (%)
+    ledR   : number (0-100)    espectro rojo  (%)
+    ledB   : number (0-100)    espectro blanco(%)
+    irrH   : number            frecuencia de riego        (ver NOTA frecuencias)
+    irrM   : number (0-59)     duración de riego (min)
+    ventH  : number            frecuencia de ventilación  (ver NOTA frecuencias)
+    ventM  : number (0-59)     duración de ventilación (min)
+
+  -- Credenciales (su ausencia -> MISSING_CREDENTIALS) --
+    user   : string            debe coincidir con la guardada
+    pass   : string            debe coincidir con la guardada
+
+  -- Fecha/hora (se sincroniza el RTC; valores tipo uint8_t) --
+    seg    : number (0-59)
+    min    : number (0-59)
+    hr     : number (0-23)
+    diaSem : number (1-7)      OJO: el front envía getDay()+1 (domingo=1 .. sábado=7)
+    dia    : number (1-31)
+    mes    : number (1-12)
+    anio   : number (0-99)     año a 2 dígitos
+
+Reglas adicionales:
+    - Todos los numéricos deben caber en uint8_t (0-255) y estar en su rango.
+    - planta: charset letras/dígitos/espacios/(_-.@!#$%&*?+=); sin espacios
+      dobles; no puede ser solo dígitos; sin 4+ repetidos consecutivos.
+    - fpOn y fpOff no pueden ser iguales.
+
+Ejemplo de body válido:
+    {
+      "planta":"Albahaca","enable":true,
+      "fpOn":18,"fpOff":6,
+      "ledA":70,"ledR":45,"ledB":30,
+      "irrH":3,"irrM":15,"ventH":4,"ventM":20,
+      "user":"admin","pass":"miClave123",
+      "seg":15,"min":30,"hr":10,"diaSem":4,"dia":18,"mes":6,"anio":26
+    }
+
+
+--------------------------------------------------------------------------------
+ GET /exit
+--------------------------------------------------------------------------------
+Handler: handleExit
+Devuelve: HTML "<h1>Desconectado correctamente</h1>".
+
+
+--------------------------------------------------------------------------------
+ (cualquier otra ruta)
+--------------------------------------------------------------------------------
+Handler: handleNotFound -> 302 Location: /   (requerido por el portal captivo)
+
+
+================================================================================
+ NOTA frecuencias (irrH / ventH)
+================================================================================
+El firmware valida estos campos con isValidFrequency(), que acepta solo valores
+del arreglo validFrequencies = {0,1,2,3,4,6,8,12,24} (veces/día reales que
+dividen exacto a 24).
+
+El <select> del formulario envía la FRECUENCIA REAL (no un índice). Cada opción
+tiene value == frecuencia, replicando validFrequencies:
+    value 0  -> "0 veces/día"   (apagado)
+    value 1  -> "1 vez/día"
+    value 2  -> "2 veces/día"
+    value 3  -> "3 veces/día"
+    value 4  -> "4 veces/día"
+    value 6  -> "6 veces/día"
+    value 8  -> "8 veces/día"
+    value 12 -> "12 veces/día"
+    value 24 -> "24 veces/día"
+
+El front se alinea con el firmware: si validFrequencies cambia en Constants.h,
+hay que actualizar tanto las <option> como la constante JS VALID_FREQUENCIES en
+dashboardForm.h.
+
+
+================================================================================
+ Catálogo de errores (requestStatus -> mensaje, ver Plant.cpp buildHttpResponse)
+================================================================================
+STATUS_OK ............... "Información recibida correctamente. El dispositivo se reiniciará."
+HARD_RESET .............. "Factory reset ejecutado."
+INVALID_JSON ............ "El formato de envío es inválido."
+STORAGE_ERROR ........... "Los datos recibidos no se pudieron guardar."
+MISSING_FIELDS .......... "Campos requeridos faltantes."
+MISSING_CREDENTIALS ..... "Los campos de usuario y contraseña son obligatorios."
+INVALID_USERNAME_LENGTH . "Longitud de usuario inválida (4-32 caracteres)."
+INVALID_USERPASS_LENGTH . "Longitud de contraseña inválida (8-64 caracteres)."
+INVALID_USERNAME_CHARS .. "El nombre de usuario solo permite los caracteres (_-.@!#$%&*?+=)."
+(... resto de INVALID_* de planta, fotoperiodo, riego, ventilación, LEDs y
+     fecha/hora con su mensaje correspondiente en buildHttpResponse.)
