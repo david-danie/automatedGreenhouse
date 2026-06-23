@@ -6,11 +6,14 @@
 6. Actualizar formularios en dispositivo ✓
 7. Especificar las respuestas de las solicitudes 
 8. macAddres cambiar tipo de variable ✓
+9. Cuando se hace reset no se muestra un mensaje que avise al usuario el factory reset exitoso.  ✓
+10. Cuando no hay usuario registrado el form pasa inmediatamente a el formulario para registrar credenciales,  
+debe de haber un mensaje de bienvenida invitando a registrar o salir. ✓
+11. Mensaje en las pantallas de exit  ✓
 
-**
+13. Desconectar dispositivo ocerrar paginas despues del ultimo msj.
 
-9. Cuando se hace reset no se muestra un mensaje que avise al usuario el factory reset exitoso.
-10. Cuando no hay usuario registrado el form pasa inmediatamente a el formulario para registrar credenciales, 
-debe de haber un mensaje de bienvenida invitando a registrar o salir.
-11. Implementar 30 minutos de sesion o mantener las credenciales para poder editar durante el registro
+12. Implementar 30 minutos de sesion o mantener las credenciales para poder editar durante el registro
+14. Seguridad
+
 
