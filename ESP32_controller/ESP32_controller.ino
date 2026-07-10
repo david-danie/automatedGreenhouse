@@ -76,7 +76,7 @@ void loop() {
 }
 
 void handleRoot() {
-  server.send(200, "text/html", dashboardForm);
+  server.send(200, "text/html", mainForm);
   Serial.println(server.uri());  
 }
 

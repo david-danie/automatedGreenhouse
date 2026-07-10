@@ -86,28 +86,15 @@ struct HttpResponse {
 
 HttpResponse buildHttpResponse(requestStatus status);
 
-uint8_t bcd2bin(uint8_t bcd);
-uint8_t bin2bcd(uint8_t bin);
 
-//bool isValidString(const char* s);
+
 
 bool isValidString(const String &s);
 bool isValidChar(char c);
-String maskPassword(const char* pass);
 
-bool isValidReadableString(const String& s, bool allowSpaces);
-bool hasTooManyRepeatedChars(const String& s);
 
-// ¿La frecuencia (veces/día) es una de las permitidas (divisores de 24)?
-bool isValidFrequency(uint8_t f);
 
-// Validadores unificados con el formulario (cuentan por carácter UTF-8, para que
-// los límites coincidan con String.length de JS aunque haya acentos/ñ).
-int  utf8Len(const String& s);
-int  utf8CharLen(unsigned char c);
-bool hasConsecutiveSpaces(const String& s);
-bool isAllDigits(const String& s);
-bool isSpanishAccentUtf8(unsigned char lead, unsigned char cont);
+
 
 void setBuzzer();
 
