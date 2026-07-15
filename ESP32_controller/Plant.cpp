@@ -2,12 +2,12 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
-#include "esp_mac.h" 
+#include <esp_mac.h> 
+#include <esp_random.h>   // esp_random(): RNG por hardware para el token de sesión
 #include "Constants.h"
 #include "Plant.h"
 #include "sensible.h"
 #include "utils.h"     // helpers libres (BCD, validación de strings/UTF-8, fecha, etc.)
-
 
 Plant::Plant(){
 
@@ -43,6 +43,7 @@ void Plant::begin(){
 
   p.begin("system", true);  // Abrir en modo lectura
   p.getBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
+  _cropStartDay = p.getULong("cropStart", 0);  // 0 = cultivo sin anclar aún
   p.end();
 
   p.begin("plantData", true);
@@ -62,17 +63,37 @@ void Plant::begin(){
 
   p.end();
 
-  printSystemData();
+  // Credenciales Wi-Fi del usuario (modo STA). Viven en su propio namespace
+  // "wifi"; el flag hasWifiCredentials (en _systemStatus/"system") decide si se
+  // levanta el STA al arrancar. Vacío = nunca configurado = AP puro.
+  p.begin("wifi", true);
+  p.getString("ssid", _SSID, sizeof(_SSID));
+  p.getString("pass", _SSIDpass, sizeof(_SSIDpass));
+  p.end();
 
-  //startClock();
+  getCurrentTime();   // primer refresco del RTC (aquí, en setup/loopTask, sin concurrencia)
+  printSystemData();
 
 }
 
-/*bool Plant::getRegisteredUser(){
+bool Plant::getRegisteredUser(){
   return _systemStatus[hasRegisteredUser];
-}*/
+}
 
-requestStatus Plant::validateUserCredentials(const String& body) {
+// Getters para que setup() (.ino) decida AP puro vs AP+STA y arranque el STA.
+bool Plant::getWifiCredentials(){
+  return _systemStatus[hasWifiCredentials];
+}
+
+const char* Plant::getSsid(){
+  return _SSID;
+}
+
+const char* Plant::getWifiPass(){
+  return _SSIDpass;
+}
+
+requestStatus Plant::validateUserCredentials(const String& body){
 
     // ---- 1. Parseo del JSON ----
     StaticJsonDocument<100> doc;
@@ -91,17 +112,14 @@ requestStatus Plant::validateUserCredentials(const String& body) {
     String userpass = doc["pass"] | "";
     userpass.trim();
 
-    // ---- 2. Comando especial RESET ----
-    if (userpass == "**reset**") {
-      hardReset();
-      return HARD_RESET;
-    }
+    // El registro NO acepta el comando RESET: no hay usuario/datos previos que
+    // borrar. El reset vive en el login (authUserCredentials).
 
-    // ---- 3. Validación de longitud ----
-    if (username.length() < 4 || username.length() > 32) //4-31
-      return INVALID_USERNAME_LENGTH; 
-    if (userpass.length() < 8 || userpass.length() > 64) //8-63
-      return INVALID_USERPASS_LENGTH; 
+    // ---- 3. Validación de longitud (por carácter UTF-8, igual que el form) ----
+    if (utf8Len(username) < minUsernameChars || utf8Len(username) > maxUsernameChars)
+      return INVALID_USERNAME_LENGTH;
+    if (utf8Len(userpass) < minUserpassChars || utf8Len(userpass) > maxUserpassChars)
+      return INVALID_USERPASS_LENGTH;
 
     // ---- 4. Validación de caracteres permitidos ----
     if (!isValidReadableString(username, false))
@@ -109,7 +127,7 @@ requestStatus Plant::validateUserCredentials(const String& body) {
     if (!isValidReadableString(userpass, false)) 
       return INVALID_USERPASS_CHARS; 
 
-    // ---- 4. Validación de caracteres permitidos ----
+    // ---- 5. Rechazo de caracteres repetidos (4+ idénticos consecutivos) ----
     if (hasTooManyRepeatedChars(username))
       return USERNAME_REPEATED_CHARS;
     if (hasTooManyRepeatedChars(userpass))
@@ -125,15 +143,9 @@ requestStatus Plant::validateUserCredentials(const String& body) {
     p.putString("username", _username);
     p.putString("userpass", _userpass);
     p.end();
-    Serial.printf("\nUser:%s Password:%s Guardados\n", username, userpass);
+    Serial.println("[System] Credenciales de usuario guardadas");
 
-    // Leer inmediatamente después de guardar
-    /*p.begin("config", true);
-    String u = p.getString("user", "---");
-    String pa = p.getString("pass", "---");
-    p.end();*/
-
-    if (!p.begin("system", false)) 
+    if (!p.begin("system", false))
         return STORAGE_ERROR;
   
     _systemStatus[hasRegisteredUser]  = 1;  //*****************
@@ -142,6 +154,7 @@ requestStatus Plant::validateUserCredentials(const String& body) {
     return STATUS_OK;
 
 }
+
 /**
  * @brief Valida los parametros que llegan desde el formulario HTML.
  * 1. Que  contenga los campos "user" y "pass"
@@ -150,9 +163,11 @@ requestStatus Plant::validateUserCredentials(const String& body) {
  * 
  * @param body  Es el cuerpo del request, llega en texto plano
  */
-requestStatus Plant::validateCropParameters(const String& body) {
+requestStatus Plant::validateCropParameters(const String& body){
 
-  StaticJsonDocument<512> doc;
+  // 20 claves + copias de las cadenas (planta/user/pass) al deserializar desde
+  // un String: 512 se queda corto con credenciales largas y desborda (NoMemory).
+  StaticJsonDocument<1024> doc;
   DeserializationError err = deserializeJson(doc, body);
 
   if (err) 
@@ -160,7 +175,7 @@ requestStatus Plant::validateCropParameters(const String& body) {
   
   if (!doc.containsKey("planta")  ||
       !doc.containsKey("enable")  ||
-      !doc.containsKey("fp")      ||
+      !doc.containsKey("fpOn")    ||
       !doc.containsKey("fpOff")   ||
       !doc.containsKey("ledA")    ||
       !doc.containsKey("ledR")    ||
@@ -171,49 +186,16 @@ requestStatus Plant::validateCropParameters(const String& body) {
       !doc.containsKey("ventM"))
     return MISSING_FIELDS;
 
-  if (!doc.containsKey("user") || !doc.containsKey("pass")) 
-    return MISSING_CREDENTIALS;
-  
-  String username = doc["user"] | "";
-  username.trim();
-  String userpass = doc["pass"] | "";
-  userpass.trim();
+  // ---- Autorización por TOKEN de sesión ----
+  // Ya no se reenvían las credenciales en claro: el front manda el token emitido
+  // en el login/registro y debe seguir vigente. Si no, la edición se rechaza.
+  if (!doc.containsKey("token"))
+    return INVALID_SESSION;
 
-  // ---- 2. Comando especial RESET ----
-  if (userpass == "reset") {
-    hardReset();
-    return HARD_RESET;
-  }
-      // ---- 3. Validación de longitud ----
-  if (username.length() < 5 || username.length() > 32) //4-31
-    return INVALID_USERNAME_LENGTH; 
-  if (userpass.length() < 8 || userpass.length() > 64) //8-63
-    return INVALID_USERPASS_LENGTH; 
-
-  // ---- 4. Validación de caracteres permitidos ----
-  if (!isValidReadableString(username, false))
-    return INVALID_USERNAME_CHARS;
-  if (!isValidReadableString(userpass, false)) 
-    return INVALID_USERPASS_CHARS; 
-
-  // ---- 4. Validación de caracteres permitidos ----
-  if (hasTooManyRepeatedChars(username))
-    return USERNAME_REPEATED_CHARS;
-  if (hasTooManyRepeatedChars(userpass))
-    return USERPASS_REPEATED_CHARS;
-
-  /*********** NO LEER username Y userpass PORQUE SE LEEN DESDE EL INICIO DEL PROGRAMA ******* REVISAR */
-  /*p.begin("config", true);
-  String userSaved = p.getString("username", "");
-  String passSaved = p.getString("userpass", "");
-  p.end();*/
-
-  if (username != _username || userpass != _userpass) 
-    return MISMATCH_CREDENTIALS;
-
-  //Validaciones de planta
-  //if (!doc.containsKey("planta")) 
-  //  return MISSING_PLANTNAME_FIELD;
+  String token = doc["token"] | "";
+  token.trim();
+  if (!isSessionValid(token))
+    return INVALID_SESSION;
 
   String plantNameBuff = doc["planta"] | "";
   plantNameBuff.trim();
@@ -231,18 +213,16 @@ requestStatus Plant::validateCropParameters(const String& body) {
 
   // Fotoperiodo: hora de prendido y de apagado (0-23). El ciclo puede cruzar
   // medianoche (prendido > apagado), pero no pueden ser iguales (0h o 24h de luz).
-  if (!doc["fpOn"].is<uint8_t>() || doc["fpOn"] > 23 ||
-      !doc["fpOff"].is<uint8_t>() || doc["fpOff"] > 23)
+  if (!doc["fpOn"].is<uint8_t>() || doc["fpOn"] > 23 || !doc["fpOff"].is<uint8_t>() || doc["fpOff"] > 23)
     return INVALID_PHOTOPERIOD_TYPE;
   if ((uint8_t)doc["fpOn"] == (uint8_t)doc["fpOff"])
     return INVALID_PHOTOPERIOD_TYPE;
-  // irrH/ventH = veces/día (cantidad real): frecuencia permitida.
+  // irrH/ventH = intervalo en HORAS entre activaciones (de validFrequencies):
+  //   3=cada 3h, 24=diario, 48=cada 2 días, 168=semanal, 0=apagado.
   // irrM/ventM = minutos de duración del encendido (0-59, igual que el form).
-  if (!doc["irrH"].is<uint8_t>() || !doc["irrM"].is<uint8_t>() ||
-      !isValidFrequency(doc["irrH"]) || doc["irrM"] > 59)
+  if (!doc["irrH"].is<uint8_t>() || !doc["irrM"].is<uint8_t>() || !isValidFrequency(doc["irrH"]) || doc["irrM"] > 59)
     return INVALID_IRRIGATION_TYPE;
-  if (!doc["ventH"].is<uint8_t>() || !doc["ventM"].is<uint8_t>() ||
-      !isValidFrequency(doc["ventH"]) || doc["ventM"] > 59)
+  if (!doc["ventH"].is<uint8_t>() || !doc["ventM"].is<uint8_t>() || !isValidFrequency(doc["ventH"]) || doc["ventM"] > 59)
     return INVALID_VENTILATION_TYPE;
 
   // LEDs = duty cycle 0-100% (igual que el form).
@@ -286,12 +266,19 @@ requestStatus Plant::validateCropParameters(const String& body) {
   _currentTime[month] = doc["mes"];
   _currentTime[year] = doc["anio"];
 
-  //startClock();
   setCurrentTime();
 
-  if (!p.begin("system", false)) 
+  if (!p.begin("system", false))
     return STORAGE_ERROR;
   p.putBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
+  // Ancla la fecha de inicio del cultivo en el PRIMER /newparams con fecha
+  // válida (el navegador acaba de fijar la hora en el RTC). Solo se escribe una
+  // vez: el guard _cropStartDay == 0 evita reescribir en ediciones posteriores,
+  // así editar parámetros no reinicia la edad del cultivo (y no desgasta flash).
+  if (_cropStartDay == 0) {
+    _cropStartDay = daysSinceEpoch(2000 + _currentTime[year], _currentTime[month], _currentTime[day]);
+    p.putULong("cropStart", _cropStartDay);
+  }
   p.end();
 
   if (!p.begin("plantData", false))
@@ -302,7 +289,7 @@ requestStatus Plant::validateCropParameters(const String& body) {
   turnOnDevices();
   Serial.println("[System] Parámetros actualizados");
 
-  return STATUS_OK; 
+  return STATUS_OK;
 }
 
 void Plant::turnOnDevices(){
@@ -327,43 +314,84 @@ void Plant::turnOnDevices(){
   }
 
   // ** Control de Riego y Ventilación **
-  manageDevice(waterPumpPin, _systemStatus[irrigationFrequency], _systemStatus[irrigationDuration]);
-  manageDevice(fanPin, _systemStatus[ventilationFrequency], _systemStatus[ventilationDuration]);
+  // Contador continuo de horas derivado del RTC, calculado UNA vez y compartido
+  // por bomba y ventilador.
+  uint32_t epochHours = daysSinceEpoch(2000 + _currentTime[year],_currentTime[month], _currentTime[day]) * 24UL + _currentTime[hour];
+  manageDevice(waterPumpPin, _systemStatus[irrigationFrequency], _systemStatus[irrigationDuration], epochHours);
+  manageDevice(fanPin, _systemStatus[ventilationFrequency], _systemStatus[ventilationDuration], epochHours);
 
 }
 
 /**
- * @brief Controla un dispositivo según su frecuencia diaria.
+ * @brief Controla un dispositivo según su intervalo entre activaciones.
  *
- * La frecuencia llega como la cantidad real de veces/día (0,1,2,4,8,12,24). Se
- * traduce a un intervalo de horas (24 / veces) y el dispositivo se enciende
- * durante los primeros `durationMinutes` de cada hora múltiplo del intervalo.
- * Ej.: 8 veces/día → cada 3 h → enciende a las 0,3,6,9,... por N minutos.
+ * `intervalHours` es directamente el número de HORAS entre encendidos (ya no
+ * "veces/día"). Para decidir si toca encender se usa un contador CONTINUO de
+ * horas, `epochHours`, derivado de la fecha/hora del RTC: a diferencia de la
+ * hora del día (0-23), este contador NO se reinicia a medianoche, así que el
+ * mismo módulo sirve para intervalos sub-diarios y multi-día:
+ *   - 3 h  → enciende a las 0,3,6,9,... todos los días (8 veces/día)
+ *   - 24 h → una vez al día (hora 0)
+ *   - 48 h → cada 2 días (hora 0)   168 h → cada semana (hora 0)
+ * El dispositivo queda encendido durante los primeros `durationMinutes` de la
+ * hora en que toca. Es STATELESS: todo se recalcula del RTC, sin guardar nada,
+ * así que sobrevive cortes de luz sin derivar.
  *
  * @param devicePin         Pin del dispositivo (bomba o ventilador).
- * @param timesPerDay       Veces al día (debe dividir 24; ya validado en la entrada).
+ * @param intervalHours     Horas entre activaciones (de validFrequencies; 0 = apagado).
  * @param durationMinutes   Duración en minutos del encendido.
+ * @param epochHours        Contador continuo de horas del RTC (lo calcula
+ *                          turnOnDevices una sola vez y lo comparte entre
+ *                          bomba y ventilador).
  */
-void Plant::manageDevice(int devicePin, int timesPerDay, int durationMinutes) {
+void Plant::manageDevice(int devicePin, int intervalHours, int durationMinutes, uint32_t epochHours) {
   bool activeDevice = false;
 
-  if (timesPerDay > 0) {
-    uint8_t intervalHours = 24 / timesPerDay;  // divisor exacto de 24
-    activeDevice = (_currentTime[hour] % intervalHours == 0) &&
-                   (_currentTime[minute] < durationMinutes);
+  if (intervalHours > 0) {
+    activeDevice = (epochHours % (uint32_t)intervalHours == 0) && (_currentTime[minute] < durationMinutes);
   }
 
   digitalWrite(devicePin, activeDevice ? HIGH : LOW);
 }
 
+/**
+ * @brief Edad del cultivo en días (>=1), derivada del RTC y del ancla.
+ *
+ * STATELESS: en vez de incrementar un contador a medianoche (que se perdería en
+ * cortes de luz), calcula la diferencia entre el día de hoy y _cropStartDay. Así
+ * el cultivo "sigue envejeciendo" aunque el equipo haya estado apagado. El día
+ * del ancla cuenta como día 1. Usa _currentTime, que refresca printTask desde el
+ * RTC cada 5 s; no hace I²C aquí para no chocar con esa tarea.
+ *
+ * @return día de cultivo (>=1), o 0 si aún no se ancla o el RTC retrocedió.
+ */
+int Plant::cropDayFromRtc() {
+  if (_cropStartDay == 0) return 0;                  // cultivo sin anclar
+
+  uint32_t today = daysSinceEpoch(2000 + _currentTime[year], _currentTime[month], _currentTime[day]);
+  if (today < _cropStartDay) return 0;               // RTC retrocedió: evita negativos
+  return (int)(today - _cropStartDay) + 1;           // día del ancla = día 1
+}
+
 // Serializa el estado del dispositivo a JSON para GET /getparams. El cliente
-// (dashboardForm) decide qué pintar según "hasRegisteredUser": si es false solo
+// (mainForm) decide qué pintar según "hasRegisteredUser": si es false solo
 // se manda ese flag; si es true se incluyen todos los parámetros con las mismas
 // claves que espera el formulario (planta, fpOn, fpOff, ledA, irrH, etc.).
-String Plant::buildParamsJson() {
-  StaticJsonDocument<512> doc;
+String Plant::buildParamsJson(const String& token) {
+  StaticJsonDocument<768> doc;
 
   doc["hasRegisteredUser"] = (bool)_systemStatus[hasRegisteredUser];
+
+  // Reporta si la sesión sigue activa (el front salta el login si es true). La
+  // ventana es FIJA: cargar /getparams no la extiende; expira a los SESSION_TTL_MS
+  // del login, haya o no actividad.
+  doc["sessionValid"] = isSessionValid(token);
+
+  // Estado de la conexión a Internet (STA) para el chip del dashboard y el
+  // polling de la vista de red. wifiSsid va vacío si el STA no está asociado.
+  bool wifiUp = isWifiConnected();   // una sola lectura de WiFi.status()
+  doc["wifiConnected"] = wifiUp;
+  doc["wifiSsid"] = wifiUp ? WiFi.SSID() : String("");
 
   if (_systemStatus[hasRegisteredUser]) {
     doc["planta"] = _plantName;
@@ -377,8 +405,9 @@ String Plant::buildParamsJson() {
     doc["irrM"]   = _systemStatus[irrigationDuration];
     doc["ventH"]  = _systemStatus[ventilationFrequency];
     doc["ventM"]  = _systemStatus[ventilationDuration];
-    doc["semana"] = _systemStatus[cropWeek];
-    doc["dia"]    = _systemStatus[cropDay];
+    int cd = cropDayFromRtc();                  // edad derivada del RTC (0 = sin anclar)
+    doc["dia"]    = cd;
+    doc["semana"] = cd > 0 ? (cd - 1) / 7 + 1 : 0;
   }
 
   String out;
@@ -402,6 +431,15 @@ requestStatus Plant::authUserCredentials(const String& body) {
   String userpass = doc["pass"] | "";
   userpass.trim();
 
+  // Comando especial RESET: solo tiene sentido en el login, donde ya hay
+  // usuario/datos guardados que borrar. Se evalúa antes de validar credenciales
+  // para que funcione aunque se haya olvidado la contraseña (no compara contra
+  // las guardadas). El registro NO acepta reset: ahí no hay nada previo.
+  if (userpass == "**reset**") {
+    hardReset();
+    return HARD_RESET;
+  }
+
   if (utf8Len(username) < minUsernameChars || utf8Len(username) > maxUsernameChars)
     return INVALID_USERNAME_LENGTH;
   if (utf8Len(userpass) < minUserpassChars || utf8Len(userpass) > maxUserpassChars)
@@ -413,20 +451,177 @@ requestStatus Plant::authUserCredentials(const String& body) {
   return STATUS_OK;
 }
 
-/*void Plant::startClock(){
-  Wire.begin();
+// Emite un token de sesión de 128 bits (4 x esp_random(), RNG por hardware) en
+// hex (32 caracteres) y fija el vencimiento a millis() + TTL. Este es el ÚNICO
+// punto donde se fija la expiración: la ventana es FIJA (no se renueva con la
+// actividad), así que la sesión caduca SESSION_TTL_MS después del login. Sobrescribe
+// el token anterior: solo hay UNA sesión activa, así que un login nuevo invalida la
+// sesión previa. Se llama al validar login o registro OK.
+String Plant::issueSessionToken() {
+  char buf[33];
+  for (int i = 0; i < 4; i++)
+    snprintf(buf + i * 8, 9, "%08x", esp_random());
+  buf[32] = '\0';
+  strlcpy(_sessionToken, buf, sizeof(_sessionToken));
+  _sessionExpiresAt = millis() + SESSION_TTL_MS;
+  return String(_sessionToken);
+}
 
-  Wire.beginTransmission(DS3231Adress);
-  Wire.write(0x00);
+// ¿El token coincide con el vigente y no ha expirado? La comparación de tiempo
+// usa aritmética con signo para ser a prueba del wrap de millis() (~49 días);
+// 30 min está muy por debajo de ese horizonte.
+bool Plant::isSessionValid(const String& token) {
+  if (_sessionToken[0] == '\0') return false;            // no hay sesión activa
+  if (token.length() != 32) return false;
+  if (token != _sessionToken) return false;
+  return (int32_t)(millis() - _sessionExpiresAt) < 0;    // aún no expira
+}
 
-  for (uint8_t i = 0; i < rtcReadBytes; i++)
-      Wire.write(bin2bcd(0));
+// Invalida la sesión actual (logout /exit y factory reset).
+void Plant::clearSession() {
+  _sessionToken[0] = '\0';
+  _sessionExpiresAt = 0;
+}
 
-  Wire.endTransmission();
-}*/
+// ===========================================================================
+//  Conectividad Wi-Fi del usuario (modo STA, coexiste con el AP)
+// ===========================================================================
+
+bool Plant::isWifiConnected() {
+  return WiFi.status() == WL_CONNECTED;
+}
+
+// Escanea redes y devuelve las 5 más fuertes SIN nombres repetidos. El escaneo
+// es BLOQUEANTE (~2 s) y corre dentro del request /wifiscan: aceptable para una
+// acción puntual del usuario. Dedup: ante dos APs con el mismo SSID (repetidores)
+// se conserva el de mayor RSSI. Oculta SSIDs vacíos (redes ocultas).
+String Plant::scanNetworks() {
+  // Top-5 por RSSI, deduplicado por SSID. Arreglos fijos (sin heap): el ESP32-C3
+  // tiene RAM limitada y 5 entradas sobran para una lista legible.
+  const uint8_t MAX = 5;
+  char     bestSsid[MAX][maxWifiSsidChars + 1];
+  int32_t  bestRssi[MAX];
+  bool     bestOpen[MAX];
+  uint8_t  count = 0;
+
+  int n = WiFi.scanNetworks();
+  for (int i = 0; i < n; i++) {
+    String ssid = WiFi.SSID(i);
+    if (ssid.length() == 0) continue;                 // red oculta: sin nombre
+    int32_t rssi = WiFi.RSSI(i);
+    bool open = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN);
+
+    // ¿Ya está ese SSID? (repetidor) → conserva la señal más fuerte.
+    int found = -1;
+    for (uint8_t k = 0; k < count; k++)
+      if (ssid.equals(bestSsid[k])) { found = k; break; }
+
+    if (found >= 0) {
+      if (rssi > bestRssi[found]) { bestRssi[found] = rssi; bestOpen[found] = open; }
+      continue;
+    }
+
+    if (count < MAX) {                                // hay lugar: agrega
+      strlcpy(bestSsid[count], ssid.c_str(), sizeof(bestSsid[count]));
+      bestRssi[count] = rssi;
+      bestOpen[count] = open;
+      count++;
+    } else {                                          // lleno: reemplaza al más débil si este es más fuerte
+      uint8_t weakest = 0;
+      for (uint8_t k = 1; k < MAX; k++)
+        if (bestRssi[k] < bestRssi[weakest]) weakest = k;
+      if (rssi > bestRssi[weakest]) {
+        strlcpy(bestSsid[weakest], ssid.c_str(), sizeof(bestSsid[weakest]));
+        bestRssi[weakest] = rssi;
+        bestOpen[weakest] = open;
+      }
+    }
+  }
+  WiFi.scanDelete();                                  // libera los resultados del escaneo
+
+  StaticJsonDocument<768> doc;
+  JsonArray nets = doc.createNestedArray("networks");
+  for (uint8_t k = 0; k < count; k++) {
+    JsonObject o = nets.createNestedObject();
+    o["ssid"]   = bestSsid[k];
+    o["rssi"]   = bestRssi[k];
+    o["secure"] = !bestOpen[k];
+  }
+
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
+// Valida y ARRANCA la conexión (sin bloquear ni persistir). Igual que /newparams,
+// exige un token de sesión vigente: cambiar la red es una acción sensible. En
+// éxito devuelve STATUS_OK = "intento iniciado"; el front confirma por polling.
+requestStatus Plant::saveWifiCredentials(const String& body) {
+  // ssid(32) + pass(63) + token(32) se duplican al deserializar desde un String.
+  StaticJsonDocument<384> doc;
+  if (deserializeJson(doc, body))
+    return INVALID_JSON;
+
+  // ---- Autorización por token (misma puerta que la edición de parámetros) ----
+  if (!doc.containsKey("token"))
+    return INVALID_SESSION;
+  String token = doc["token"] | "";
+  token.trim();
+  if (!isSessionValid(token))
+    return INVALID_SESSION;
+
+  if (!doc.containsKey("ssid"))
+    return MISSING_WIFI_FIELDS;
+
+  String ssid = doc["ssid"] | "";
+  ssid.trim();
+  if (ssid.length() == 0 || ssid.length() > maxWifiSsidChars)
+    return INVALID_SSID;
+
+  // Contraseña: vacía = red abierta (válido); si viene, debe cumplir WPA2 (8–63).
+  String pass = doc["pass"] | "";
+  if (pass.length() != 0 && (pass.length() < minWifiPassChars || pass.length() > maxWifiPassChars))
+    return INVALID_WIFI_PASS;
+
+  strlcpy(_SSID, ssid.c_str(), sizeof(_SSID));
+  strlcpy(_SSIDpass, pass.c_str(), sizeof(_SSIDpass));
+  _wifiPending = true;                 // aún NO persistido: se guarda al conectar
+
+  // Reinicia el intento con las credenciales nuevas (añade/recrea el STA sobre el
+  // AP). No bloquea: updateWifi() observará el resultado desde el loop.
+  WiFi.disconnect();
+  WiFi.begin(_SSID, _SSIDpass);
+  Serial.printf("[WIFI] Nuevo intento de conexión a %s…\n", _SSID);
+
+  return STATUS_OK;
+}
+
+// Persistencia diferida: se llama desde loop(). Solo cuando un intento pendiente
+// llega a WL_CONNECTED se guardan las credenciales en NVS y se marca
+// hasWifiCredentials. Así una contraseña incorrecta nunca queda guardada (el
+// dispositivo no entraría en un bucle de reintentos fallidos tras reiniciar).
+void Plant::updateWifi() {
+  if (!_wifiPending) return;
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  _wifiPending = false;
+
+  p.begin("wifi", false);
+  p.putString("ssid", _SSID);
+  p.putString("pass", _SSIDpass);
+  p.end();
+
+  if (!_systemStatus[hasWifiCredentials]) {
+    _systemStatus[hasWifiCredentials] = 1;
+    p.begin("system", false);
+    p.putBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
+    p.end();
+  }
+  Serial.printf("[WIFI] Conectado a %s (%s). Credenciales guardadas.\n",
+                WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+}
 
 bool Plant::setCurrentTime(){
-  //Wire.begin();
   Wire.beginTransmission(DS3231Adress);
   Wire.write(0x00);
 
@@ -457,8 +652,16 @@ bool Plant::getCurrentTime(){
 void Plant::hardReset() {
     Serial.println("------- FACTORY RESET -------");
 
+    clearSession();  // invalida cualquier sesión de edición activa
+    _cropStartDay = 0;  // re-ancla el cultivo en el próximo /newparams (NVS se borra abajo)
+
     Serial.println("Clearing: system");
     p.begin("system", false);
+    p.clear();
+    p.end();
+
+    Serial.println("Clearing: Plant name");
+    p.begin("plantData", false);
     p.clear();
     p.end();
 
@@ -474,8 +677,9 @@ void Plant::hardReset() {
 
 }
 
-void Plant::printSystemData() { 
-  getCurrentTime();
+void Plant::printSystemData() {
+  // Solo imprime la copia en RAM de _currentTime; el refresco desde el RTC (I²C)
+  // lo hace loop() en un único task, para no compartir el bus Wire entre tareas.
   Serial.printf("\n===================== ESTADO DEL SISTEMA =====================\n");
 
   Serial.printf("[SYS] MAC:%s | Usuario:%s | Sistema:%s\n",
@@ -497,19 +701,20 @@ void Plant::printSystemData() {
                 _systemStatus[redDutyCycle],
                 _systemStatus[whiteDutyCycle]);
 
-  Serial.printf("[RIEGO] Frecuencia:%02d veces al dia por %02d minutos\n",
+  Serial.printf("[RIEGO] Intervalo:%dh por %d minutos\n",
                 _systemStatus[irrigationFrequency],
                 _systemStatus[irrigationDuration]);
 
-  Serial.printf("[VENT] Frecuencia:%02d veces al dia por %02d minutos\n",
+  Serial.printf("[VENT] Intervalo:%dh por %d minutos\n",
                 _systemStatus[ventilationFrequency],
                 _systemStatus[ventilationDuration]);
 
+  int cropDayAge = cropDayFromRtc();  // derivado del RTC + ancla (getCurrentTime ya corrió arriba)
   Serial.printf("[CULTIVO] %02d/%02d/%02d %02d:%02d:%02d Semana:%d | Dia:%d\n",
-                _currentTime[day], _currentTime[month], _currentTime[year], 
+                _currentTime[day], _currentTime[month], _currentTime[year],
                 _currentTime[hour], _currentTime[minute], _currentTime[second],
-                _systemStatus[cropWeek],
-                _systemStatus[cropDay]);
+                cropDayAge > 0 ? (cropDayAge - 1) / 7 + 1 : 0,
+                cropDayAge);
   Serial.printf("[CROP] Planta:%s\n", _plantName);
 
   Serial.printf("================================\n\n");
@@ -518,7 +723,7 @@ void Plant::printSystemData() {
 HttpResponse buildHttpResponse(requestStatus status) {
   switch (status) {
     case STATUS_OK:
-        return {200, "application/json", "{\"status\":true,\"message\":\"Información recibida correctamente. El dispositivo se reiniciará.\"}"};
+        return {200, "application/json", "{\"status\":true,\"message\":\"Parámetros actualizados correctamente.\"}"};
     case HARD_RESET:
         return {200, "application/json", "{\"status\":true,\"message\":\"Factory reset ejecutado.\"}"};
     case INVALID_JSON:
@@ -545,6 +750,8 @@ HttpResponse buildHttpResponse(requestStatus status) {
         return {400, "application/json", "{\"status\":false,\"message\":\"La contraseña de usuario tiene un caracter repetido más de 3 veces.\"}"};
     case MISMATCH_CREDENTIALS: //
         return {400, "application/json", "{\"status\":false,\"message\":\"Las credenciales enviadas no coinciden.\"}"};
+    case INVALID_SESSION:
+        return {401, "application/json", "{\"status\":false,\"message\":\"Tu sesión expiró. Vuelve a iniciar sesión.\"}"};
 
     case MISSING_PLANTNAME_FIELD:
         return {400, "application/json", "{\"status\":false,\"message\":\"El campo planta es obligatorio.\"}"};
@@ -584,41 +791,14 @@ HttpResponse buildHttpResponse(requestStatus status) {
     case INVALID_YEAR_FORMAT:
         return {400, "application/json", "{\"status\":false,\"message\":\"El campo año debe ser un entero sin signo (0-99).\"}"};
 
+    case MISSING_WIFI_FIELDS:
+        return {400, "application/json", "{\"status\":false,\"message\":\"Falta la red Wi-Fi a configurar.\"}"};
+    case INVALID_SSID:
+        return {400, "application/json", "{\"status\":false,\"message\":\"El nombre de la red (SSID) es inválido (1-32 caracteres).\"}"};
+    case INVALID_WIFI_PASS:
+        return {400, "application/json", "{\"status\":false,\"message\":\"La contraseña Wi-Fi debe tener entre 8 y 63 caracteres.\"}"};
+
     default:
         return {500, "application/json", "{\"status\":false,\"message\":\"Error interno del sistema.\"}"};
   }
 }
-
-
-
-
-
-
-
-
-/*
-Estas funciones se usan para validar el SSID y el SSIDpass
-
-String ssid = doc["key"] | "";
-ssid.trim();
-if (ssid.length() == 0)
-    return MISSING_FIELDS;
-
-String ssidPass = doc["key"] | "";
-ssidPass.trim();
-if (ssidPass.length() == 0)
-    return MISSING_FIELDS;
-
-if (ssid.length() == 0 || ssid.length() > 31)
-    return INVALID_SSID;
-
-if (!isValidReadableString(ssid, true))
-    return INVALID_CHARS;
-
-if (ssidPass.length() < 8 || ssidPass.length() > 63)
-    return INVALID_WIFI_PASS;
-
-if (!isValidReadableString(ssidPass))
-    return INVALID_CHARS;
-
-*/

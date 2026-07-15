@@ -32,26 +32,20 @@ const uint8_t zero = 0;
 const uint8_t port80 = 80;
 const uint8_t dnsPort = 53;
 
-/*const byte hasRegisteredUser = 1;
-const byte hasWifiCredentials = 2;
-const byte systemEnable = 3;      //index
-const byte photoperiod = 4;       //index
-const byte blueDutyCycle = 5;     //index
-const byte redDutyCycle = 6;      //index
-const byte whiteDutyCycle = 7;    //index
-const byte irrigationHour = 8;
-const byte irrigationMinute = 9;
-const byte ventilationHour = 10;
-const byte ventilationMinute = 11;
-const byte cropWeek = 12;
-const byte cropDay = 13;*/
+// ===== Sesión de edición =====
+// Ventana durante la cual un usuario autenticado puede editar parámetros sin
+// volver a introducir credenciales. TTL FIJO: se cuenta desde el login y la
+// actividad NO lo renueva, así que la sesión caduca 30 min después de iniciar
+// sesión. El token vive solo en RAM, así que un reinicio/corte de luz/reset lo
+// invalida solo.
+const uint32_t SESSION_TTL_MS = 30UL * 60UL * 1000UL; // 30 min
 
 enum SystemStatus : uint8_t {
     hasRegisteredUser = 1,
     hasWifiCredentials,
     systemEnable,
     photoperiodOn,            // hora de prendido de las luces (0-23)
-    photoperiodOff,            // hora de apagado de las luces (0-23). 
+    photoperiodOff,           // hora de apagado de las luces (0-23). Se agrega al
     blueDutyCycle,
     redDutyCycle,
     whiteDutyCycle,
@@ -59,8 +53,9 @@ enum SystemStatus : uint8_t {
     irrigationDuration,
     ventilationFrequency,
     ventilationDuration,
-    cropWeek,
-    cropDay,
+    cropWeek,                 // OBSOLETO como almacenamiento: cropWeek/cropDay ya
+    cropDay,                  // no se guardan aquí; se DERIVAN del RTC + _cropStartDay
+                              // (ver Plant::cropDayFromRtc). 
 };
 
 enum currentTime : uint8_t {
@@ -86,6 +81,14 @@ const uint8_t maxUserpassChars  = 64;
 const uint8_t minPlantNameChars = 3;
 const uint8_t maxPlantNameChars = 20;
 
+// ===== Límites de la red Wi-Fi del usuario (modo STA) =====
+// SSID: 1–32 bytes (límite del estándar 802.11). Contraseña WPA2: 8–63 chars;
+// una red ABIERTA no lleva contraseña (longitud 0). Coinciden con la validación
+// del formulario (vista "wifi" en mainForm.html).
+const uint8_t maxWifiSsidChars  = 32;
+const uint8_t minWifiPassChars  = 8;
+const uint8_t maxWifiPassChars  = 63;
+
 // Peor caso UTF-8 de los caracteres permitidos: ASCII = 1 byte, vocales
 // acentuadas y ñ/Ñ = 2 bytes. Los buffers se dimensionan a maxChars * 2 + 1
 // (terminador nulo) para que un valor válido nunca se trunque al guardarlo.
@@ -107,6 +110,7 @@ enum requestStatus {
     USERNAME_REPEATED_CHARS,
     USERPASS_REPEATED_CHARS,
     MISMATCH_CREDENTIALS,
+    INVALID_SESSION,            // token de sesión ausente, inválido o expirado
 
     MISSING_PLANTNAME_FIELD,
     INVALID_PLANTNAME_LENGTH,
@@ -126,20 +130,31 @@ enum requestStatus {
     INVALID_WEEKDAY_FORMAT,
     INVALID_DAY_FORMAT,
     INVALID_MONTH_FORMAT,
-    INVALID_YEAR_FORMAT
+    INVALID_YEAR_FORMAT,
+
+    // ===== Configuración de red Wi-Fi (POST /wificredentials) =====
+    MISSING_WIFI_FIELDS,        // falta ssid en el cuerpo
+    INVALID_SSID,               // SSID vacío o > 32 bytes
+    INVALID_WIFI_PASS           // contraseña fuera de 8–63 (red segura)
+
 };
 
-// Frecuencias válidas (veces/día). Deben dividir exactamente 24 para poder
-// traducirse a un intervalo entero de horas en manageDevice().
-const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24};
+// Intervalos válidos entre activaciones, EN HORAS (ya NO "veces/día"). El valor
+// de irrH/ventH es directamente el intervalo: 3 = cada 3h (8 veces/día),
+// 24 = diario, 48 = cada 2 días, 168 = semanal. 0 = apagado. Con este modelo el
+// riego sub-diario y el espaciado usan la MISMA lógica en manageDevice() (módulo
+// sobre un contador continuo de horas derivado del RTC). Tope 255 (uint8_t): un
+// intervalo > ~10 días exigiría ampliar este arreglo y _systemStatus a uint16_t.
+const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168};
 
 const uint8_t buzzerOn = 50;  // interval at which to blink (milliseconds)
 const uint8_t buzzerOff = 80;  // interval at which to blink (milliseconds)
 
-const uint16_t intervalToSend = 30000;  // 
+const int intervalToSend = 30000;  //
+
 // Cada cuánto se re-evalúa el control de luces/riego/ventilación en loop().
 // turnOnDevices() solo depende del reloj (hora/minuto), así que 1 s sobra; lo
 // importante es no bloquear server.handleClient() entre llamadas.
-const uint16_t deviceUpdateInterval = 1000;
+const uint32_t deviceUpdateInterval = 1000;
 
 #endif
