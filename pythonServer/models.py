@@ -1,125 +1,106 @@
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, text
+from sqlalchemy.orm import relationship
+from database import Base
+import datetime
+
+# --- SQLAlchemy Models ---
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    is_admin = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    devices = relationship("Device", back_populates="owner", cascade="all, delete-orphan")
+
+class Device(Base):
+    __tablename__ = "devices"
+    id = Column(Integer, primary_key=True, index=True)
+    mac = Column(String(17), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255))
+    token_hash = Column(String(255))
+    firmware_version = Column(String(50))
+    last_seen_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    owner = relationship("User", back_populates="devices")
+    configs = relationship("DeviceConfig", back_populates="device", cascade="all, delete-orphan")
+    telemetry = relationship("DeviceTelemetry", back_populates="device", cascade="all, delete-orphan")
+
+class DeviceConfig(Base):
+    __tablename__ = "device_configs"
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False)
+    planta = Column(String(255))
+    enable = Column(Boolean)
+    fp_on = Column(Integer)
+    fp_off = Column(Integer)
+    led_a = Column(Integer)
+    led_r = Column(Integer)
+    led_b = Column(Integer)
+    irr_h = Column(Integer)
+    irr_m = Column(Integer)
+    vent_h = Column(Integer)
+    vent_m = Column(Integer)
+    crop_start_day = Column(Integer)
+    applied_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+    device = relationship("Device", back_populates="configs")
+
+class DeviceTelemetry(Base):
+    __tablename__ = "device_telemetry"
+    # Note: id and ts form the composite primary key for TimescaleDB
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False)
+    ts = Column(DateTime(timezone=True), primary_key=True, server_default=text("CURRENT_TIMESTAMP"))
+    temp = Column(Float)
+    humidity = Column(Float)
+    firmware_version = Column(String(50))
+    wifi_rssi = Column(Integer)
+    uptime = Column(Integer)
+
+    device = relationship("Device", back_populates="telemetry")
+
+class FirmwareRelease(Base):
+    __tablename__ = "firmware_releases"
+    version = Column(String(50), primary_key=True)
+    url = Column(String, nullable=False)
+    sha256 = Column(String(64), nullable=False)
+    signature = Column(String, nullable=False)
+    min_version = Column(String(50), nullable=False)
+    published_at = Column(DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP"))
+
+# --- Pydantic Schemas ---
 from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
 
-class DeviceData(BaseModel):
-    username: str
-    device_id: str
-    #deviceVer: str
-    status: bool 
-    #photoperiod: int 
-    #blueLed: int 
-    #redLed: int 
-    #whiteLed: int 
-    #irriTimes: int 
-    #irriMinute: int 
-    #ventTimes: int 
-    #ventMinute: int 
-    #week: int 
-    #day: int
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
-class DeviceMeasurements(BaseModel):
-    #userName: str
-    #deviceId: str
-    deviceVer: str
-    status: bool 
-    photoperiod: int 
-    blueLed: int 
-    redLed: int 
-    whiteLed: int 
-    irriTimes: int 
-    irriMinute: int 
-    ventTimes: int 
-    ventMinute: int 
-    week: int 
-    day: int
+class TokenData(BaseModel):
+    username: Optional[str] = None
+    device_id: Optional[str] = None
 
-class LoginData(BaseModel):
-    username: str
-    #password: str
-    client_id: str
-    client_secret: str 
-
-class UserDB(DeviceData):
+class DeviceProvisionRequest(BaseModel):
+    user: str
     password: str
+    mac: str
 
-def searchDevice(deviceId: str):
-    user = filter(lambda d: d.deviceId == deviceId, usersDataList)
-    try:
-        return list(user)[0]
-    except:
-        return None
-
-usersDataList = [DeviceData(username = "David", device_id = "124EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 18, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 2, day = 3),
-                 DeviceData(username = "Daniel", device_id = "134EW698AA", deviceVer = "1.0.0", status = False, photoperiod = 6, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 0, day = 2),
-                 DeviceData(username = "Estefanny", device_id = "144EW698AA", deviceVer = "1.0.0", status = False, photoperiod = 6, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 8, week = 0, day = 1),
-                 DeviceData(username = "Tania", device_id = "154EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 9, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 6, day = 4),
-                 DeviceData(username = "Juan", device_id = "164EW698AA", deviceVer = "1.0.0", status = True, photoperiod = 18, blueLed = 75, redLed = 80, whiteLed = 100, irriTimes = 4, irriMinute = 5, ventTimes = 7, ventMinute = 5, week = 0, day = 6)]
-
-exampleDB_users = {
-    "Davzig": {
-        "user_id": 1,
-        "username": "Davzig",
-        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", # claveDavzig
-        "device_id": "10061C81EE7C",
-        "status": True
-    },
-    "Daniel": {
-        "user_id": 2,
-        "username": "Daniel",
-        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6", #claveDaniel
-        "device_id": "134EW698AA",
-        "status": False
-    }
-}
-
-exampleDB_devices = {
-    "Davzig": {
-        "username": "Davzig",
-        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", #claveDavzig
-        "device_id": "10061C81EE7C",
-        "deviceVer": "1.0.0",
-        "status": True,
-    },
-    "Daniel": {
-        "username": "Daniel",
-        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6", #claveDaniel
-        "device_id": "134EW698AA",
-        "deviceVer": "1.0.0",
-        "status": False,
-    }
-}
-exampleDB_measurements = {
-    "Davzig": {
-        "username": "Davzig",
-        "password": "$2a$12$YNLqLotD8tDrao4qi7C8XOuRkS2OkQ8vu084GVMjYkrY/YjkzvUwa", #claveDavzig
-        "device_id": "10061C81EE7C",
-        "deviceVer": "1.0.0",
-        "status": True,
-        "photoperiod": 18,
-        "blueLed": 75,
-        "redLed": 80,
-        "whiteLed": 100,
-        "irriTimes": 4,
-        "irriMinute": 5,
-        "ventTimes": 7,
-        "ventMinute": 5,
-        "week": 2,
-        "day": 3
-    },
-    "Daniel": {
-        "username": "Daniel",
-        "password": "$2a$12$zWB0i46fzosrzDhncpDDzu1cbBtJ82PStQI3JPsuj.59GxUmMAwK6", #claveDaniel
-        "device_id": "134EW698AA",
-        "deviceVer": "1.0.0",
-        "status": False,
-        "photoperiod": 6,
-        "blueLed": 75,
-        "redLed": 80,
-        "whiteLed": 100,
-        "irriTimes": 4,
-        "irriMinute": 5,
-        "ventTimes": 7,
-        "ventMinute": 5,
-        "week": 0,
-        "day": 2
-    }
-}
+class DeviceConfigCreate(BaseModel):
+    planta: str
+    enable: bool
+    fp_on: int
+    fp_off: int
+    led_a: int
+    led_r: int
+    led_b: int
+    irr_h: int
+    irr_m: int
+    vent_h: int
+    vent_m: int
+    crop_start_day: int

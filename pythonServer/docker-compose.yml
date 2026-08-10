@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: smartplant_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-smartplant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartplant_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-smartplant_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  minio:
+    image: minio/minio:latest
+    container_name: smartplant_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-admin123456}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: smartplant_mqtt
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+
+  # caddy:
+  #   image: caddy:latest
+  #   container_name: smartplant_caddy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  
+  # backend:
+  #   build: .
+  #   container_name: smartplant_api
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - db
+  #     - mosquitto
+  #   environment:
+  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-smartplant}:${POSTGRES_PASSWORD:-smartplant_secret}@db:5432/${POSTGRES_DB:-smartplant_db}
+  #   ports:
+  #     - "8000:8000"
+
+volumes:
+  postgres_data:
+  minio_data:
+  mosquitto_data:
+  mosquitto_log:
+  caddy_data:
+  caddy_config:
