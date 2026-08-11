@@ -13,17 +13,16 @@ Plant::Plant(){
 
   ledcAttachChannel(blueLedPin, pwmFrequency, pwmResolution, blueChannel);
   ledcAttachChannel(redLedPin, pwmFrequency, pwmResolution, redChannel);
-  ledcAttachChannel(whiteLedPin, pwmFrequency, pwmResolution, whiteChannel);
 
-  //pinMode(whiteLedPin, OUTPUT);
+  pinMode(whiteLedPin, OUTPUT);
   pinMode(waterPumpPin, OUTPUT);
   pinMode(fanPin, OUTPUT);
   //pinMode(buzzerPin, OUTPUT);
-  digitalWrite(whiteLedPin, LOW);
-  digitalWrite(waterPumpPin, LOW);
-  digitalWrite(fanPin, LOW);
+
+  digitalWrite(whiteLedPin, HIGH);
+  digitalWrite(waterPumpPin, HIGH);
+  digitalWrite(fanPin, HIGH);
   //digitalWrite(buzzerPin, LOW);
-  ledcWrite(whiteChannel, zero);
   ledcWrite(blueChannel, zero);
   ledcWrite(redChannel, zero);
 
@@ -303,12 +302,12 @@ void Plant::turnOnDevices(){
 
   if (luzEncendida) {
     // Ajusta las luces según los duty cycles configurados
-    ledcWrite(whiteChannel, map(_systemStatus[whiteDutyCycle], 0, 100, 0, maxDutyCycle));
+    digitalWrite(whiteLedPin, _systemStatus[whiteDutyCycle] > 0 ? LOW : HIGH);
     ledcWrite(blueChannel, map(_systemStatus[blueDutyCycle], 0, 100, 0, maxDutyCycle));
     ledcWrite(redChannel, map(_systemStatus[redDutyCycle], 0, 100, 0, maxDutyCycle));
   } else {
     // Apaga todas las luces
-    ledcWrite(whiteChannel, zero);
+    digitalWrite(whiteLedPin, HIGH);
     ledcWrite(blueChannel, zero);
     ledcWrite(redChannel, zero);
   }
@@ -351,7 +350,8 @@ void Plant::manageDevice(int devicePin, int intervalHours, int durationMinutes, 
     activeDevice = (epochHours % (uint32_t)intervalHours == 0) && (_currentTime[minute] < durationMinutes);
   }
 
-  digitalWrite(devicePin, activeDevice ? HIGH : LOW);
+  // Lógica invertida: LOW enciende (0 lógico), HIGH apaga (1 lógico)
+  digitalWrite(devicePin, activeDevice ? LOW : HIGH);
 }
 
 /**

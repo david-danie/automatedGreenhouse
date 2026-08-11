@@ -103,12 +103,12 @@ in a single HTML file; the firmware exposes a JSON API and applies config instan
 
 | Component | GPIO | Notes |
 |-----------|------|-------|
-| White LED | 0 | PWM channel 0 |
+| White LED | 0 | digital output (active-low) |
 | Blue LED | 1 | PWM channel 1 |
 | Red LED | 2 | PWM channel 2 |
 | Buzzer | 3 | |
-| Fan | 7 | relay |
-| Water pump | 10 | relay |
+| Fan | 7 | relay (active-low) |
+| Water pump | 10 | relay (active-low) |
 | DS3231 RTC | I²C `0x68` | external clock |
 
 PWM at 1 kHz, 8-bit (0–255); spectra are sent 0–100 % and scaled internally.

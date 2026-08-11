@@ -103,12 +103,12 @@ en un único HTML; el firmware expone una API JSON y aplica la configuración al
 
 | Componente | GPIO | Notas |
 |-----------|------|-------|
-| LED blanco | 0 | PWM canal 0 |
+| LED blanco | 0 | salida digital (lógica invertida) |
 | LED azul | 1 | PWM canal 1 |
 | LED rojo | 2 | PWM canal 2 |
 | Buzzer | 3 | |
-| Ventilador | 7 | relé |
-| Bomba de agua | 10 | relé |
+| Ventilador | 7 | relé (lógica invertida) |
+| Bomba de agua | 10 | relé (lógica invertida) |
 | RTC DS3231 | I²C `0x68` | reloj externo |
 
 PWM a 1 kHz, 8 bits (0–255); los espectros se envían 0–100 % y se escalan internamente.

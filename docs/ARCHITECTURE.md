@@ -41,7 +41,7 @@ HTML/
 ---
 
 ## Hardware (ESP32-C3, ver `Constants.h`)
-- LED blanco → GPIO 0 (canal PWM 0), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
+- LED blanco → GPIO 0 (salida digital, lógica invertida), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
 - Buzzer → GPIO 3, ventilador → GPIO 7, bomba de agua → GPIO 10
 - PWM: 1 kHz, 8 bits (duty 0–255). Los espectros se envían como 0–100 % y se escalan internamente.
 - RTC externo **DS3231** por I²C (dirección `0x68`); la hora se sincroniza desde el navegador en `/newparams`.
