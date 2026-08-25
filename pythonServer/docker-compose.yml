@@ -1,4 +1,16 @@
-version: '3.8'
+# SmartPlant — stack local de desarrollo.
+#
+# Levanta la infraestructura contra la que se desarrolla el backend:
+#   db         Postgres 15 + TimescaleDB   :5432
+#   minio      Object storage S3           :9000 (API) · :9001 (consola)
+#   mosquitto  Broker MQTT                 :1883
+#
+# El ESQUEMA lo administra Alembic, NO este compose: aquí solo se levanta un
+# Postgres vacío con la extensión de Timescale disponible. La primera migración
+# crea las tablas y la hypertable (ver db/schema.sql como referencia del DDL).
+#
+# Los valores por defecto son de DESARROLLO. Para cualquier despliegue real,
+# definirlos en un .env fuera del repositorio.
 
 services:
   db:
@@ -11,9 +23,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-smartplant_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smartplant} -d ${POSTGRES_DB:-smartplant_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio:latest
@@ -26,8 +42,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"   # API S3
+      - "9001:9001"   # consola web
 
   mosquitto:
     image: eclipse-mosquitto:latest
@@ -39,12 +55,41 @@ services:
       - mosquitto_log:/mosquitto/log
     ports:
       - "1883:1883"
-      - "9001:9001"
+    # Sin mapeo de 9001: mosquitto.conf solo declara `listener 1883`.
+    # Si se habilitan websockets, añadir el listener en mosquitto.conf y elegir
+    # un puerto libre (9001 lo ocupa la consola de MinIO).
+
+  # ---------------------------------------------------------------------------
+  # Servicios pendientes de habilitar. Requieren archivos que aún no existen:
+  #
+  #   backend → un Dockerfile en esta carpeta y el código de la API
+  #   caddy   → un Caddyfile con los dominios y el reverse proxy
+  #
+  # Se dejan comentados a propósito: `docker compose up` debe funcionar hoy.
+  # ---------------------------------------------------------------------------
+
+  # backend:
+  #   build: .
+  #   container_name: smartplant_api
+  #   restart: unless-stopped
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     mosquitto:
+  #       condition: service_started
+  #   environment:
+  #     - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-smartplant}:${POSTGRES_PASSWORD:-smartplant_secret}@db:5432/${POSTGRES_DB:-smartplant_db}
+  #     - MQTT_HOST=mosquitto
+  #     - S3_ENDPOINT_URL=http://minio:9000
+  #   ports:
+  #     - "8000:8000"
 
   # caddy:
   #   image: caddy:latest
   #   container_name: smartplant_caddy
   #   restart: unless-stopped
+  #   depends_on:
+  #     - backend
   #   ports:
   #     - "80:80"
   #     - "443:443"
@@ -52,18 +97,6 @@ services:
   #     - ./Caddyfile:/etc/caddy/Caddyfile
   #     - caddy_data:/data
   #     - caddy_config:/config
-  
-  # backend:
-  #   build: .
-  #   container_name: smartplant_api
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - db
-  #     - mosquitto
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-smartplant}:${POSTGRES_PASSWORD:-smartplant_secret}@db:5432/${POSTGRES_DB:-smartplant_db}
-  #   ports:
-  #     - "8000:8000"
 
 volumes:
   postgres_data:

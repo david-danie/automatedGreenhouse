@@ -7,6 +7,18 @@
 > futuro)"* y *"TLS en el ESP32-C3"* de [`ARCHITECTURE.md`](ARCHITECTURE.md), que
 > siguen siendo la referencia del lado del firmware.
 
+> **Estado: diseño cerrado, sin código.** El prototipo previo se eliminó por completo
+> para que no haya dos fuentes de verdad; lo único que sobrevivió es
+> [`../pythonServer/db/schema.sql`](../pythonServer/db/schema.sql) como referencia del
+> DDL, y el `docker-compose.yml` de la infraestructura local. Este documento es la
+> **única** referencia para implementar.
+>
+> Decisiones que estaban abiertas y ya se cerraron:
+> - **Broker: Mosquitto** (no EMQX). Ver el [caveat de autenticación MQTT](#caveat-mosquitto-no-autentica-contra-la-base-de-datos).
+> - **Identificador de usuario: `email`**, como ya lo define el esquema (`UNIQUE NOT NULL`).
+> - **Dueño del esquema: Alembic.** El compose ya **no** aplica `schema.sql`; la primera
+>   migración crea extensión, tablas e hypertable.
+
 ---
 
 ## 1. Qué resuelve el backend
@@ -28,10 +40,10 @@ Cuatro requisitos, cada uno mapeado a una pieza del stack:
 |---|---|---|
 | **Lenguaje/API** | **FastAPI (Python)** | Async, OpenAPI automático (clave para que móvil/tablet consuman sin fricción), Pydantic para validar payloads |
 | **Base de datos** | **PostgreSQL + TimescaleDB** | Un solo motor: relacional + serie temporal. Hypertables, compresión, *continuous aggregates*, *retention policies* |
-| **Ingesta de telemetría** | **MQTT sobre TLS** (broker **EMQX**) | Conexión persistente: amortiza el costoso handshake TLS del C3. REST/HTTPS solo para acciones puntuales |
+| **Ingesta de telemetría** | **MQTT** (broker **Mosquitto**) | Conexión persistente: amortiza el costoso handshake TLS del C3. REST/HTTPS solo para acciones puntuales. Ver [caveat de auth](#caveat-mosquitto-no-autentica-contra-la-base-de-datos) |
 | **Storage OTA** | **S3-compatible**: **MinIO** local + **S3** en nube | Misma API (`aioboto3`); solo cambia `endpoint_url`. Binarios fuera de la BD |
-| **Auth apps** | **JWT propio** (access + refresh) | `1 usuario = 1 cuenta`, login simple; no hace falta proveedor gestionado |
-| **Auth dispositivos** | Token de dispositivo revocable | Aprovisionamiento `user+pass+mac` sobre TLS → backend emite token; se guarda `token_hash` |
+| **Auth apps** | **JWT propio** (access + refresh) | `1 usuario = 1 cuenta` identificada por **`email`**; login simple, sin proveedor gestionado |
+| **Auth dispositivos** | Token de dispositivo revocable | Aprovisionamiento `email+pass+mac` sobre TLS → backend emite token; se guarda `token_hash` |
 | **ORM / migraciones** | **SQLAlchemy + Alembic** | Default de FastAPI |
 | **Reverse proxy / TLS** | **Caddy** o **Traefik** | TLS/Let's Encrypt automático; el app **nunca** termina TLS directo |
 | **Empaquetado** | **Docker** (compose para local) | Corre idéntico en servidor propio y en nube |
@@ -70,7 +82,7 @@ usuario → *"¿`device.user_id` == `user.id` del token?"*. Una sola condición,
 joins de permisos ni tabla de membresías.
 
 > Las llaves de `device_configs` deben mantenerse en sync con el payload de
-> `/newparams` del firmware (ver `HTML/test/rutas_y_parametros.txt` y `Plant.cpp`). Si cambia
+> `/newparams` del firmware (ver [`API.md`](API.md) y `Plant.cpp`). Si cambia
 > el formulario del portal, cambia esta tabla.
 
 > **`firmware_version` aparece en dos lugares a propósito, no por error:**
@@ -82,46 +94,218 @@ joins de permisos ni tabla de membresías.
 
 ---
 
-## 4. Contratos de la API (esquema, pendiente de detallar payloads)
+## 4. Contratos de la API
 
-Dos superficies distintas:
+Tres superficies con esquemas de autenticación distintos. Convenciones comunes:
+
+- Todo es JSON con `Content-Type: application/json`, salvo la subida de firmware (multipart).
+- Errores con el formato de FastAPI: `{"detail": "<mensaje>"}` y el código HTTP correspondiente.
+- Los timestamps son **ISO 8601 con zona** (`2026-08-24T17:04:00-06:00`).
+- `{id}` en las rutas es `devices.id` (entero), no la MAC.
+
+### 4.0 Cómo se autentican los dispositivos
+
+Un dispositivo **no** guarda la contraseña del usuario. El flujo tiene dos fases:
+
+**Fase 1 — provisión (una sola vez).** El usuario introduce sus credenciales en el portal
+local del ESP32; el dispositivo las manda con su MAC a `POST /devices/provision` sobre TLS.
+El backend valida la cuenta, crea o vincula la fila en `devices` y **emite un token de
+dispositivo**. Es el único momento en que la contraseña del usuario viaja por la red.
+
+**Fase 2 — operación (siempre).** El dispositivo se autentica con ese token en cada
+petición, vía `Authorization: Bearer <token>`.
+
+En la base se guarda **solo `devices.token_hash`** (bcrypt, igual que una contraseña): si se
+filtra la BD, nadie obtiene credenciales funcionales. Y como el token vive en una fila, es
+**revocable**: se borra o se rota y el dispositivo queda fuera hasta re-provisionarse.
+
+> **No confundir con el token de sesión del firmware.** Son dos cosas distintas:
+>
+> | | Sesión del portal ([`API.md`](API.md)) | Token de dispositivo (este doc) |
+> |---|---|---|
+> | Vive en | RAM del ESP32 | `devices.token_hash` |
+> | Sirve para | Editar parámetros en la red local | Hablar con la nube |
+> | Vigencia | 30 min fijos, muere al reiniciar | Hasta que se revoque |
+> | Lo emite | El propio dispositivo | El backend |
 
 ### 4.1 Device-facing (ESP32-C3 → backend)
-Autenticadas con el **token de dispositivo** (salvo la provisión, que usa user+pass+mac).
 
-| Método | Ruta | Propósito |
-|---|---|---|
-| POST | `/devices/provision` | `{user, pass, mac}` sobre TLS → valida cuenta, crea/vincula `devices`, **emite token**. Único momento en que viaja la contraseña |
-| POST | `/devices/{id}/config` | `{token, …params}` → inserta fila en `device_configs` |
-| POST | `/devices/{id}/telemetry` | `{token, …}` → inserta en `device_telemetry`. **Vía MQTT** en régimen continuo; REST como fallback puntual |
-| GET | `/firmware/latest?current=X` | Metadatos del release aplicable → device descarga el binario firmado **en streaming** |
+Autenticadas con el **token de dispositivo**, salvo `/devices/provision`.
+
+#### `POST /devices/provision`
+
+```json
+{ "email": "usuario@ejemplo.com", "pass": "miClave123", "mac": "A1:B2:C3:D4:E5:F6" }
+```
+
+`201` — el `token` se devuelve **una sola vez**; no hay endpoint para recuperarlo.
+
+```json
+{ "device_id": 12, "token": "<64 hex>", "name": null }
+```
+
+`401` credenciales inválidas · `409` la MAC ya está vinculada a otra cuenta.
+
+#### `POST /devices/{id}/config`
+
+Registra la configuración vigente del cultivo. Las llaves **espejan las del firmware**
+(ver [`API.md`](API.md)), en `snake_case`.
+
+```json
+{
+  "planta": "Albahaca", "enable": true,
+  "fp_on": 18, "fp_off": 6,
+  "led_a": 70, "led_r": 45, "led_b": 1,
+  "irr_h": 3, "irr_m": 15, "vent_h": 4, "vent_m": 20,
+  "crop_start_day": 20693
+}
+```
+
+`201` → `{ "config_id": 88, "applied_at": "2026-08-24T17:04:00-06:00" }`
+
+Inserta una fila nueva en `device_configs`; **no** actualiza la anterior (es un histórico).
+`led_b` es `0`/`1`: el LED blanco del firmware es ON/OFF, no PWM.
+
+#### `POST /devices/{id}/telemetry`
+
+Vía de arranque para la telemetría, y fallback puntual cuando MQTT esté en pie.
+
+```json
+{ "temp": 24.5, "humidity": 61.2, "wifi_rssi": -48, "uptime": 86400, "firmware_version": "1.0.1" }
+```
+
+`202` → `{ "accepted": 1 }`. Todos los campos son opcionales salvo que llegue al menos uno.
+`ts` lo pone el servidor si no viene, para no depender del reloj del dispositivo.
+
+#### `GET /firmware/latest?current=1.0.1`
+
+`200` cuando hay actualización aplicable:
+
+```json
+{
+  "version": "1.1.0",
+  "url": "https://…/firmware/xyzver1.1.0.bin",
+  "sha256": "<64 hex>",
+  "signature": "<base64>",
+  "size": 1002944
+}
+```
+
+`204 No Content` cuando el dispositivo ya está al día. La `url` es prefirmada y temporal;
+el binario se sirve **en streaming** desde el object storage, no a través del API.
 
 ### 4.2 App-facing (móvil/tablet → backend)
-Autenticadas con **JWT de usuario**.
 
-| Método | Ruta | Propósito |
-|---|---|---|
-| POST | `/auth/register` · `/auth/login` | Alta y login → devuelven access + refresh JWT |
-| GET | `/me/devices` | Lista de dispositivos de la cuenta |
-| GET | `/devices/{id}/state` | Última config + telemetría reciente |
-| GET | `/devices/{id}/telemetry?from&to&bucket` | Histórico agregado (aprovecha *continuous aggregates* de Timescale) |
+Autenticadas con **JWT de usuario** (`Authorization: Bearer <access>`).
+
+#### `POST /auth/register` · `POST /auth/login`
+
+```json
+{ "email": "usuario@ejemplo.com", "password": "miClave123" }
+```
+
+`200` en ambos:
+
+```json
+{ "access_token": "<jwt>", "refresh_token": "<jwt>", "token_type": "bearer", "expires_in": 1800 }
+```
+
+`register` → `409` si el email ya existe. `login` → `401` si no coincide.
+
+#### `POST /auth/refresh`
+
+`{ "refresh_token": "<jwt>" }` → mismo sobre que login, con un `access_token` nuevo.
+
+#### `GET /me/devices`
+
+```json
+{
+  "devices": [
+    { "id": 12, "mac": "A1:B2:C3:D4:E5:F6", "name": "Invernadero patio",
+      "firmware_version": "1.0.1", "last_seen_at": "2026-08-24T16:58:00-06:00", "online": true }
+  ]
+}
+```
+
+`online` es derivado, no una columna: `last_seen_at` dentro de una ventana reciente.
+
+#### `GET /devices/{id}/state`
+
+Última configuración conocida más la lectura más reciente. `404` si el dispositivo no
+pertenece a la cuenta autenticada — no `403`, para no revelar su existencia.
+
+```json
+{
+  "device": { "id": 12, "name": "Invernadero patio", "online": true,
+              "firmware_version": "1.0.1", "last_seen_at": "2026-08-24T16:58:00-06:00" },
+  "config": { "planta": "Albahaca", "enable": true, "fp_on": 18, "fp_off": 6,
+              "led_a": 70, "led_r": 45, "led_b": 1,
+              "irr_h": 3, "irr_m": 15, "vent_h": 4, "vent_m": 20,
+              "applied_at": "2026-08-24T17:04:00-06:00" },
+  "crop": { "dia": 34, "semana": 5 },
+  "telemetry": { "ts": "2026-08-24T16:58:00-06:00", "temp": 24.5,
+                 "humidity": 61.2, "wifi_rssi": -48 }
+}
+```
+
+`crop.dia` / `crop.semana` se **derivan** de `crop_start_day`, con la misma regla que el
+firmware (ver §3 y *"Edad del cultivo"* en [`ARCHITECTURE.md`](ARCHITECTURE.md)). No se
+almacenan.
+
+#### `GET /devices/{id}/telemetry?from&to&bucket`
+
+`from`/`to` en ISO 8601; `bucket` es el ancho de agregación (`5m`, `1h`, `1d`).
+
+```json
+{
+  "device_id": 12, "bucket": "1h",
+  "series": [
+    { "ts": "2026-08-24T16:00:00-06:00", "temp_avg": 24.1, "temp_min": 23.4,
+      "temp_max": 25.0, "humidity_avg": 60.8, "samples": 12 }
+  ]
+}
+```
+
+Se apoya en `time_bucket()` de Timescale, y en *continuous aggregates* cuando el rango lo
+justifique. `400` si el rango es inválido o el `bucket` no está soportado.
 
 ### 4.3 Admin-facing (staff del fabricante → backend)
-Autenticadas con **JWT de usuario con `is_admin = true`**. Publican firmware (ver §6.1).
 
-| Método | Ruta | Propósito |
-|---|---|---|
-| POST | `/admin/firmware` | Multipart: `.bin` + `version` + `min_version` + `signature` → sube el binario al object storage y registra el release |
-| GET | `/admin/firmware` | Lista releases publicados (catálogo `firmware_releases`) |
+Autenticadas con **JWT de usuario con `is_admin = true`**. Ver §6.1 para el ciclo completo.
 
-> **Pendiente:** aterrizar los payloads JSON exactos (request/response) de cada ruta.
-> Deben espejar las llaves del firmware donde aplique (ver §3).
+#### `POST /admin/firmware`
+
+`multipart/form-data` con los campos `file` (el `.bin`), `version`, `min_version` y
+`signature`. Sube el binario al object storage y registra el release.
+
+`201`:
+
+```json
+{ "version": "1.1.0", "sha256": "<64 hex>", "size": 1002944,
+  "published_at": "2026-08-24T17:10:00-06:00" }
+```
+
+`409` si la versión ya existe. El `sha256` lo calcula el servidor al recibir el archivo; no
+se acepta del cliente.
+
+#### `GET /admin/firmware`
+
+```json
+{
+  "releases": [
+    { "version": "1.1.0", "min_version": "1.0.0", "sha256": "<64 hex>",
+      "published_at": "2026-08-24T17:10:00-06:00" }
+  ]
+}
+```
 
 ---
 
 ## 5. Ingesta MQTT (telemetría)
 
-- **Broker:** EMQX (auth por dispositivo + ACLs por tópico). Mosquitto si se busca lo mínimo.
+- **Broker:** **Mosquitto**. Suficiente para una cuenta con pocos dispositivos; su
+  configuración son 6 líneas. Migrar a EMQX más adelante cambia un servicio del compose,
+  no la aplicación: el protocolo es el mismo.
 - **Patrón:** el device mantiene **una** conexión MQTT/TLS persistente y publica
   telemetría a un tópico por dispositivo (p. ej. `devices/{id}/telemetry`).
 - Un **consumidor** (servicio Python, puede vivir junto al API o aparte) se suscribe
@@ -131,6 +315,26 @@ Autenticadas con **JWT de usuario con `is_admin = true`**. Publican firmware (ve
   sección *"TLS en el ESP32-C3"* de [`ARCHITECTURE.md`](ARCHITECTURE.md).
 - **Regla de oro del firmware:** *sin Wi-Fi → cero tráfico*; *sin token y sin acción
   del usuario → silencio total* (no hay polling de entitlement). Ver ARCHITECTURE.md.
+
+### Caveat: Mosquitto no autentica contra la base de datos
+
+Esta es la contrapartida de elegir Mosquitto y hay que resolverla antes de mover la
+telemetría a MQTT. **EMQX trae autenticación contra BD de fábrica; Mosquitto no.**
+
+El estado actual de `mosquitto/config/mosquitto.conf` es `allow_anonymous true`: cualquiera
+en la red puede publicar y suscribirse. Sirve para desarrollo local, **no** para nada
+expuesto.
+
+Tres caminos, en orden de esfuerzo creciente:
+
+| Opción | Cómo funciona | Cuándo conviene |
+|---|---|---|
+| **REST primero** | La telemetría entra por `POST /devices/{id}/telemetry` con el token de dispositivo. MQTT se suma después. | Arranque. Desbloquea el resto del backend sin resolver esto ya. |
+| **Archivo de contraseñas** | El backend regenera el archivo de Mosquitto (`mosquitto_passwd`) al provisionar y recarga el broker. Usuario = `device_id`, contraseña = token. | Pocos dispositivos, despliegue propio. |
+| **Plugin contra Postgres** | `mosquitto-go-auth` valida usuario/contraseña y ACLs por tópico consultando `devices.token_hash`. | Cuando haya varios dispositivos o se exponga el broker. |
+
+Recomendación: **arrancar por REST** y añadir MQTT cuando el resto esté en pie. El modelo
+de datos no cambia — `device_telemetry` recibe lo mismo por cualquiera de las dos vías.
 
 ---
 
@@ -241,37 +445,80 @@ migrar para no llevarse la sorpresa.
 
 ---
 
-## 8. Cómo arrancar (próxima sesión)
+## 8. Cómo arrancar
 
-Estado actual: **diseño cerrado, sin código todavía.** No queda nada por confirmar.
-Orden sugerido de entregables:
+**Estado:** diseño cerrado y sin ambigüedades. El prototipo previo se eliminó; se parte de
+cero sobre la infraestructura del compose. Nada queda por decidir.
 
-1. **DDL SQL completo** — tablas del §3 + convertir `device_telemetry` en hypertable
-   (`SELECT create_hypertable(...)`) + FKs + índices (`device_id`, `ts`). Base para
-   la primera migración de Alembic.
-2. **Contratos de endpoints** (§4) con payloads JSON exactos — request/response de
-   cada ruta, espejando las llaves del firmware donde aplique.
-3. **`docker-compose.yml`** del stack local: FastAPI + Postgres/Timescale + EMQX +
-   MinIO + Caddy, cableados por variables de entorno (§7).
-4. **Esqueleto FastAPI**: estructura de proyecto, settings por env, auth JWT,
-   modelos SQLAlchemy, y el consumidor MQTT.
+Lo que **ya está resuelto** y no hay que rehacer:
+
+- El **DDL** del §3, en [`../pythonServer/db/schema.sql`](../pythonServer/db/schema.sql):
+  tablas, FKs con `ON DELETE CASCADE`, la extensión, `create_hypertable()` y los índices
+  `(device_id, ts DESC)` y `(device_id, applied_at DESC)`. Es la base de la migración inicial.
+- Los **contratos de la API** con payloads exactos (§4).
+- El **`docker-compose.yml`**: `docker compose up -d` levanta Postgres/Timescale (5432),
+  MinIO (9000/9001) y Mosquitto (1883) sin conflictos.
+
+### El esquema lo administra Alembic
+
+Decisión importante para no tener dos dueños del esquema: el compose **ya no** aplica
+`schema.sql`. Levanta un Postgres vacío con Timescale disponible, y **Alembic** crea todo.
+
+Alembic mantiene una secuencia versionada de scripts con `upgrade()`/`downgrade()`, y anota
+en la tabla `alembic_version` qué revisión está aplicada. Así, `alembic upgrade head` lleva
+cualquier entorno —tu máquina, la Raspberry Pi, producción— al mismo esquema de forma
+determinista, sin destruir el volumen ni aplicar SQL a mano.
+
+Dos cosas que Alembic **no** hace solo con Timescale y hay que escribir a mano:
+
+```python
+def upgrade():
+    op.execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
+    # ... create_table de users, devices, device_configs, device_telemetry, firmware_releases
+    op.execute("SELECT create_hypertable('device_telemetry', 'ts')")
+```
+
+`revision --autogenerate` no detecta la extensión ni la hypertable, y `device_telemetry`
+necesita la PK compuesta `(id, ts)` porque Timescale exige que la columna de partición
+forme parte de la clave.
+
+### Orden de entregables
+
+1. **Migración inicial de Alembic** que reproduzca `schema.sql`, con extensión e hypertable.
+2. **Esqueleto FastAPI**: estructura del proyecto, `settings` por variables de entorno
+   (§7), modelos SQLAlchemy y `get_db()` async.
+3. **Auth de usuario** (§4.2): `register` / `login` / `refresh` con JWT y hash bcrypt.
+4. **Provisión de dispositivos** (§4.0, §4.1): `/devices/provision` emite el token y
+   persiste solo `token_hash`; dependencia de FastAPI que resuelve `Bearer` → dispositivo.
+5. **Config y telemetría por REST** (§4.1): `/devices/{id}/config` y
+   `/devices/{id}/telemetry`. Con esto el ciclo dispositivo↔nube ya cierra.
+6. **Lecturas para la app** (§4.2): `/me/devices`, `/state` y el histórico con `time_bucket`.
+7. **OTA** (§6): `/admin/firmware` sube a MinIO y registra el release; `/firmware/latest`
+   resuelve aplicabilidad y devuelve URL prefirmada.
+8. **MQTT** (§5): resolver primero la autenticación del broker (ver el caveat), luego el
+   consumidor suscrito a `devices/+/telemetry`.
+9. **TLS** con Caddy y el servicio `backend` del compose habilitados.
 
 ### Checklist de arranque
-- [x] `docker-compose up` levanta Postgres/Timescale, Mosquitto, MinIO y Caddy.
-- [ ] Migración inicial de Alembic crea el esquema del §3 (con la hypertable).
-- [ ] Endpoints de auth (register/login) emiten y validan JWT.
+
+- [x] `docker compose up -d` levanta Postgres/Timescale, MinIO y Mosquitto sin conflictos.
+- [ ] Migración inicial de Alembic crea el esquema del §3 (extensión + tablas + hypertable).
+- [ ] Endpoints de auth (`register`/`login`/`refresh`) emiten y validan JWT.
 - [ ] `/devices/provision` emite token de dispositivo y persiste `token_hash`.
-- [ ] Consumidor MQTT suscrito a `devices/+/telemetry` inserta en la hypertable.
-- [ ] `/firmware/latest` devuelve metadatos y el binario se sirve desde MinIO/S3.
+- [ ] `/devices/{id}/config` y `/devices/{id}/telemetry` autenticados por `Bearer`.
+- [ ] `/me/devices` y `/devices/{id}/state` responden con el aislamiento por cuenta del §4.2.
 - [ ] `POST /admin/firmware` (JWT admin) sube el binario al object storage y registra el release.
+- [ ] `/firmware/latest` devuelve metadatos y el binario se sirve desde MinIO/S3.
+- [ ] Autenticación del broker resuelta y consumidor MQTT insertando en la hypertable.
 - [ ] Push OTA por MQTT retenido + poll diario notifican al device (§6.2).
+- [ ] Caddy termina TLS y el servicio `backend` corre en el compose.
 
 ---
 
 ## 9. Referencias cruzadas
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — diseño del firmware; secciones *"Modelado de
   la base de datos (backend futuro)"* y *"TLS en el ESP32-C3"* son el origen de este doc.
-- [`../HTML/test/rutas_y_parametros.txt`](../HTML/test/rutas_y_parametros.txt) — API HTTP del firmware
+- [`API.md`](API.md) — API HTTP del firmware
   (llaves de `/newparams` que `device_configs` debe espejar).
 - `README.md` — roadmap del proyecto (el ítem *"Backend (FastAPI + Postgres)"* lo
   desarrolla este documento).

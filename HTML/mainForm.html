@@ -338,18 +338,6 @@
             box-shadow: 0 2px 8px rgba(244, 67, 54, 0.5);
         }
 
-        /* Slider Blanco */
-        #ledB::-webkit-slider-thumb {
-            background: #ffffff;
-            border: 2px solid #9e9e9e;
-            box-shadow: 0 2px 8px rgba(158, 158, 158, 0.5);
-        }
-
-        #ledB::-moz-range-thumb {
-            background: #ffffff;
-            border: 2px solid #9e9e9e;
-            box-shadow: 0 2px 8px rgba(158, 158, 158, 0.5);
-        }
 
         .toggle-password {
             position: absolute;
@@ -818,11 +806,10 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="ledB">Espectro Blanco: <span id="luzBlancaValue">50%</span></label>
-                    <div class="slider-container">
-                        <input type="range" id="ledB" name="ledB" min="0" max="100" step="5" value="50">
-                        <div class="slider-progress" id="progressB"></div>
-                    </div>
+                    <label class="section-toggle" for="ledB">
+                        Luz Blanca
+                        <input type="checkbox" id="ledB" name="ledB">
+                    </label>
                 </div>
 
                 <div class="section-header">
@@ -1030,8 +1017,7 @@
             document.getElementById('luzAzulValue').innerText = `${valoresESP32.luzAzul}%`;
             document.getElementById('ledR').value = valoresESP32.luzRoja;
             document.getElementById('luzRojaValue').innerText = `${valoresESP32.luzRoja}%`;
-            document.getElementById('ledB').value = valoresESP32.luzBlanca;
-            document.getElementById('luzBlancaValue').innerText = `${valoresESP32.luzBlanca}%`;
+            document.getElementById('ledB').checked = Number(valoresESP32.luzBlanca) > 0;
             document.getElementById('irrH').value = valoresESP32.horasIrrigacion;
             document.getElementById('irrM').value = valoresESP32.minutosIrrigacion;
             document.getElementById('ventH').value = valoresESP32.horasVentilador;
@@ -1040,7 +1026,6 @@
             // Actualizar barras de progreso
             updateSliderProgress('ledA', 'progressA');
             updateSliderProgress('ledR', 'progressR');
-            updateSliderProgress('ledB', 'progressB');
         }
 
         // Vuelca los valores del dispositivo en el dashboard (modo vista).
@@ -1062,7 +1047,7 @@
 
             setDashLed('dashLedA', v.luzAzul);
             setDashLed('dashLedR', v.luzRoja);
-            setDashLed('dashLedB', v.luzBlanca);
+            setDashLedB(v.luzBlanca);
 
             document.getElementById('dashIrrH').textContent = FREQ_LABELS[v.horasIrrigacion] ?? "—";
             document.getElementById('dashIrrM').textContent = v.minutosIrrigacion;
@@ -1073,6 +1058,11 @@
         function setDashLed(valueId, val) {
             const n = Number(val) || 0;
             document.getElementById(valueId).textContent = `${n}%`;
+        }
+
+        function setDashLedB(val) {
+            const on = Number(val) > 0;
+            document.getElementById('dashLedB').textContent = on ? "ON" : "OFF";
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -1344,13 +1334,16 @@
             formData.forEach((value, key) => {
                 if (key === 'fpOn' || key === 'fpOff' || key === 'irrH' || key === 'irrM' ||
                     key === 'ventH' || key === 'ventM' ||
-                    key === 'ledA' || key === 'ledR' || key === 'ledB')
+                    key === 'ledA' || key === 'ledR')
                     data[key] = Number(value.trim())
+                else if (key === 'ledB')
+                    {} // se maneja abajo como checkbox
                 else
                     data[key] = value.trim();
             });
 
             data.enable = document.getElementById("enable").checked;
+            data.ledB = document.getElementById("ledB").checked ? 1 : 0;
             const fechaHoraActual = new Date();
             data['dia'] = Number(fechaHoraActual.getDate());
             data['mes'] = Number(fechaHoraActual.getMonth() + 1);
@@ -1399,7 +1392,6 @@
             const ventHInput = document.getElementById("ventH").value.trim();
             const ledAInput = document.getElementById("ledA").value.trim();
             const ledRInput = document.getElementById("ledR").value.trim();
-            const ledBInput = document.getElementById("ledB").value.trim();
 
             // --- Planta (validación unificada con el ESP32) ---
             if (planta === "") {
@@ -1468,8 +1460,6 @@
                 errores.push("El LED azul debe estar entre 0 y 100%");
             if (!isStrictInteger(ledRInput) || Number(ledRInput) < 0 || Number(ledRInput) > 100)
                 errores.push("El LED rojo debe estar entre 0 y 100%");
-            if (!isStrictInteger(ledBInput) || Number(ledBInput) < 0 || Number(ledBInput) > 100)
-                errores.push("El LED blanco debe estar entre 0 y 100%");
 
             return errores;
         }
@@ -1513,16 +1503,8 @@
             let color;
             if (sliderId === 'ledA') color = '#2196F3';
             else if (sliderId === 'ledR') color = '#f44336';
-            else if (sliderId === 'ledB') color = '#ffffff';
 
-            if (sliderId === 'ledB') {
-                // Solo la parte llena lleva borde; el resto lo muestra el riel gris del contenedor
-                progress.style.background = color;
-                progress.style.width = `${percent}%`;
-                progress.style.border = percent > 0 ? '1px solid #9e9e9e' : 'none';
-            } else {
-                progress.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
-            }
+            progress.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
         }
 
         function updateLampValue(sliderId, valueId, progressId) {
@@ -1542,7 +1524,6 @@
 
         updateLampValue('ledA', 'luzAzulValue', 'progressA');
         updateLampValue('ledR', 'luzRojaValue', 'progressR');
-        updateLampValue('ledB', 'luzBlancaValue', 'progressB');
     </script>
 </body>
 

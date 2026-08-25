@@ -8,14 +8,13 @@
 configured from your phone through a Wi-Fi portal served by the microcontroller
 itself — no app, no mandatory cloud, no frameworks.*
 
-`C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (planned)`
+`C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (in progress)`
 
 **English** · **[Español](README.md)**
 
 <br>
 
-<!-- TODO: replace with a real hero/screenshot of the portal (dashboard on a phone) -->
-![SmartPlant portal](docs/img/portal-hero.png)
+![SmartPlant system overview](docs/img/descripcion.png)
 
 </div>
 
@@ -45,14 +44,14 @@ An **end-to-end embedded system** built under real hardware constraints
 | **Never store a Wi-Fi password that doesn't work** | **Deferred persistence**: credentials are written to NVS *only* once the connection reaches `WL_CONNECTED` — no failed-retry loops after a reboot. |
 | **Authenticate without resending credentials** | 128-bit **session token** (`esp_random()`), fixed TTL, in RAM (dies on reboot, expiration via `millis()`, wrap-around safe). The AP is encrypted with **WPA2-PSK**. |
 | **Identical validation in browser and device** | Rules replicated **bit for bit** front↔firmware, counting by **UTF-8 character** (not bytes), so accents and ñ don't desync the limits between JS and C++. |
-| **Less flash and faster portal load** | The readable HTML (source of truth) is **regenerated without comments** into the artifact the ESP32 serves (~73 → ~56 KB), with `gzip` as the next step (~12–18 KB). |
+| **Less flash and faster portal load** | The readable HTML (source of truth) is **regenerated without comments** into the artifact the ESP32 serves (~57 → ~49 KB), with `gzip` as the next step (~12–18 KB). |
 
 ---
 
 ## 🔌 Features
 
 - 📶 **Wi-Fi captive portal** (AP "SmartPlant" with WPA2): configure it from any browser, nothing to install.
-- 💡 **Spectrum lighting** (blue / red / white) via PWM, with a photoperiod that can cross midnight.
+- 💡 **Spectrum lighting** (blue / red via PWM, white ON/OFF), with a photoperiod that can cross midnight.
 - 💧 **Irrigation and ventilation** scheduled by interval (from hourly to weekly).
 - 🕒 **External DS3231 RTC**: time is synced from the browser.
 - 🌐 **User Wi-Fi connectivity** (conditional AP+STA mode) to enable cloud/telemetry later.
@@ -61,17 +60,23 @@ An **end-to-end embedded system** built under real hardware constraints
 
 ---
 
-## 📸 Screenshots
+## 📸 The portal
 
-<!-- TODO: replace the placeholders with real screenshots (docs/img/). -->
+When you join the **SmartPlant** network, the OS detects the captive portal and
+opens the form automatically. The whole front end is a single HTML file with
+vanilla JavaScript served from the microcontroller's flash.
+
 | Dashboard | Edit parameters | Wi-Fi setup |
 |:---:|:---:|:---:|
-| ![Dashboard](docs/img/dashboard.png) | ![Edit](docs/img/edit.png) | ![Wi-Fi](docs/img/wifi.png) |
+| ![Dashboard](docs/img/portal-dashboard.png) | ![Edit](docs/img/portal-edit.png) | ![Wi-Fi](docs/img/portal-wifi.png) |
+
+The dashboard shows crop state read-only; editing requires authentication, which
+issues a session token valid for 30 minutes. The network view scans available
+signals and connects the device to the user's Wi-Fi without losing portal access.
 
 <div align="center">
 
-<!-- TODO: photo of the real build (ESP32-C3 + LEDs + pump/fan). -->
-![Build](docs/img/hardware.jpg)
+![Control board](docs/img/picBoard.jpg)
 
 </div>
 
@@ -121,7 +126,8 @@ PWM at 1 kHz, 8-bit (0–255); spectra are sent 0–100 % and scaled internally.
 - **Firmware:** C++ (Arduino-ESP32 / ESP-IDF) — `WiFi`, `WebServer`, `DNSServer`, `Wire`, `Preferences`, `ArduinoJson` (v6)
 - **Frontend:** HTML + CSS + vanilla JavaScript (no frameworks, no build)
 - **Local persistence:** NVS (Preferences)
-- **Planned (backend):** Python (FastAPI), PostgreSQL / TimescaleDB, TLS (mbedTLS), signed OTA
+- **Backend (design settled, implementation pending):** Python (FastAPI), PostgreSQL + TimescaleDB, MQTT, S3-compatible storage
+- **Planned:** TLS (mbedTLS) and signed OTA
 
 ---
 
@@ -129,17 +135,31 @@ PWM at 1 kHz, 8-bit (0–255); spectra are sent 0–100 % and scaled internally.
 
 ```
 .
-├── ESP32_controller/
+├── ESP32_controller/          # Firmware (Arduino sketch)
 │   ├── ESP32_controller.ino   # Wi-Fi AP, captive DNS, HTTP routes and handlers
-│   ├── Plant.h / .cpp      # Crop logic: validation, PWM/relays, RTC, session, Wi-Fi
-│   ├── Constants.h         # Pins, PWM, validation limits, state/error enums
-│   ├── utils.h / .cpp      # Free helpers: string/UTF-8 validation, BCD, date
-│   ├── sensible.h          # AP secrets (unversioned)
-│   └── mainForm.h          # Generated artifact: the HTML served by the ESP32
-├── HTML/mainForm.html      # Portal source of truth (readable and commented)
-├── HTML/test/rutas_y_parametros.txt  # HTTP API reference (routes, payloads, examples)
-└── docs/ARCHITECTURE.md    # Deep technical documentation (decisions and caveats)
+│   ├── Plant.h / .cpp         # Crop logic: validation, PWM/relays, RTC, session, Wi-Fi
+│   ├── Constants.h            # Pins, PWM, validation limits, state/error enums
+│   ├── utils.h / .cpp         # Helpers: string/UTF-8 validation, BCD, date
+│   ├── sensible.h             # AP secrets (unversioned)
+│   └── mainForm.h             # Generated artifact: the HTML served by the ESP32
+├── HTML/
+│   └── mainForm.html          # Portal source of truth (readable and commented)
+├── ESP32_Board/               # Board design (KiCad)
+├── pythonServer/              # Backend: local infra + DDL (code pending)
+├── docs/                      # Technical documentation
+│   ├── README.md              # Documentation index
+│   ├── ARCHITECTURE.md        # Firmware and portal design
+│   ├── API.md                 # HTTP API reference
+│   ├── HARDWARE.md            # Pins, peripherals, electrical install
+│   ├── BACKEND.md             # Backend design
+│   └── img/                   # Images and diagrams
+├── README.md
+└── README.en.md
 ```
+
+**Portal convention:** edit `HTML/mainForm.html` (readable, commented source) and
+regenerate `ESP32_controller/mainForm.h` from it — that's the artifact the device
+serves. Never the other way around.
 
 ---
 
@@ -163,15 +183,21 @@ PWM at 1 kHz, 8-bit (0–255); spectra are sent 0–100 % and scaled internally.
 - [x] Token-based session (no credential resending)
 - [x] **User Wi-Fi connectivity** (AP+STA, scan, connect + polling)
 - [ ] Serve the portal **gzip** (`Content-Encoding: gzip`) for less flash and faster load
-- [ ] **Backend** (FastAPI + Postgres): accounts, telemetry and cross-device queries
+- [ ] **Backend** (FastAPI + Postgres/Timescale): accounts, telemetry and cross-device queries — *design settled in [docs/BACKEND.md](docs/BACKEND.md); infrastructure up, code pending*
 - [ ] **Secure OTA** over TLS (CA pinning + signed firmware)
+- [ ] Temperature and humidity sensing (DS18B20 planned in the original design)
 
 ---
 
 ## 📖 Documentation
 
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — in-depth technical design: decisions, trade-offs, caveats, DB model and TLS strategy for the C3.
-- **[HTML/test/rutas_y_parametros.txt](HTML/test/rutas_y_parametros.txt)** — complete HTTP API reference (routes, payloads and examples).
+All technical documentation lives in **[`docs/`](docs/README.md)**:
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — in-depth technical design: decisions, trade-offs, caveats, portal state machine, DB model and TLS strategy for the C3.
+- **[docs/API.md](docs/API.md)** — complete HTTP API reference for the **device**: routes, payloads, validation, error catalog and `curl` examples.
+- **[docs/HARDWARE.md](docs/HARDWARE.md)** — pin map, PWM, RTC, SSR outputs, connectivity and electrical installation.
+- **[docs/BACKEND.md](docs/BACKEND.md)** — backend design (FastAPI + Postgres/Timescale + MQTT + S3). The authoritative reference for implementing it.
+- **[pythonServer/README.md](pythonServer/README.md)** — how to bring up the backend's local infrastructure (Postgres/Timescale, MinIO, Mosquitto).
 
 ---
 

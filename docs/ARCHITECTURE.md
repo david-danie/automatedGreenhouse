@@ -5,9 +5,10 @@ riego y ventilación) y se configura desde el celular/PC vía un **portal captiv
 Wi-Fi**. El dispositivo levanta un Access Point, sirve un formulario HTML embebido y
 recibe la configuración por HTTP en JSON.
 
-Este directorio es la variante **"HTML sin comprimir"**: contiene tanto el firmware
-(`ESP32_controller/`) como una copia legible de los formularios (`HTML/`) para editar
-cómodamente antes de embeberlos.
+Este documento cubre el **diseño interno**: por qué el código está escrito así, qué
+trade-offs se tomaron y qué caveats quedan abiertos. Para el contrato de la API ver
+[`API.md`](API.md); para pines y periféricos, [`HARDWARE.md`](HARDWARE.md); el índice
+completo está en [`README.md`](README.md).
 
 ---
 
@@ -30,8 +31,8 @@ HTML/
 - **`ESP32_controller/mainForm.h` es un artefacto generado**: el mismo HTML pero **sin
   comentarios** (los comentarios viven solo en el `.html` de respaldo) y envuelto en el
   raw-string C. Es lo que el dispositivo sirve; **no se edita a mano**.
-- Quitar los comentarios del `.h` no es cosmético: reduce ~17 KB los bytes que el AP
-  manda en cada carga del portal (~73 KB → ~56 KB), sin tocar la lógica.
+- Quitar los comentarios del `.h` no es cosmético: reduce ~8 KB los bytes que el AP
+  manda en cada carga del portal (~57 KB → ~49 KB), sin tocar la lógica.
 - Generar el `.h` desde el `.html`: strip de comentarios HTML (`<!-- -->`), CSS (`/* */`)
   y JS (`//`) + colapso de líneas en blanco + wrapper `static const char mainForm[] = R"===(` … `)===";`.
   Tras generar, vale la pena un `node --check` sobre el `<script>` para confirmar que el
@@ -43,7 +44,7 @@ HTML/
 ## Hardware (ESP32-C3, ver `Constants.h`)
 - LED blanco → GPIO 0 (salida digital, lógica invertida), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
 - Buzzer → GPIO 3, ventilador → GPIO 7, bomba de agua → GPIO 10
-- PWM: 1 kHz, 8 bits (duty 0–255). Los espectros se envían como 0–100 % y se escalan internamente.
+- PWM: 1 kHz, 8 bits (duty 0–255) en azul y rojo; se envían como 0–100 % y se escalan internamente. El blanco es digital: el portal manda `0`/`1` y el firmware evalúa `> 0`.
 - RTC externo **DS3231** por I²C (dirección `0x68`); la hora se sincroniza desde el navegador en `/newparams`.
 
 ---
@@ -108,6 +109,41 @@ El estado **`wifi`** (config de red) se entra desde un **chip discreto en el
 dashboard** y está gateado por sesión igual que `edit` (ver "Conexión Wi-Fi del
 usuario").
 
+### Los estados, en pantalla
+
+<table>
+  <tr>
+    <th><code>welcome</code></th>
+    <th><code>register</code></th>
+    <th><code>view</code></th>
+  </tr>
+  <tr>
+    <td><img src="./img/portal-welcome.png" alt="Estado welcome" width="200"/></td>
+    <td><img src="./img/portal-register.png" alt="Estado register" width="200"/></td>
+    <td><img src="./img/portal-dashboard.png" alt="Estado view (dashboard)" width="200"/></td>
+  </tr>
+  <tr>
+    <td>Dispositivo nuevo: invita a crear usuario o salir.</td>
+    <td>Alta de credenciales; al guardar emite token y entra ya autenticado.</td>
+    <td>Dashboard de solo lectura con el estado del cultivo.</td>
+  </tr>
+  <tr>
+    <th><code>auth</code></th>
+    <th><code>edit</code></th>
+    <th><code>wifi</code></th>
+  </tr>
+  <tr>
+    <td><img src="./img/portal-auth.png" alt="Estado auth" width="200"/></td>
+    <td><img src="./img/portal-edit.png" alt="Estado edit" width="200"/></td>
+    <td><img src="./img/portal-wifi.png" alt="Estado wifi" width="200"/></td>
+  </tr>
+  <tr>
+    <td>Login para desbloquear la edición. Se salta si el token sigue vigente.</td>
+    <td>Formulario editable; aplica en vivo sin reiniciar.</td>
+    <td>Escaneo de redes y conexión del dispositivo a la Wi-Fi del usuario.</td>
+  </tr>
+</table>
+
 ### Sesión de edición (token, ver "Endpoints" y `Constants.h`)
 La autenticación es por **token de sesión en RAM**, no por carga de página:
 
@@ -158,11 +194,11 @@ re-aplica en segundos. El reboot anterior era **redundante** para aplicar la con
 ---
 
 ## Endpoints HTTP
-Ver el detalle de payloads en **`HTML/test/rutas_y_parametros.txt`**.
+Ver el detalle de payloads, validaciones y catálogo de errores en **[`API.md`](API.md)**.
 
 | Método | Ruta                  | Handler                  | Propósito |
 |--------|-----------------------|--------------------------|-----------|
-| GET    | `/`                   | `handleRoot`             | Sirve el HTML único (`mainForm`) vía `send_P` (directo desde flash, sin copiarlo a un `String` de ~72 KB en cada request) |
+| GET    | `/`                   | `handleRoot`             | Sirve el HTML único (`mainForm`) vía `send_P` (directo desde flash, sin copiarlo a un `String` de ~49 KB en cada request) |
 | GET    | `/getparams`          | `handleGetParameters`    | Estado del dispositivo en JSON (incluye `hasRegisteredUser`; con `?token=`, `sessionValid`; y siempre `wifiConnected`/`wifiSsid`) |
 | POST   | `/usercredentials`    | `handleUserCredentials`  | Alta de usuario (primer arranque). No reinicia; **devuelve `token`** de sesión |
 | POST   | `/authusercredentials`| `handleAuthUserCredentials` | Login para desbloquear edición; **devuelve `token`**; intercepta `**reset**` |
@@ -257,7 +293,7 @@ perdería esos días y, además, escribiría NVS cada noche).
 
 ## Propuesta: servir el HTML comprimido (gzip) para mayor performance
 
-Hoy el HTML se embebe como texto (`mainForm.h`, ~56 KB tras quitarle los comentarios).
+Hoy el HTML se embebe como texto (`mainForm.h`, ~49 KB tras quitarle los comentarios).
 Comprimirlo con gzip suele reducirlo a ~12–18 KB, lo que significa **menos flash
 ocupado**, menos chunks por el AP y carga más rápida del portal. Los navegadores
 descomprimen gzip de forma transparente; solo hay que declarar el encabezado
@@ -414,13 +450,18 @@ bucle de reintentos fallidos tras reiniciar).
 
 ## Modelado de la base de datos (backend futuro)
 
+> **Esta sección es el origen histórico del diseño; la referencia vigente es
+> [`BACKEND.md`](BACKEND.md).** Se conserva porque explica el *lado firmware* (qué manda el
+> dispositivo y por qué). Para nombres de tabla, columnas y payloads exactos, usa
+> `BACKEND.md`: ahí `accounts` se llama **`users`** y se identifica por **`email`**.
+
 Diseño de referencia para cuando se agregue el backend Python. Persiste la
 configuración/estado de cada dispositivo para que **otros dispositivos o apps de
 la misma cuenta** puedan consultarlos. Modelo **por cuenta**: una cuenta posee sus
 dispositivos y sus datos.
 
 ### Identidad y autenticación (resumen)
-- El dispositivo se autentica **una vez** con `user + pass + mac` sobre **TLS**.
+- El dispositivo se autentica **una vez** con `email + pass + mac` sobre **TLS**.
 - "Pro" **no es un nivel almacenado**: significa simplemente *"el dispositivo está
   vinculado a una cuenta válida"*. La presencia de un **token de dispositivo**
   (emitido por el backend, revocable, guardado en NVS) ES el "soy pro".
@@ -439,7 +480,7 @@ firmware_releases    (catálogo de binarios para OTA, independiente)
 
 | Tabla | Campos clave | Notas |
 |-------|--------------|-------|
-| `accounts` | `id`, `email`/`username`, `password_hash`, `created_at` | Cuenta dueña de los dispositivos. Hash con bcrypt/argon2 |
+| `users` (aquí `accounts`) | `id`, `email` (UNIQUE), `password_hash`, `is_admin`, `created_at` | Cuenta dueña de los dispositivos. Hash con bcrypt/argon2 |
 | `devices` | `id`, `mac` (UNIQUE), `account_id` (FK), `name`, `token_hash`, `firmware_version`, `last_seen_at`, `created_at` | La MAC identifica; `token_hash` = token de dispositivo hasheado (revocable) |
 | `device_configs` | `id`, `device_id` (FK), `planta`, `enable`, `fp_on`, `fp_off`, `led_a/r/b`, `irr_h/m`, `vent_h/m`, `crop_start_day`, `applied_at` | **Una fila por cambio** (histórico). La última = config vigente. Espeja las llaves de `/newparams` |
 | `device_telemetry` | `id`, `device_id` (FK), `ts`, `wifi_rssi`, `uptime`, *(sensores futuros: temp, humedad…)* | **Serie temporal**: candidato a hypertable de **TimescaleDB** |
@@ -448,7 +489,7 @@ firmware_releases    (catálogo de binarios para OTA, independiente)
 ### Flujos de información
 
 1. **Aprovisionamiento** (acción del usuario): device → `POST /devices/provision
-   {user,pass,mac}` → el backend valida la cuenta, crea/vincula la fila en
+   {email,pass,mac}` → el backend valida la cuenta, crea/vincula la fila en
    `devices` y **emite el token**. Es el único momento en que viaja la contraseña.
 2. **Reporte de config**: al cambiar parámetros, device → `POST
    /devices/{id}/config {token, …}` → inserta en `device_configs`.
