@@ -5,8 +5,10 @@ asyncpg
 psycopg2-binary
 pydantic
 pydantic-settings
+pydantic[email]
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt==4.2.1
 python-multipart
 paho-mqtt
 alembic

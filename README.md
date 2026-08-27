@@ -292,7 +292,7 @@ El detalle completo —esquemáticos, salidas SSR, RTC, instalación eléctrica 
 ├── HTML/
 │   └── mainForm.html          # Fuente de verdad del portal (legible y comentada)
 ├── ESP32_Board/               # Diseño de la tarjeta (KiCad)
-├── pythonServer/              # Backend: infra local + DDL (código pendiente)
+├── pythonServer/              # Backend: FastAPI + Alembic + Docker (auth funcional)
 ├── docs/                      # Documentación técnica
 │   ├── README.md              # Índice de la documentación
 │   ├── ARCHITECTURE.md        # Diseño del firmware y del portal
@@ -335,7 +335,7 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
 - [x] Sesión con token (sin reenviar credenciales)
 - [x] Conectividad Wi-Fi del usuario (AP+STA, escaneo, conexión + polling)
 - [ ] Servir el portal **gzip** (`Content-Encoding: gzip`) para menos flash y carga más rápida
-- [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos — *diseño fijado en [docs/BACKEND.md](docs/BACKEND.md); implementación en re-arranque sobre un [prototipo previo](pythonServer/README.md)*
+- [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos — *esqueleto funcional con auth implementado ([ver estado](pythonServer/README.md)); falta: provisión de dispositivos, telemetría, OTA y lecturas para app*
 - [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
 - [ ] Medición de temperatura y humedad (DS18B20 contemplado en el diseño original)
 
@@ -351,7 +351,7 @@ Toda la documentación técnica vive en **[`docs/`](docs/README.md)**:
 - **[docs/API.md](docs/API.md)** — referencia completa de la API HTTP: rutas, payloads, validaciones, catálogo de errores y ejemplos con `curl`.
 - **[docs/HARDWARE.md](docs/HARDWARE.md)** — mapa de pines, PWM, RTC, SSR, conectividad e instalación eléctrica.
 - **[docs/BACKEND.md](docs/BACKEND.md)** — diseño del backend (FastAPI + Postgres/Timescale + MQTT + S3): decisiones, modelo de datos y contratos de API. Es la referencia para implementarlo.
-- **[pythonServer/README.md](pythonServer/README.md)** — cómo levantar la infraestructura local del backend (Postgres/Timescale, MinIO, Mosquitto).
+- **[pythonServer/README.md](pythonServer/README.md)** — cómo levantar el backend local (FastAPI + Postgres/Timescale, MinIO, Mosquitto).
 
 </div>
 

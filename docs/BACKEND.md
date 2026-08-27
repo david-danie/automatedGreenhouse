@@ -7,11 +7,11 @@
 > futuro)"* y *"TLS en el ESP32-C3"* de [`ARCHITECTURE.md`](ARCHITECTURE.md), que
 > siguen siendo la referencia del lado del firmware.
 
-> **Estado: diseño cerrado, sin código.** El prototipo previo se eliminó por completo
-> para que no haya dos fuentes de verdad; lo único que sobrevivió es
-> [`../pythonServer/db/schema.sql`](../pythonServer/db/schema.sql) como referencia del
-> DDL, y el `docker-compose.yml` de la infraestructura local. Este documento es la
-> **única** referencia para implementar.
+> **Estado: esqueleto funcional con auth implementado.** La infraestructura local corre con
+> `docker compose up -d --build`. Alembic administra el esquema (migración `001` aplicada:
+> extensión, 5 tablas, hypertable, índices). Los endpoints de autenticación (`register`,
+> `login`, `refresh`) están operativos con JWT + bcrypt. El siguiente entregable es la
+> provisión de dispositivos (`POST /devices/provision`).
 >
 > Decisiones que estaban abiertas y ya se cerraron:
 > - **Broker: Mosquitto** (no EMQX). Ver el [caveat de autenticación MQTT](#caveat-mosquitto-no-autentica-contra-la-base-de-datos).
@@ -502,8 +502,8 @@ forme parte de la clave.
 ### Checklist de arranque
 
 - [x] `docker compose up -d` levanta Postgres/Timescale, MinIO y Mosquitto sin conflictos.
-- [ ] Migración inicial de Alembic crea el esquema del §3 (extensión + tablas + hypertable).
-- [ ] Endpoints de auth (`register`/`login`/`refresh`) emiten y validan JWT.
+- [x] Migración inicial de Alembic crea el esquema del §3 (extensión + tablas + hypertable).
+- [x] Endpoints de auth (`register`/`login`/`refresh`) emiten y validan JWT.
 - [ ] `/devices/provision` emite token de dispositivo y persiste `token_hash`.
 - [ ] `/devices/{id}/config` y `/devices/{id}/telemetry` autenticados por `Bearer`.
 - [ ] `/me/devices` y `/devices/{id}/state` responden con el aislamiento por cuenta del §4.2.

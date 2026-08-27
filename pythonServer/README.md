@@ -2,14 +2,12 @@
 
 Servicio de nube para SmartPlant: cuentas de usuario, vinculación de dispositivos, telemetría y distribución de firmware OTA.
 
-> **Estado: infraestructura lista, código por escribir.**
+> **Estado: esqueleto funcional — auth implementado, provisión de dispositivos pendiente.**
 >
-> El prototipo anterior se eliminó por completo para que no hubiera dos fuentes de verdad.
-> Lo que queda en esta carpeta es la infraestructura local y el DDL de referencia.
+> El backend corre en Docker junto a la infraestructura. La migración de Alembic crea el
+> esquema completo (5 tablas + hypertable) y los endpoints de autenticación están operativos.
 >
-> **El diseño a implementar está en [`../docs/BACKEND.md`](../docs/BACKEND.md)**: stack,
-> modelo de datos, contratos de API con payloads exactos, flujo OTA y orden de entregables.
-> Empieza por ahí.
+> **El diseño completo a seguir implementando está en [`../docs/BACKEND.md`](../docs/BACKEND.md).**
 
 ---
 
@@ -17,79 +15,114 @@ Servicio de nube para SmartPlant: cuentas de usuario, vinculación de dispositiv
 
 ```
 pythonServer/
-├── docker-compose.yml        # Infraestructura local (funciona hoy)
-├── db/schema.sql             # DDL de referencia → base de la 1ª migración de Alembic
+├── Dockerfile                # Imagen del backend (Python 3.11 slim + uvicorn)
+├── docker-compose.yml        # Stack completo: DB + MinIO + Mosquitto + backend
+├── alembic.ini               # Configuración de Alembic
+├── alembic/                  # Migraciones
+│   ├── env.py                # Entorno async para migraciones
+│   └── versions/
+│       └── 001_initial_schema.py  # Esquema inicial (extensión + tablas + hypertable)
+├── app/                      # Código de la API
+│   ├── main.py               # FastAPI app + health endpoint
+│   ├── settings.py           # Config por variables de entorno (12-factor)
+│   ├── database.py           # Conexión async SQLAlchemy
+│   ├── models.py             # Modelos ORM (users, devices, configs, telemetry, firmware)
+│   └── routers/
+│       └── auth.py           # POST /auth/register, /auth/login, /auth/refresh
+├── db/schema.sql             # DDL de referencia (la fuente real es Alembic)
 ├── mosquitto/config/         # Configuración del broker
-├── requirements.txt          # Dependencias previstas (sin versiones fijadas aún)
+├── requirements.txt          # Dependencias con versiones clave pinneadas
+├── .env.example              # Plantilla de variables de entorno
 └── README.md
 ```
 
-No hay código de aplicación. El esqueleto de FastAPI es el entregable 2 del
-[§8 de `BACKEND.md`](../docs/BACKEND.md).
-
 ---
 
-## Levantar la infraestructura
+## Levantar el stack
 
 ```bash
 cd pythonServer
-docker compose up -d
+cp .env.example .env          # Ajusta secretos para tu entorno
+docker compose up -d --build  # Construye el backend y levanta todo
+docker compose exec backend alembic upgrade head  # Crea el esquema
 ```
 
-Deja corriendo tres servicios, sin conflictos de puerto:
+Deja corriendo cuatro servicios:
 
 | Servicio | Puerto | Qué es |
 |---|---|---|
-| `db` | 5432 | Postgres 15 + TimescaleDB |
+| `backend` | 8000 | API FastAPI (SmartPlant) |
+| `db` | 5432 | Postgres 15 + TimescaleDB 2.14.2 |
 | `minio` | 9000 · 9001 | Object storage S3 (API · consola web) |
 | `mosquitto` | 1883 | Broker MQTT |
 
 Consola de MinIO en `http://localhost:9001` (usuario/contraseña por defecto: `admin` / `admin123456`).
 
-Los servicios `backend` y `caddy` están comentados a propósito: requieren un `Dockerfile` y
-un `Caddyfile` que todavía no existen. `docker compose up` tiene que funcionar hoy.
+Documentación OpenAPI automática en `http://localhost:8000/docs`.
 
-### El esquema lo crea Alembic, no el compose
+### Endpoints disponibles
 
-Al levantar, `db` queda **vacío** con la extensión de Timescale disponible. `schema.sql`
-**ya no** se aplica automáticamente: es material de referencia para escribir la primera
-migración. Así hay un único dueño del esquema y `alembic upgrade head` es lo que lleva
-cualquier entorno al mismo estado.
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| POST | `/auth/register` | Crear cuenta (devuelve JWT) |
+| POST | `/auth/login` | Autenticar (devuelve JWT) |
+| POST | `/auth/refresh` | Renovar access token |
 
-Detalle de por qué, y las dos cosas que Alembic no autogenera con Timescale (la extensión y
-`create_hypertable()`), en el [§8 de `BACKEND.md`](../docs/BACKEND.md).
+### El esquema lo administra Alembic
+
+`schema.sql` es material de referencia. El dueño real del esquema es Alembic:
+
+```bash
+docker compose exec backend alembic upgrade head   # Aplica migraciones pendientes
+docker compose exec backend alembic downgrade -1   # Revierte la última
+```
+
+La migración `001_initial_schema.py` crea la extensión TimescaleDB, las 5 tablas del modelo
+de datos, la hypertable sobre `device_telemetry` y los índices recomendados.
+
+Detalle de por qué Alembic no autogenera la extensión ni `create_hypertable()` en el
+[§8 de `BACKEND.md`](../docs/BACKEND.md).
+
+---
+
+## Siguiente paso
+
+Implementar la provisión de dispositivos: `POST /devices/provision` (entregable 4 del
+[§8 de `BACKEND.md`](../docs/BACKEND.md)).
 
 ---
 
 ## Configuración
 
-Todo por variables de entorno, sin nada hardcodeado (regla 1 del §7 de `BACKEND.md`). El
-compose lee un `.env` opcional en esta carpeta:
+Todo por variables de entorno, sin nada hardcodeado (regla 1 del §7 de `BACKEND.md`).
+Copia `.env.example` a `.env` y ajusta:
 
-| Variable | Default (desarrollo) |
-|---|---|
-| `POSTGRES_USER` | `smartplant` |
-| `POSTGRES_PASSWORD` | `smartplant_secret` |
-| `POSTGRES_DB` | `smartplant_db` |
-| `MINIO_ROOT_USER` | `admin` |
-| `MINIO_ROOT_PASSWORD` | `admin123456` |
+| Variable | Default (desarrollo) | Notas |
+|---|---|---|
+| `POSTGRES_USER` | `smartplant` | |
+| `POSTGRES_PASSWORD` | `smartplant_secret` | |
+| `POSTGRES_DB` | `smartplant_db` | |
+| `DATABASE_URL` | `postgresql+asyncpg://...` | La usa el backend |
+| `JWT_SECRET_KEY` | `change-me-in-production` | **Cambiar obligatorio** |
+| `MINIO_ROOT_USER` | `admin` | |
+| `MINIO_ROOT_PASSWORD` | `admin123456` | |
+| `MQTT_HOST` | `mosquitto` | |
 
 **Los defaults son solo para desarrollo local.** Para cualquier despliegue real, definirlos
-en un `.env` fuera del control de versiones. El `.gitignore` de la raíz ya cubre `.env` y
-`.env.*`.
+en un `.env` fuera del control de versiones.
 
 ---
 
-## Dos cosas a resolver temprano
+## Dos cosas pendientes de resolver
 
 **Autenticación del broker.** Mosquitto está hoy con `allow_anonymous true`: cualquiera en
-la red puede publicar y suscribirse. Sirve para desarrollo, no para nada expuesto. A
-diferencia de EMQX, Mosquitto no valida contra la base de datos de forma nativa. Las tres
+la red puede publicar y suscribirse. Sirve para desarrollo, no para nada expuesto. Las tres
 salidas y la recomendación (arrancar la telemetría por REST) están en el
 [caveat del §5 de `BACKEND.md`](../docs/BACKEND.md#caveat-mosquitto-no-autentica-contra-la-base-de-datos).
 
-**Versiones de dependencias.** `requirements.txt` lista los paquetes correctos pero sin
-fijar versiones. Conviene pinnearlas al crear el entorno para que sea reproducible.
+**Caddy + TLS.** El servicio `caddy` queda comentado en el compose hasta que se tenga un
+dominio y un `Caddyfile` configurado.
 
 ---
 
