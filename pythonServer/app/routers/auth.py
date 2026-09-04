@@ -4,18 +4,16 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import User
+from app.security import hash_secret, verify_secret
 from app.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # --- Schemas ---
@@ -38,14 +36,6 @@ class TokenResponse(BaseModel):
 
 
 # --- Helpers ---
-
-
-def _hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def _verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
 
 
 def _create_token(data: dict, expires_delta: timedelta) -> str:
@@ -82,7 +72,7 @@ async def register(body: AuthRequest, db: AsyncSession = Depends(get_db)):
 
     user = User(
         email=body.email,
-        password_hash=_hash_password(body.password),
+        password_hash=hash_secret(body.password),
     )
     db.add(user)
     await db.commit()
@@ -97,7 +87,7 @@ async def login(body: AuthRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if not user or not _verify_password(body.password, user.password_hash):
+    if not user or not verify_secret(body.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
 
     return _create_tokens(user.id, user.is_admin)

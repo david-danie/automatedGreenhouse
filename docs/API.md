@@ -22,9 +22,29 @@ Rutas que expone el **ESP32-C3** desde el portal captivo (AP `SmartPlant`, servi
 
 1. `POST /usercredentials` (primer arranque) o `POST /authusercredentials` (login) devuelven un `token`.
 2. El token es una cadena de **32 caracteres hex** (128 bits de `esp_random()`).
-3. Vive **solo en RAM**: un reinicio lo invalida. TTL **fijo de 30 min** desde su emisión — la actividad **no** lo renueva.
+3. **En el dispositivo** vive **solo en RAM** (`_sessionToken`): un reinicio lo invalida. TTL **fijo de 30 min** desde su emisión — la actividad **no** lo renueva. **En el cliente**, el portal guarda su copia en `localStorage` (`spToken`) para reenviarla; si el dispositivo se reinició, esa copia deja de ser válida y el cliente la descarta al recibir un `401` (ver más abajo).
 4. Solo existe **una sesión activa**: un login nuevo invalida el token anterior.
 5. Se envía en el **body** para los `POST` y como **query param** `?token=` en `GET /getparams`.
+
+### Validación en el firmware
+
+Hay **un único** validador, `Plant::isSessionValid(const String& token)` (`Plant.cpp`), y
+comprueba cuatro cosas en orden: que haya una sesión activa, que el token mida 32 caracteres,
+que coincida con el vigente, y que no haya expirado (comparación de `millis()` a prueba de
+wrap-around). Las rutas que **bloquean** con `401 INVALID_SESSION` si falla son
+`POST /newparams` (`validateCropParameters`) y `POST /wificredentials` (`saveWifiCredentials`),
+que esperan el token en la clave `token` del body JSON. `GET /getparams` (`buildParamsJson`)
+usa el validador pero **no bloquea**: solo reporta `sessionValid` para que el front sepa si
+puede saltarse el login. No hay ningún otro mecanismo de autorización (ni middleware, ni
+filtrado por IP/MAC, ni cabeceras): **el token en el body es la única llave**.
+
+### Manejo del 401 en el cliente
+
+El portal guarda el token que devuelven login y registro, y lo reenvía en `/newparams`,
+`/wificredentials` (body) y `/getparams` (`?token=`). Si el firmware responde
+`401 INVALID_SESSION` (token perdido tras un reinicio del ESP32, o expirado a los 30 min), el
+portal **limpia el token guardado y devuelve al usuario a la pantalla de login**, en lugar de
+mostrar un error genérico. Así el usuario simplemente se re-autentica y continúa.
 
 ---
 

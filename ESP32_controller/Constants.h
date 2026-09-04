@@ -53,8 +53,8 @@ enum SystemStatus : uint8_t {
     irrigationDuration,
     ventilationFrequency,
     ventilationDuration,
-    cropWeek,                 // OBSOLETO como almacenamiento: cropWeek/cropDay ya
-    cropDay,                  // no se guardan aquí; se DERIVAN del RTC + _cropStartDay
+    //cropWeek,                 // OBSOLETO como almacenamiento: cropWeek/cropDay ya
+    //cropDay,                  // no se guardan aquí; se DERIVAN del RTC + _cropStartDay
                               // (ver Plant::cropDayFromRtc). 
 };
 

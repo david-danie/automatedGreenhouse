@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        # El .env es compartido con los otros servicios del compose (Postgres,
+        # MinIO): contiene llaves como POSTGRES_USER o MINIO_ROOT_PASSWORD que
+        # este modelo no declara. Sin esto, pydantic v2 (extra="forbid" por
+        # defecto) aborta el arranque con "Extra inputs are not permitted".
+        extra = "ignore"
 
 
 settings = Settings()

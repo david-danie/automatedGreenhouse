@@ -2,10 +2,18 @@
 
 Servicio de nube para SmartPlant: cuentas de usuario, vinculación de dispositivos, telemetría y distribución de firmware OTA.
 
-> **Estado: esqueleto funcional — auth implementado, provisión de dispositivos pendiente.**
+> **Estado: auth, provisión, config, telemetría y lecturas para la app operativas y verificadas.**
 >
 > El backend corre en Docker junto a la infraestructura. La migración de Alembic crea el
-> esquema completo (5 tablas + hypertable) y los endpoints de autenticación están operativos.
+> esquema completo (5 tablas + hypertable), los endpoints de autenticación están operativos
+> y `POST /devices/provision` ya vincula dispositivos y emite su token (todo verificado
+> end-to-end).
+>
+> El ciclo dispositivo↔nube por REST está cerrado y verificado: `POST /devices/{id}/config`
+> (histórico) y `POST /devices/{id}/telemetry` (`ts` server-side, refresca presencia). Y las
+> **lecturas para la app** (§4.2) también: `GET /me/devices`, `GET /devices/{id}/state`
+> (con edad de cultivo derivada) y `GET /devices/{id}/telemetry` (histórico agregado con
+> `time_bucket`), todas con **aislamiento por cuenta** (404, no 403, si el device es de otra).
 >
 > **El diseño completo a seguir implementando está en [`../docs/BACKEND.md`](../docs/BACKEND.md).**
 
@@ -27,8 +35,12 @@ pythonServer/
 │   ├── settings.py           # Config por variables de entorno (12-factor)
 │   ├── database.py           # Conexión async SQLAlchemy
 │   ├── models.py             # Modelos ORM (users, devices, configs, telemetry, firmware)
+│   ├── security.py           # Hashing bcrypt + generación de tokens (compartido)
+│   ├── deps.py               # Dependencias de auth (Bearer → dispositivo; JWT → usuario)
 │   └── routers/
-│       └── auth.py           # POST /auth/register, /auth/login, /auth/refresh
+│       ├── auth.py           # POST /auth/register, /auth/login, /auth/refresh
+│       ├── devices.py        # POST /devices/provision, /{id}/config, /{id}/telemetry
+│       └── me.py             # GET /me/devices, /devices/{id}/state, /devices/{id}/telemetry
 ├── db/schema.sql             # DDL de referencia (la fuente real es Alembic)
 ├── mosquitto/config/         # Configuración del broker
 ├── requirements.txt          # Dependencias con versiones clave pinneadas
@@ -68,6 +80,12 @@ Documentación OpenAPI automática en `http://localhost:8000/docs`.
 | POST | `/auth/register` | Crear cuenta (devuelve JWT) |
 | POST | `/auth/login` | Autenticar (devuelve JWT) |
 | POST | `/auth/refresh` | Renovar access token |
+| POST | `/devices/provision` | Vincular dispositivo a una cuenta y emitir su token |
+| POST | `/devices/{id}/config` | Registrar config del cultivo (Bearer) |
+| POST | `/devices/{id}/telemetry` | Registrar lectura de telemetría (Bearer) |
+| GET | `/me/devices` | Listar dispositivos de la cuenta (JWT usuario) |
+| GET | `/devices/{id}/state` | Última config + telemetría + edad del cultivo (JWT usuario) |
+| GET | `/devices/{id}/telemetry` | Histórico agregado con `time_bucket` (JWT usuario) |
 
 ### El esquema lo administra Alembic
 
@@ -88,8 +106,15 @@ Detalle de por qué Alembic no autogenera la extensión ni `create_hypertable()`
 
 ## Siguiente paso
 
-Implementar la provisión de dispositivos: `POST /devices/provision` (entregable 4 del
-[§8 de `BACKEND.md`](../docs/BACKEND.md)).
+**OTA (entregable 7 del §8).** `POST /admin/firmware` (JWT admin) sube el binario a MinIO y
+registra el release; `GET /firmware/latest?current=…` resuelve aplicabilidad y devuelve una
+URL prefirmada. Después vienen MQTT (entregable 8) y TLS/Caddy (entregable 9).
+
+Nota de entorno para levantar el stack en esta máquina: los puertos **5432 y 8000 del host
+están ocupados** por otro proyecto (`dbjaguar`, `jaguar`). El `docker-compose.override.yml`
+los remapea a **5433** y **8001** con `ports: !override` (sin esa directiva, Compose
+**concatena** las listas de puertos en vez de reemplazarlas). El backend queda en
+`http://localhost:8001`.
 
 ---
 

@@ -1,0 +1,18 @@
+# Override temporal para desarrollo local en esta máquina.
+#
+# Los puertos 5432 (dbjaguar) y 8000 (jaguar) del host ya están ocupados por
+# contenedores de OTRO proyecto. Se remapean aquí para no chocar.
+#
+# `!override` es OBLIGATORIO: sin él, Compose CONCATENA las listas de `ports`
+# en vez de reemplazarlas, y el mapeo original en conflicto seguiría activo.
+#
+# No es parte del despliegue: es solo para levantar el stack aquí y probar.
+
+services:
+  db:
+    ports: !override
+      - "5433:5432"   # host 5433 -> contenedor 5432 (5432 host ocupado por dbjaguar)
+
+  backend:
+    ports: !override
+      - "8001:8000"   # host 8001 -> contenedor 8000 (8000 host ocupado por jaguar)

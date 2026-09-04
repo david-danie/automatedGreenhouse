@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPlant</title>
+
+    <!--
+    ===========================================================================
+     PORTAL SmartPlant — BASE ESTRUCTURAL (v2)
+    ===========================================================================
+
+     Qué es este archivo
+     -------------------
+     Base SIN ESTILOS del portal rediseñado. Contiene el markup semántico, la
+     máquina de estados y toda la comunicación con el firmware. La idea es que
+     el diseño visual se añada encima sin tocar el JS: cada elemento relevante
+     lleva una clase o un id estable que sirve de "hook" para el CSS.
+
+     Sigue siendo UN SOLO archivo porque el ESP32 lo sirve completo desde flash
+     (`send_P` sobre el artefacto `mainForm.h`). No hay build ni dependencias.
+
+     Navegación: HUB-AND-SPOKE (no pasos)
+     ------------------------------------
+     El dashboard es el centro; de ahí se sale a destinos independientes y se
+     vuelve. `auth` NO es un destino: es una COMPUERTA que se atraviesa solo si
+     la sesión no está vigente, recuerda a dónde ibas y te deposita ahí.
+
+                   ┌── primer arranque ──┐
+                   welcome ──► register ──┘
+                                   │
+                                   ▼
+                   ┌────────────────────────────────────┐
+                   │      view · DASHBOARD (hub)        │
+                   └──┬─────────┬─────────┬──────────┬──┘
+                      │ Editar  │ Wi-Fi   │ OTA      │ Salir
+                      ▼         ▼         ▼          ▼
+                   ┌──────────────────────────┐    exit
+                   │  auth (compuerta)        │
+                   │  recuerda el destino     │
+                   └──┬─────────┬─────────┬───┘
+                      ▼         ▼         ▼
+                    edit      wifi       ota
+                      │         │         │
+                      └─────────┴─► view  └─► flashing ─► exit (reinicio)
+
+     Estados: welcome · register · auth · view · edit · wifi · ota · flashing · exit
+     (`register` y `auth` comparten el mismo bloque de credenciales para no
+     duplicar markup: lo que cambia es el título y el texto del botón.)
+
+     Textos de ayuda
+     ---------------
+     Van en la vista de EDICIÓN (donde se toma la decisión), no en el dashboard
+     (que se consulta a diario y debe quedar denso). Se implementan con
+     <details>/<summary> nativos: cero JavaScript y divulgación progresiva.
+
+     Endpoints del firmware
+     ----------------------
+       GET  /getparams?token=   estado del dispositivo (no bloquea por token)
+       POST /usercredentials    alta de usuario   → devuelve token
+       POST /authusercredentials login            → devuelve token
+       POST /newparams          guardar params    → EXIGE token en el body
+       GET  /wifiscan           escaneo de redes
+       POST /wificredentials    guardar red       → EXIGE token en el body
+       GET  /exit               logout (invalida la sesión en el dispositivo)
+
+     ⚠ PENDIENTE EN EL FIRMWARE: la ruta de OTA local (OTA_ENDPOINT, más abajo)
+       TODAVÍA NO EXISTE. La vista y la subida están listas del lado del
+       cliente, pero hasta que el firmware exponga esa ruta con la librería
+       `Update`, la subida fallará. Ver la nota junto a OTA_ENDPOINT.
+
+     El token
+     --------
+     El dispositivo lo guarda en RAM (muere al reiniciar, ventana fija de
+     30 min); el cliente guarda su copia en localStorage. Si el dispositivo se
+     reinicia, la copia del cliente deja de servir: el firmware responde 401 y
+     aquí se limpia el token y se vuelve a la compuerta de login.
+    ===========================================================================
+    -->
+
+    <style>
+        /*
+         * SIN ESTILOS A PROPÓSITO.
+         *
+         * El cambio de vista NO depende del CSS: se usa el atributo booleano
+         * `hidden` de HTML, así que la navegación funciona con la hoja de
+         * estilos vacía. Si más adelante se estiliza `.view`, hay que respetar
+         * `[hidden] { display: none !important; }` para no romperla.
+         *
+         * Hooks disponibles para el diseño:
+         *   .view            cada pantalla (welcome, credentials, dashboard, …)
+         *   .dash-section    bloque del dashboard (fotoperiodo, riego, …)
+         *   .dash-item       par etiqueta/valor dentro de una sección
+         *   .field           grupo etiqueta + control en los formularios
+         *   .help            <details> con el texto explicativo
+         *   .actions         fila de botones de una vista
+         *   .primary         acción principal de la vista
+         *   .secondary       acción de retorno/cancelar
+         *   .discreet        acción rara y de riesgo (OTA)
+         *   .msg             mensajes de resultado (usa [data-ok] para variar)
+         *   .net-list        lista de redes Wi-Fi encontradas
+         */
+    </style>
+</head>
+
+<body>
+    <main id="card">
+        <h1 id="title">SmartPlant</h1>
+
+        <!-- Mensajes de resultado / error. [data-ok] permite estilos distintos. -->
+        <p id="msg" class="msg" hidden></p>
+
+        <!-- ============================ WELCOME ============================ -->
+        <section id="view-welcome" class="view" hidden>
+            <p>Este dispositivo es nuevo y todavía no tiene un usuario.</p>
+            <p>Crea un usuario para proteger la configuración de tu cultivo.</p>
+            <div class="actions">
+                <button type="button" class="primary" id="btnGoRegister">Crear usuario</button>
+                <button type="button" class="secondary" id="btnWelcomeExit">Salir</button>
+            </div>
+        </section>
+
+        <!-- ==================== CREDENCIALES (register/auth) ================ -->
+        <section id="view-credentials" class="view" hidden>
+            <form id="formCredentials">
+                <div class="field">
+                    <label for="user">Usuario</label>
+                    <input type="text" id="user" name="user" autocomplete="off" maxlength="32" required>
+                </div>
+                <div class="field">
+                    <label for="pass">Contraseña</label>
+                    <input type="password" id="pass" name="pass" autocomplete="current-password" maxlength="64" required>
+                    <button type="button" id="btnTogglePass" aria-label="Mostrar contraseña">Ver</button>
+                </div>
+                <div class="actions">
+                    <button type="submit" class="primary" id="btnCredentials">Continuar</button>
+                    <button type="button" class="secondary" id="btnCredentialsBack">Volver</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- =========================== DASHBOARD =========================== -->
+        <section id="view-dashboard" class="view" hidden>
+            <!-- Línea de contexto para el recién llegado: solo aparece si el
+                 cultivo aún no se ha configurado (día 0 = sin anclar). -->
+            <p id="dashHint" hidden>
+                Aún no has configurado tu cultivo. Entra a «Editar parámetros» para
+                definir la luz, el riego y la ventilación.
+            </p>
+
+            <div class="dash-section" id="dashHero">
+                <h2 id="dashPlanta">—</h2>
+                <p><span class="dash-item">Estado: <strong id="dashStatus">—</strong></span></p>
+                <p>
+                    <span class="dash-item">Semana <strong id="dashSemana">—</strong></span>
+                    <span class="dash-item">Día <strong id="dashDia">—</strong></span>
+                </p>
+            </div>
+
+            <div class="dash-section">
+                <h3>Fotoperiodo</h3>
+                <p>
+                    <span class="dash-item">Prendido: <strong id="dashFpOn">—</strong> h</span>
+                    <span class="dash-item">Apagado: <strong id="dashFpOff">—</strong> h</span>
+                </p>
+            </div>
+
+            <div class="dash-section">
+                <h3>Espectros</h3>
+                <p>
+                    <span class="dash-item">Azul: <strong id="dashLedA">—</strong></span>
+                    <span class="dash-item">Rojo: <strong id="dashLedR">—</strong></span>
+                    <span class="dash-item">Blanco: <strong id="dashLedB">—</strong></span>
+                </p>
+            </div>
+
+            <div class="dash-section">
+                <h3>Riego</h3>
+                <p>
+                    <span class="dash-item">Frecuencia: <strong id="dashIrrH">—</strong></span>
+                    <span class="dash-item">Duración: <strong id="dashIrrM">—</strong> min</span>
+                </p>
+            </div>
+
+            <div class="dash-section">
+                <h3>Ventilación</h3>
+                <p>
+                    <span class="dash-item">Frecuencia: <strong id="dashVentH">—</strong></span>
+                    <span class="dash-item">Duración: <strong id="dashVentM">—</strong> min</span>
+                </p>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="primary" id="btnEdit">Editar parámetros</button>
+                <button type="button" class="secondary" id="btnWifi">
+                    Conexión a Internet (<span id="wifiState">sin conectar</span>)
+                </button>
+                <button type="button" class="secondary" id="btnExit">Salir</button>
+            </div>
+
+            <!-- OTA: acción rara y de consecuencias serias → entrada discreta.
+                 La prominencia sigue la frecuencia de uso. -->
+            <footer>
+                <button type="button" class="discreet" id="btnOta">Actualizar firmware</button>
+            </footer>
+        </section>
+
+        <!-- ============================= EDICIÓN =========================== -->
+        <section id="view-edit" class="view" hidden>
+            <form id="formEdit">
+                <div class="dash-section">
+                    <h3>General</h3>
+                    <div class="field">
+                        <label for="enable">Sistema activo</label>
+                        <input type="checkbox" id="enable" name="enable">
+                    </div>
+                    <details class="help">
+                        <summary>¿Para qué sirve?</summary>
+                        <p>
+                            Es el interruptor general. Si lo apagas, el equipo conserva tu
+                            configuración pero deja de encender luces, riego y ventilación.
+                            Útil si necesitas detener todo un momento sin perder los ajustes.
+                        </p>
+                    </details>
+                    <div class="field">
+                        <label for="planta">Nombre de la planta</label>
+                        <input type="text" id="planta" name="planta" maxlength="20" autocomplete="off" required>
+                    </div>
+                </div>
+
+                <div class="dash-section">
+                    <h3>Fotoperiodo</h3>
+                    <div class="field">
+                        <label for="fpOn">Hora de prendido (0–23)</label>
+                        <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" required>
+                    </div>
+                    <div class="field">
+                        <label for="fpOff">Hora de apagado (0–23)</label>
+                        <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
+                    </div>
+                    <details class="help">
+                        <summary>¿Para qué sirve?</summary>
+                        <p>
+                            El fotoperiodo son las horas de luz que recibe tu cultivo cada día.
+                            Es lo que más influye en cómo crece: muchas plantas de hoja se
+                            desarrollan bien con jornadas largas (alrededor de 16–18 h de luz),
+                            mientras que otras necesitan días más cortos (cerca de 12 h) para
+                            empezar a florecer.
+                        </p>
+                        <p>
+                            Se indica la hora en que se prende y la hora en que se apaga. El
+                            ciclo puede cruzar la medianoche (por ejemplo, prender a las 18 y
+                            apagar a las 6). Lo único que no se permite es que ambas horas sean
+                            iguales, porque no se sabría si quieres 0 o 24 horas de luz.
+                        </p>
+                    </details>
+                </div>
+
+                <div class="dash-section">
+                    <h3>Espectros de luz</h3>
+                    <div class="field">
+                        <label for="ledA">Azul: <output id="ledAOut">0</output>%</label>
+                        <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="50">
+                    </div>
+                    <div class="field">
+                        <label for="ledR">Rojo: <output id="ledROut">0</output>%</label>
+                        <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="50">
+                    </div>
+                    <div class="field">
+                        <!-- El blanco es una salida ON/OFF en el firmware (no PWM):
+                             por eso es un interruptor y no un deslizador. -->
+                        <label for="ledB">Luz blanca</label>
+                        <input type="checkbox" id="ledB" name="ledB">
+                    </div>
+                    <details class="help">
+                        <summary>¿Para qué sirve?</summary>
+                        <p>
+                            Las plantas no aprovechan todos los colores de luz igual. El
+                            <strong>azul</strong> favorece el follaje y un crecimiento compacto;
+                            el <strong>rojo</strong> impulsa el estiramiento y la floración.
+                            Ajustando la intensidad de cada uno orientas el desarrollo del
+                            cultivo según la etapa en que esté.
+                        </p>
+                        <p>
+                            La <strong>luz blanca</strong> solo se prende o se apaga. Sirve
+                            sobre todo para ver bien la planta y para complementar el resto del
+                            espectro; no tiene niveles intermedios.
+                        </p>
+                    </details>
+                </div>
+
+                <div class="dash-section">
+                    <h3>Riego</h3>
+                    <div class="field">
+                        <label for="irrH">Frecuencia</label>
+                        <select id="irrH" name="irrH" required></select>
+                    </div>
+                    <div class="field">
+                        <label for="irrM">Duración (minutos)</label>
+                        <input type="number" id="irrM" name="irrM" min="0" max="59" step="1" required>
+                    </div>
+                    <details class="help">
+                        <summary>¿Para qué sirve?</summary>
+                        <p>
+                            Define cada cuánto se activa la bomba y por cuántos minutos. La
+                            frecuencia va desde varias veces al día hasta una vez por semana,
+                            según lo que necesite tu planta y cuánta agua retenga el sustrato.
+                        </p>
+                        <p>
+                            Como referencia: riegos cortos y frecuentes funcionan bien en
+                            macetas pequeñas o sustratos que se secan rápido; riegos más largos
+                            y espaciados sirven cuando el sustrato retiene humedad. Si eliges
+                            «Apagado», la bomba no se activa.
+                        </p>
+                    </details>
+                </div>
+
+                <div class="dash-section">
+                    <h3>Ventilación</h3>
+                    <div class="field">
+                        <label for="ventH">Frecuencia</label>
+                        <select id="ventH" name="ventH" required></select>
+                    </div>
+                    <div class="field">
+                        <label for="ventM">Duración (minutos)</label>
+                        <input type="number" id="ventM" name="ventM" min="0" max="59" step="1" required>
+                    </div>
+                    <details class="help">
+                        <summary>¿Para qué sirve?</summary>
+                        <p>
+                            Renovar el aire baja la temperatura y la humedad acumuladas, y
+                            reduce el riesgo de hongos. También mueve el aire alrededor de las
+                            hojas, lo que ayuda a la planta a respirar y a fortalecer el tallo.
+                        </p>
+                        <p>
+                            En espacios cerrados o cálidos conviene ventilar más seguido. Se
+                            configura igual que el riego: cada cuánto se enciende y por cuántos
+                            minutos.
+                        </p>
+                    </details>
+                </div>
+
+                <div class="actions">
+                    <button type="submit" class="primary" id="btnSaveParams">Guardar</button>
+                    <button type="button" class="secondary" id="btnEditBack">Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- ============================== WI-FI ============================ -->
+        <section id="view-wifi" class="view" hidden>
+            <p>
+                Conecta el equipo a tu red para habilitar funciones en línea. El portal
+                sigue disponible mientras esté conectado.
+            </p>
+
+            <p id="wifiScanning" hidden>Buscando redes…</p>
+            <ul id="netList" class="net-list"></ul>
+
+            <form id="formWifi">
+                <div class="field">
+                    <label for="ssid">Red (SSID)</label>
+                    <input type="text" id="ssid" name="ssid" maxlength="32" autocomplete="off" required>
+                </div>
+                <div class="field">
+                    <label for="wifiPass">Contraseña</label>
+                    <input type="password" id="wifiPass" name="pass" maxlength="63" autocomplete="off">
+                    <small>Déjala vacía si la red es abierta.</small>
+                </div>
+                <div class="actions">
+                    <button type="submit" class="primary" id="btnWifiConnect">Conectar</button>
+                    <button type="button" class="secondary" id="btnWifiRescan">Volver a buscar</button>
+                    <button type="button" class="secondary" id="btnWifiBack">Volver</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- =============================== OTA ============================= -->
+        <section id="view-ota" class="view" hidden>
+            <p>
+                Actualiza el firmware del equipo desde este dispositivo, sin necesidad de
+                internet. Útil cuando el equipo está en un lugar de difícil acceso.
+            </p>
+            <p>Versión instalada: <strong id="otaCurrent">—</strong></p>
+
+            <form id="formOta">
+                <div class="field">
+                    <label for="otaFile">Archivo de firmware (.bin)</label>
+                    <input type="file" id="otaFile" name="firmware" accept=".bin" required>
+                </div>
+                <div class="actions">
+                    <button type="submit" class="primary" id="btnOtaUpload">Subir e instalar</button>
+                    <button type="button" class="secondary" id="btnOtaBack">Volver</button>
+                </div>
+            </form>
+
+            <details class="help">
+                <summary>Antes de actualizar</summary>
+                <p>
+                    Sube únicamente un archivo <code>.bin</code> compilado para este equipo.
+                    Un archivo incorrecto puede dejarlo inservible.
+                </p>
+                <p>
+                    Durante la instalación el equipo se reiniciará y la red «SmartPlant» se
+                    caerá por unos segundos: tendrás que volver a conectarte. No cierres esta
+                    ventana ni apagues el equipo mientras la barra avanza.
+                </p>
+            </details>
+        </section>
+
+        <!-- ============================ FLASHING =========================== -->
+        <!-- Estado BLOQUEANTE: no hay botones de salida a propósito. -->
+        <section id="view-flashing" class="view" hidden>
+            <h2>Instalando firmware</h2>
+            <p>No cierres esta ventana ni apagues el equipo.</p>
+            <progress id="otaProgress" max="100" value="0"></progress>
+            <p><span id="otaPercent">0</span>%</p>
+            <p id="otaStage">Subiendo…</p>
+        </section>
+
+        <!-- ============================== EXIT ============================= -->
+        <section id="view-exit" class="view" hidden>
+            <h2 id="exitTitle">Hasta luego</h2>
+            <p id="exitText"></p>
+            <div class="actions">
+                <button type="button" class="secondary" id="btnExitBack" hidden>Volver al inicio</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        "use strict";
+
+        /* =====================================================================
+           Endpoints
+           ===================================================================== */
+        const PARAMS_ENDPOINT = "/getparams";
+        const REGISTER_ENDPOINT = "/usercredentials";
+        const LOGIN_ENDPOINT = "/authusercredentials";
+        const PARAMS_SAVE_ENDPOINT = "/newparams";
+        const WIFI_SCAN_ENDPOINT = "/wifiscan";
+        const WIFI_SAVE_ENDPOINT = "/wificredentials";
+        const EXIT_ENDPOINT = "/exit";
+
+        /* ⚠ Esta ruta AÚN NO EXISTE en el firmware. Cuando se implemente la OTA
+           local debe: (1) aceptar multipart/form-data, (2) validar el token AL
+           INICIO de la subida (abortar en el primer trozo si no es válido, para
+           no desperdiciar ~1 MB antes de rechazar) y (3) escribir la partición
+           con la librería `Update`. El token va por query string porque el
+           cuerpo es multipart y no un JSON donde quepa la clave `token`. */
+        const OTA_ENDPOINT = "/otaupdate";
+
+        /* =====================================================================
+           Token de sesión
+           El dispositivo lo guarda en RAM (muere al reiniciar, TTL fijo 30 min);
+           aquí se guarda una copia en localStorage para reenviarla. Si el equipo
+           se reinicia, esta copia deja de valer: el firmware responde 401 y la
+           limpiamos para volver a pedir credenciales.
+           ===================================================================== */
+        const TOKEN_KEY = "spToken";
+        const getToken = () => localStorage.getItem(TOKEN_KEY) || "";
+        const setToken = (t) => { if (t) localStorage.setItem(TOKEN_KEY, t); };
+        const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+        /* =====================================================================
+           Estado en memoria
+           ===================================================================== */
+        let params = {};          // último /getparams
+        let estado = "view";      // welcome|register|auth|view|edit|wifi|ota|flashing|exit
+        let pendingIntent = null; // destino recordado por la compuerta de auth
+
+        /* Intervalos de riego/ventilación EN HORAS. Debe reflejar
+           validFrequencies de Constants.h: el front se alinea al firmware. */
+        const VALID_FREQUENCIES = [0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168];
+
+        /* Etiquetas legibles: la llave es el INTERVALO en horas. */
+        const FREQ_LABELS = {
+            0: "Apagado",
+            1: "Cada hora (24 × día)", 2: "Cada 2 h (12 × día)", 3: "Cada 3 h (8 × día)",
+            4: "Cada 4 h (6 × día)", 6: "Cada 6 h (4 × día)", 8: "Cada 8 h (3 × día)",
+            12: "Cada 12 h (2 × día)", 24: "Una vez al día", 48: "Cada 2 días",
+            72: "Cada 3 días", 168: "Una vez por semana"
+        };
+
+        /* Qué sección se muestra en cada estado. `register` y `auth` comparten
+           el bloque de credenciales. */
+        const VIEW_OF = {
+            welcome: "view-welcome",
+            register: "view-credentials",
+            auth: "view-credentials",
+            view: "view-dashboard",
+            edit: "view-edit",
+            wifi: "view-wifi",
+            ota: "view-ota",
+            flashing: "view-flashing",
+            exit: "view-exit"
+        };
+
+        const TITLE_OF = {
+            welcome: "Bienvenido",
+            register: "Crea tu usuario",
+            auth: "Inicia sesión",
+            view: "Tu cultivo",
+            edit: "Editar parámetros",
+            wifi: "Conexión a Internet",
+            ota: "Actualizar firmware",
+            flashing: "Instalando",
+            exit: "Sesión finalizada"
+        };
+
+        const $ = (id) => document.getElementById(id);
+
+        /* =====================================================================
+           Utilidades de pantalla
+           ===================================================================== */
+        function setEstado(nuevo) {
+            estado = nuevo;
+            for (const id of Object.values(VIEW_OF)) {
+                const el = $(id);
+                if (el) el.hidden = true;
+            }
+            const target = $(VIEW_OF[nuevo]);
+            if (target) target.hidden = false;
+            $("title").textContent = TITLE_OF[nuevo] || "SmartPlant";
+
+            // El bloque de credenciales se reusa: ajusta textos y el botón
+            // "Volver" (en el alta inicial no hay dashboard al que regresar).
+            if (nuevo === "register" || nuevo === "auth") {
+                $("btnCredentials").textContent = nuevo === "register" ? "Registrar" : "Continuar";
+                $("btnCredentialsBack").hidden = (nuevo === "register");
+            }
+
+            // Enfoca el primer control de la vista, sin mover el scroll.
+            const first = target && target.querySelector("input, select, button");
+            if (first) first.focus({ preventScroll: true });
+        }
+
+        function showMsg(ok, texto) {
+            const el = $("msg");
+            el.textContent = texto;
+            el.hidden = false;
+            if (ok) el.setAttribute("data-ok", "");
+            else el.removeAttribute("data-ok");
+        }
+
+        const clearMsg = () => { $("msg").hidden = true; };
+
+        /* =====================================================================
+           Validaciones — réplica de las del firmware (utils.cpp / Plant.cpp)
+           para que el formulario rechace exactamente lo mismo que el dispositivo
+           y no queden casos que pasen aquí y el ESP32 devuelva 400.
+           ===================================================================== */
+        const READABLE_SYMBOLS = "_-.@!#$%&*?+=";
+        const READABLE_LETTER = /[a-zA-Z0-9áéíóúüÁÉÍÓÚÜñÑ]/;
+
+        function isValidReadableString(str, allowSpaces) {
+            for (const c of str) {
+                if (READABLE_LETTER.test(c)) continue;
+                if (READABLE_SYMBOLS.includes(c)) continue;
+                if (allowSpaces && c === " ") continue;
+                return false;
+            }
+            return true;
+        }
+
+        // Rechaza 4 o más caracteres idénticos consecutivos (igual que el ESP32).
+        function hasTooManyRepeatedChars(str) {
+            let count = 1;
+            for (let i = 1; i < str.length; i++) {
+                if (str[i] === str[i - 1]) {
+                    if (++count > 3) return true;
+                } else {
+                    count = 1;
+                }
+            }
+            return false;
+        }
+
+        const isStrictInteger = (v) => /^[0-9]+$/.test(v);
+
+        function validarCredenciales(user, pass) {
+            const e = [];
+            if (user.length < 4 || user.length > 32) e.push("El usuario debe tener entre 4 y 32 caracteres.");
+            if (pass.length < 8 || pass.length > 64) e.push("La contraseña debe tener entre 8 y 64 caracteres.");
+            if (!isValidReadableString(user, false)) e.push("El usuario solo admite letras, números y (_-.@!#$%&*?+=).");
+            if (!isValidReadableString(pass, false)) e.push("La contraseña solo admite letras, números y (_-.@!#$%&*?+=).");
+            if (hasTooManyRepeatedChars(user)) e.push("El usuario no puede repetir un carácter más de 3 veces seguidas.");
+            if (hasTooManyRepeatedChars(pass)) e.push("La contraseña no puede repetir un carácter más de 3 veces seguidas.");
+            return e;
+        }
+
+        function validarParametros() {
+            const e = [];
+            const planta = $("planta").value.trim();
+            const fpOn = $("fpOn").value.trim();
+            const fpOff = $("fpOff").value.trim();
+            const irrH = $("irrH").value.trim();
+            const irrM = $("irrM").value.trim();
+            const ventH = $("ventH").value.trim();
+            const ventM = $("ventM").value.trim();
+            const ledA = $("ledA").value.trim();
+            const ledR = $("ledR").value.trim();
+
+            if (planta === "") {
+                e.push("El nombre de la planta es obligatorio.");
+            } else {
+                if (planta.length < 3 || planta.length > 20) e.push("La planta debe tener entre 3 y 20 caracteres.");
+                if (!isValidReadableString(planta, true)) e.push("La planta solo admite letras, números, espacios y (_-.@!#$%&*?+=).");
+                if (/\s{2,}/.test(planta)) e.push("La planta no puede tener espacios repetidos.");
+                if (/^\d+$/.test(planta)) e.push("La planta no puede ser solo números.");
+                if (hasTooManyRepeatedChars(planta)) e.push("La planta no puede repetir un carácter más de 3 veces seguidas.");
+            }
+
+            if (!isStrictInteger(fpOn) || Number(fpOn) > 23) e.push("La hora de prendido debe ser un entero entre 0 y 23.");
+            if (!isStrictInteger(fpOff) || Number(fpOff) > 23) e.push("La hora de apagado debe ser un entero entre 0 y 23.");
+            if (isStrictInteger(fpOn) && isStrictInteger(fpOff) && Number(fpOn) === Number(fpOff))
+                e.push("Las horas de prendido y apagado no pueden ser iguales.");
+
+            if (!isStrictInteger(irrM) || Number(irrM) > 59) e.push("La duración del riego debe estar entre 0 y 59 minutos.");
+            if (!isStrictInteger(ventM) || Number(ventM) > 59) e.push("La duración de la ventilación debe estar entre 0 y 59 minutos.");
+            if (!isStrictInteger(irrH) || !VALID_FREQUENCIES.includes(Number(irrH))) e.push("Selecciona una frecuencia de riego válida.");
+            if (!isStrictInteger(ventH) || !VALID_FREQUENCIES.includes(Number(ventH))) e.push("Selecciona una frecuencia de ventilación válida.");
+
+            if (!isStrictInteger(ledA) || Number(ledA) > 100) e.push("El espectro azul debe estar entre 0 y 100 %.");
+            if (!isStrictInteger(ledR) || Number(ledR) > 100) e.push("El espectro rojo debe estar entre 0 y 100 %.");
+
+            return e;
+        }
+
+        /* =====================================================================
+           Lectura de estado del dispositivo
+           ===================================================================== */
+        async function obtenerParams() {
+            const token = getToken();
+            const url = PARAMS_ENDPOINT + (token ? "?token=" + encodeURIComponent(token) : "");
+            const res = await fetch(url, { headers: { "Accept": "application/json" } });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            params = await res.json();
+            return params;
+        }
+
+        function pintarDashboard() {
+            const p = params;
+            const activo = p.enable === true || p.enable === "true";
+
+            $("dashPlanta").textContent = p.planta || "Sin nombre";
+            $("dashStatus").textContent = activo ? "Activo" : "Inactivo";
+            $("dashSemana").textContent = p.semana ?? "—";
+            $("dashDia").textContent = p.dia ?? "—";
+            $("dashFpOn").textContent = p.fpOn ?? "—";
+            $("dashFpOff").textContent = p.fpOff ?? "—";
+            $("dashLedA").textContent = (p.ledA ?? 0) + "%";
+            $("dashLedR").textContent = (p.ledR ?? 0) + "%";
+            $("dashLedB").textContent = Number(p.ledB) > 0 ? "Encendida" : "Apagada";
+            $("dashIrrH").textContent = FREQ_LABELS[p.irrH] ?? "—";
+            $("dashIrrM").textContent = p.irrM ?? "—";
+            $("dashVentH").textContent = FREQ_LABELS[p.ventH] ?? "—";
+            $("dashVentM").textContent = p.ventM ?? "—";
+
+            // Ayuda contextual solo para el cultivo sin configurar (día 0 = sin
+            // anclar). Desaparece en cuanto hay configuración, para no estorbar
+            // al usuario habitual.
+            $("dashHint").hidden = !(Number(p.dia) === 0);
+
+            $("wifiState").textContent = p.wifiConnected
+                ? ("conectado a " + (p.wifiSsid || "tu red"))
+                : "sin conectar";
+        }
+
+        function llenarFormulario() {
+            const p = params;
+            $("planta").value = p.planta || "";
+            $("enable").checked = p.enable === true || p.enable === "true";
+            $("fpOn").value = p.fpOn ?? 0;
+            $("fpOff").value = p.fpOff ?? 0;
+            $("ledA").value = p.ledA ?? 0;
+            $("ledR").value = p.ledR ?? 0;
+            $("ledB").checked = Number(p.ledB) > 0;
+            $("irrH").value = p.irrH ?? 0;
+            $("irrM").value = p.irrM ?? 0;
+            $("ventH").value = p.ventH ?? 0;
+            $("ventM").value = p.ventM ?? 0;
+            sincronizarSliders();
+        }
+
+        function sincronizarSliders() {
+            $("ledAOut").textContent = $("ledA").value;
+            $("ledROut").textContent = $("ledR").value;
+        }
+
+        function poblarSelectsFrecuencia() {
+            for (const id of ["irrH", "ventH"]) {
+                const sel = $(id);
+                sel.innerHTML = "";
+                for (const f of VALID_FREQUENCIES) {
+                    const opt = document.createElement("option");
+                    opt.value = String(f);
+                    opt.textContent = FREQ_LABELS[f];
+                    sel.appendChild(opt);
+                }
+            }
+        }
+
+        /* =====================================================================
+           Compuerta de autenticación
+           `auth` no es un destino: recuerda a dónde ibas y te deposita ahí.
+           ===================================================================== */
+        function requireAuth(intent) {
+            clearMsg();
+            pendingIntent = intent;
+            if (getToken() && params.sessionValid) entrarAlDestino();
+            else setEstado("auth");
+        }
+
+        function entrarAlDestino() {
+            const intent = pendingIntent;
+            pendingIntent = null;
+            if (intent === "edit") {
+                llenarFormulario();
+                setEstado("edit");
+            } else if (intent === "wifi") {
+                setEstado("wifi");
+                escanearRedes();
+            } else if (intent === "ota") {
+                $("otaCurrent").textContent = params.firmwareVersion || "desconocida";
+                setEstado("ota");
+            } else {
+                setEstado("view");
+            }
+        }
+
+        // Sesión perdida (reinicio del equipo) o expirada: se limpia el token y
+        // se vuelve a la compuerta recordando el destino.
+        function sesionInvalida(mensaje, intent) {
+            clearToken();
+            params.sessionValid = false;
+            pendingIntent = intent;
+            showMsg(false, mensaje || "Tu sesión expiró. Vuelve a iniciar sesión.");
+            setEstado("auth");
+        }
+
+        /* =====================================================================
+           Arranque
+           ===================================================================== */
+        async function iniciar() {
+            poblarSelectsFrecuencia();
+            try {
+                await obtenerParams();
+            } catch (e) {
+                showMsg(false, "No se pudo leer la configuración del dispositivo. Recarga la página.");
+                return;
+            }
+            if (params.hasRegisteredUser === false) {
+                setEstado("welcome");
+                return;
+            }
+            pintarDashboard();
+            setEstado("view");
+        }
+
+        document.addEventListener("DOMContentLoaded", iniciar);
+
+        /* =====================================================================
+           Navegación del hub
+           ===================================================================== */
+        $("btnGoRegister").addEventListener("click", () => setEstado("register"));
+        $("btnWelcomeExit").addEventListener("click", () => salir());
+        $("btnEdit").addEventListener("click", () => requireAuth("edit"));
+        $("btnWifi").addEventListener("click", () => requireAuth("wifi"));
+        $("btnOta").addEventListener("click", () => requireAuth("ota"));
+        $("btnExit").addEventListener("click", () => salir());
+
+        $("btnCredentialsBack").addEventListener("click", () => {
+            clearMsg();
+            pendingIntent = null;
+            setEstado("view");
+        });
+        $("btnEditBack").addEventListener("click", () => {
+            clearMsg();
+            llenarFormulario();   // descarta cambios
+            setEstado("view");
+        });
+        $("btnWifiBack").addEventListener("click", () => { clearMsg(); setEstado("view"); });
+        $("btnOtaBack").addEventListener("click", () => { clearMsg(); setEstado("view"); });
+        $("btnExitBack").addEventListener("click", () => window.location.reload());
+
+        $("btnTogglePass").addEventListener("click", () => {
+            const input = $("pass");
+            const oculto = input.type === "password";
+            input.type = oculto ? "text" : "password";
+            $("btnTogglePass").textContent = oculto ? "Ocultar" : "Ver";
+            $("btnTogglePass").setAttribute("aria-label", oculto ? "Ocultar contraseña" : "Mostrar contraseña");
+        });
+
+        $("ledA").addEventListener("input", sincronizarSliders);
+        $("ledR").addEventListener("input", sincronizarSliders);
+
+        /* =====================================================================
+           Credenciales (alta y login)
+           ===================================================================== */
+        $("formCredentials").addEventListener("submit", async (ev) => {
+            ev.preventDefault();
+            clearMsg();
+
+            const user = $("user").value.trim();
+            const pass = $("pass").value.trim();
+            const esRegistro = (estado === "register");
+
+            // Comando de fábrica: el firmware lo acepta SOLO en el login (donde
+            // ya hay datos que borrar) y antes de validar credenciales.
+            const esReset = !esRegistro && pass === "**reset**";
+
+            if (!esReset) {
+                const errores = validarCredenciales(user, pass);
+                if (errores.length) { showMsg(false, errores.join(" ")); return; }
+            }
+
+            const btn = $("btnCredentials");
+            const textoOriginal = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = esRegistro ? "Registrando…" : "Verificando…";
+
+            let json;
+            try {
+                const res = await fetch(esRegistro ? REGISTER_ENDPOINT : LOGIN_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user, pass })
+                });
+                json = await res.json();
+                if (!res.ok || !json.status) {
+                    showMsg(false, json.message || "No se pudo completar la operación.");
+                    return;
+                }
+            } catch (e) {
+                showMsg(false, "Error de comunicación con el dispositivo.");
+                return;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = textoOriginal;
+            }
+
+            $("user").value = "";
+            $("pass").value = "";
+
+            if (esReset) {
+                clearToken();
+                irAExit("Reiniciando", (json.message || "Se restauró el equipo.") +
+                    " La red SmartPlant se caerá; vuelve a conectarte para configurarlo de nuevo.", false);
+                return;
+            }
+
+            setToken(json.token);
+
+            // Refresca el estado con la sesión ya activa.
+            try { await obtenerParams(); } catch (e) { /* se sigue con lo que haya */ }
+            pintarDashboard();
+
+            if (esRegistro) {
+                setEstado("view");
+                return;
+            }
+            entrarAlDestino();
+        });
+
+        /* =====================================================================
+           Guardar parámetros
+           ===================================================================== */
+        $("formEdit").addEventListener("submit", async (ev) => {
+            ev.preventDefault();
+            clearMsg();
+
+            const errores = validarParametros();
+            if (errores.length) { showMsg(false, errores.join(" ")); return; }
+
+            const ahora = new Date();
+            const data = {
+                planta: $("planta").value.trim(),
+                enable: $("enable").checked,
+                fpOn: Number($("fpOn").value),
+                fpOff: Number($("fpOff").value),
+                ledA: Number($("ledA").value),
+                ledR: Number($("ledR").value),
+                ledB: $("ledB").checked ? 1 : 0,   // blanco = ON/OFF
+                irrH: Number($("irrH").value),
+                irrM: Number($("irrM").value),
+                ventH: Number($("ventH").value),
+                ventM: Number($("ventM").value),
+                // El navegador pone en hora el RTC del equipo.
+                dia: ahora.getDate(),
+                mes: ahora.getMonth() + 1,
+                anio: Number(String(ahora.getFullYear()).slice(-2)),
+                diaSem: ahora.getDay() + 1,        // getDay() 0-6 (dom=0); el ESP32 espera 1-7
+                hr: ahora.getHours(),
+                min: ahora.getMinutes(),
+                seg: ahora.getSeconds(),
+                token: getToken()
+            };
+
+            const btn = $("btnSaveParams");
+            btn.disabled = true;
+            btn.textContent = "Guardando…";
+            try {
+                const res = await fetch(PARAMS_SAVE_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+                const json = await res.json();
+
+                if (res.status === 401) { sesionInvalida(json.message, "edit"); return; }
+                if (!res.ok || !json.status) {
+                    showMsg(false, json.message || "No se pudieron guardar los parámetros.");
+                    return;
+                }
+
+                showMsg(true, json.message || "Parámetros actualizados.");
+                await obtenerParams();
+                pintarDashboard();
+                setEstado("view");
+            } catch (e) {
+                showMsg(false, "Error de comunicación con el dispositivo.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Guardar";
+            }
+        });
+
+        /* =====================================================================
+           Wi-Fi: escaneo, conexión y confirmación por polling
+           ===================================================================== */
+        async function escanearRedes() {
+            const lista = $("netList");
+            lista.innerHTML = "";
+            $("wifiScanning").hidden = false;
+            try {
+                const res = await fetch(WIFI_SCAN_ENDPOINT, { headers: { "Accept": "application/json" } });
+                const json = await res.json();
+                const redes = (json && json.networks) || [];
+                if (!redes.length) {
+                    showMsg(false, "No se encontraron redes. Intenta buscar de nuevo.");
+                    return;
+                }
+                for (const red of redes) {
+                    const li = document.createElement("li");
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.textContent = red.ssid + " (" + red.rssi + " dBm)" + (red.secure ? "" : " · abierta");
+                    // Al elegir una red se rellena el formulario; si es abierta,
+                    // la contraseña se deshabilita (el firmware acepta vacía).
+                    btn.addEventListener("click", () => {
+                        $("ssid").value = red.ssid;
+                        $("wifiPass").disabled = !red.secure;
+                        if (!red.secure) $("wifiPass").value = "";
+                        $("wifiPass").focus({ preventScroll: true });
+                    });
+                    li.appendChild(btn);
+                    lista.appendChild(li);
+                }
+            } catch (e) {
+                showMsg(false, "No se pudo escanear. Intenta de nuevo.");
+            } finally {
+                $("wifiScanning").hidden = true;
+            }
+        }
+
+        $("btnWifiRescan").addEventListener("click", () => { clearMsg(); escanearRedes(); });
+
+        $("formWifi").addEventListener("submit", async (ev) => {
+            ev.preventDefault();
+            clearMsg();
+
+            const ssid = $("ssid").value.trim();
+            const pass = $("wifiPass").disabled ? "" : $("wifiPass").value;
+
+            if (ssid.length === 0 || ssid.length > 32) {
+                showMsg(false, "El nombre de la red debe tener entre 1 y 32 caracteres.");
+                return;
+            }
+            if (pass.length !== 0 && (pass.length < 8 || pass.length > 63)) {
+                showMsg(false, "La contraseña Wi-Fi debe tener entre 8 y 63 caracteres (o estar vacía si la red es abierta).");
+                return;
+            }
+
+            const btn = $("btnWifiConnect");
+            btn.disabled = true;
+            btn.textContent = "Conectando…";
+            try {
+                const res = await fetch(WIFI_SAVE_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ssid, pass, token: getToken() })
+                });
+                const json = await res.json();
+
+                if (res.status === 401) { sesionInvalida(json.message, "wifi"); return; }
+                if (!res.ok || !json.status) {
+                    showMsg(false, json.message || "No se pudo iniciar la conexión.");
+                    return;
+                }
+
+                // El POST solo ARRANCA el intento (no bloquea el portal): el
+                // resultado se confirma consultando /getparams.
+                showMsg(true, "Conectando a " + ssid + "…");
+                const ok = await esperarConexion();
+                if (ok) {
+                    showMsg(true, "Conectado a " + (params.wifiSsid || ssid) + ".");
+                    pintarDashboard();
+                    setEstado("view");
+                } else {
+                    showMsg(false, "No se pudo conectar. Revisa la contraseña e intenta de nuevo.");
+                }
+            } catch (e) {
+                showMsg(false, "Error de comunicación con el dispositivo.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Conectar";
+            }
+        });
+
+        // Polling acotado: hasta ~20 s esperando que el STA quede asociado.
+        async function esperarConexion() {
+            for (let i = 0; i < 10; i++) {
+                await new Promise((r) => setTimeout(r, 2000));
+                try {
+                    await obtenerParams();
+                    if (params.wifiConnected) return true;
+                } catch (e) { /* reintenta */ }
+            }
+            return false;
+        }
+
+        /* =====================================================================
+           OTA local
+           Se usa XMLHttpRequest (y no fetch) porque fetch NO reporta progreso de
+           SUBIDA, y aquí importa: el binario pesa ~1 MB y el usuario necesita
+           ver que avanza. El token va por query string: el cuerpo es multipart,
+           no un JSON donde quepa la clave `token`.
+           ===================================================================== */
+        $("formOta").addEventListener("submit", (ev) => {
+            ev.preventDefault();
+            clearMsg();
+
+            const archivo = $("otaFile").files[0];
+            if (!archivo) { showMsg(false, "Elige un archivo .bin."); return; }
+            if (!archivo.name.toLowerCase().endsWith(".bin")) {
+                showMsg(false, "El archivo debe tener extensión .bin.");
+                return;
+            }
+
+            const cuerpo = new FormData();
+            cuerpo.append("firmware", archivo, archivo.name);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", OTA_ENDPOINT + "?token=" + encodeURIComponent(getToken()));
+
+            // Estado bloqueante: sin botones de salida mientras se escribe flash.
+            setEstado("flashing");
+            $("otaProgress").value = 0;
+            $("otaPercent").textContent = "0";
+            $("otaStage").textContent = "Subiendo…";
+
+            xhr.upload.addEventListener("progress", (e) => {
+                if (!e.lengthComputable) return;
+                const pct = Math.round((e.loaded / e.total) * 100);
+                $("otaProgress").value = pct;
+                $("otaPercent").textContent = String(pct);
+                if (pct >= 100) $("otaStage").textContent = "Escribiendo en el equipo…";
+            });
+
+            xhr.addEventListener("load", () => {
+                if (xhr.status === 401) {
+                    sesionInvalida("Tu sesión expiró antes de instalar. Inicia sesión y reintenta.", "ota");
+                    return;
+                }
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    irAExit("Actualización instalada",
+                        "El equipo se está reiniciando con el firmware nuevo. La red SmartPlant " +
+                        "se caerá unos segundos: vuelve a conectarte y recarga el portal.", false);
+                    return;
+                }
+                let mensaje = "No se pudo instalar el firmware.";
+                try {
+                    const json = JSON.parse(xhr.responseText);
+                    if (json && json.message) mensaje = json.message;
+                } catch (e) { /* respuesta no-JSON: se deja el mensaje genérico */ }
+                showMsg(false, mensaje);
+                setEstado("ota");
+            });
+
+            xhr.addEventListener("error", () => {
+                showMsg(false, "Se perdió la comunicación durante la subida. El equipo conserva el firmware anterior.");
+                setEstado("ota");
+            });
+
+            xhr.send(cuerpo);
+        });
+
+        /* =====================================================================
+           Salida / pantallas terminales
+           ===================================================================== */
+        function irAExit(titulo, texto, permitirVolver) {
+            clearMsg();
+            $("exitTitle").textContent = titulo;
+            $("exitText").textContent = texto;
+            $("btnExitBack").hidden = !permitirVolver;
+            setEstado("exit");
+        }
+
+        async function salir() {
+            clearToken();
+            let mensaje = "Ya puedes cerrar esta ventana y desconectarte de la red SmartPlant.";
+            try {
+                const res = await fetch(EXIT_ENDPOINT, { headers: { "Accept": "application/json" } });
+                const json = await res.json();
+                if (json && json.message) mensaje = json.message;
+            } catch (e) { /* da igual: la sesión local ya se limpió */ }
+            irAExit("Hasta luego", mensaje, true);
+        }
+    </script>
+</body>
+
+</html>

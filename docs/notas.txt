@@ -1,0 +1,16 @@
+Stack libre minimo: 264 bytes
+*****  /getparams  *****
+*****  /newparams  *****
+plain = {"enable":true,"planta":"Rábano","fpOn":12,"fpOff":18,"ledA":70,"ledR":5,"irrH":1,"irrM":5,"ventH":1,"ventM":8,"wifiPass":"","ledB":1,"dia":3,"mes":9,"anio":26,"diaSem":5,"hr":20,"min":56,"seg":40,"token":"3500bbe81a8a72a441953ea4208387d4"}
+[System] Parámetros actualizados
+*****  /getparams  *****
+
+===================== ESTADO DEL SISTEMA =====================
+[SYS] MAC:EC:DA:3B:BF:B1:88 | Usuario:REGISTRADO | Sistema:ACTIVO
+[AUTH] Username:Davzig_ktr | Pass:B****i
+[LUZ] Prende:12h | Apaga:18h | Azul:70% | Roja:5% | Blanca:1%
+[RIEGO] Intervalo:1h por 5 minutos
+[VENT] Intervalo:1h por 8 minutos
+[CULTIVO] 34/34/34 34:34:34 Semana:532 | Dia:3719
+[CROP] Planta:Rábano
+================================

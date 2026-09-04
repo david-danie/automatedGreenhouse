@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import auth
+from app.routers import auth, devices, me
 
 app = FastAPI(
     title="SmartPlant API",
@@ -9,6 +9,8 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(devices.router)
+app.include_router(me.router)
 
 
 @app.get("/health")

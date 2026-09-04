@@ -10,6 +10,7 @@
 |---|---|---|
 | [**ARCHITECTURE.md**](ARCHITECTURE.md) | Diseño del firmware y del frontend a fondo: decisiones, trade-offs, caveats, máquina de estados del portal, modelo de BD y estrategia TLS para el C3 | Para entender *por qué* el código está escrito así |
 | [**API.md**](API.md) | Referencia completa de la API HTTP **del dispositivo**: rutas, payloads, validaciones, catálogo de errores y ejemplos con `curl` | Para integrar algo contra el dispositivo |
+| [**API-backend.md**](API-backend.md) | Referencia de la API HTTP **del backend** (nube): auth, provisión, config/telemetría del dispositivo y lecturas de la app; qué está implementado y qué no | Para integrar la app o el dispositivo contra la nube |
 | [**HARDWARE.md**](HARDWARE.md) | Mapa de pines, PWM, RTC, SSR, conectividad, instalación eléctrica y la tarjeta original con ATmega328P | Para montar o modificar el hardware |
 | [**BACKEND.md**](BACKEND.md) | Diseño del backend y **referencia autoritativa** para implementarlo: stack, modelo de datos, contratos de API, despliegue | Para retomar el desarrollo del backend |
 
@@ -20,6 +21,8 @@
 **Quiero modificar el portal web** → [ARCHITECTURE.md](ARCHITECTURE.md) explica la máquina de estados y la convención de regenerar `mainForm.h` desde `HTML/mainForm.html`.
 
 **Quiero agregar o cambiar una ruta HTTP** → [API.md](API.md) es el contrato; mantenlo sincronizado con `ESP32_controller.ino` y `Plant.cpp`.
+
+**Quiero integrar la app o el dispositivo contra la nube** → [API-backend.md](API-backend.md) es la referencia de la API del backend (lo implementado y lo pendiente); mantenla sincronizada con `pythonServer/app/routers/`.
 
 **Quiero trabajar en el backend** → [BACKEND.md](BACKEND.md) es el diseño a implementar (referencia única); [pythonServer/README.md](../pythonServer/README.md) explica cómo levantar la infraestructura local.
 
