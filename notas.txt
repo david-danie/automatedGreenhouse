@@ -1,0 +1,156 @@
+===========================================================================
+ SmartPlant — Cómo levantar el sistema en otra computadora (Ubuntu)
+===========================================================================
+
+El proyecto tiene DOS mitades independientes:
+  A) Backend  -> FastAPI + Postgres/Timescale + MinIO + Mosquitto (en Docker)
+  B) Firmware -> ESP32-C3 (Arduino), sirve el portal web embebido
+
+Levanta solo la que necesites. Nada de esto depende de macOS: en Ubuntu limpio
+es más simple porque no chocan los puertos.
+
+Dos archivos NO viajan con el proyecto (están en .gitignore) y hay que
+recrearlos a mano en cada máquina:
+  - pythonServer/.env                 (secretos del backend)
+  - ESP32_controller/sensible.h       (credenciales del AP Wi-Fi del firmware)
+
+
+---------------------------------------------------------------------------
+ 0. Traer el proyecto
+---------------------------------------------------------------------------
+
+  sudo apt update && sudo apt install -y git   # si usas git; si no, copia la carpeta
+  # copia/clona la carpeta del proyecto y entra en ella
+  cd automatedGreenhouse
+
+
+---------------------------------------------------------------------------
+ A. BACKEND (Docker)
+---------------------------------------------------------------------------
+
+1) Instalar Docker + Compose v2:
+
+  sudo apt install -y docker.io docker-compose-v2
+  sudo systemctl enable --now docker
+  sudo usermod -aG docker $USER
+  # cierra sesión y vuelve a entrar para que el grupo 'docker' tome efecto
+  # (si no, antepon 'sudo' a los comandos docker)
+
+2) Crear el .env (no viene en el repo):
+
+  cd pythonServer
+  cp .env.example .env
+  # EDITA .env y cambia OBLIGATORIAMENTE:
+  #   JWT_SECRET_KEY   -> cualquier cadena larga y aleatoria
+  # En despliegue real cambia también POSTGRES_PASSWORD y MINIO_ROOT_PASSWORD.
+
+3) Levantar el stack y crear el esquema:
+
+  docker compose up -d --build
+  docker compose exec backend alembic upgrade head
+
+4) Verificar:
+
+  curl http://localhost:8000/health        # -> {"status":"ok"}
+
+  Servicios (puertos por defecto en Ubuntu limpio):
+    backend    :8000   (API FastAPI; OpenAPI en http://localhost:8000/docs)
+    db         :5432   (Postgres 15 + TimescaleDB)
+    minio      :9000   (API S3)  /  :9001 (consola web, admin/admin123456)
+    mosquitto  :1883   (broker MQTT)
+
+  Comandos útiles:
+    docker compose ps                      # estado
+    docker compose logs -f backend         # logs del backend
+    docker compose down                    # apagar (conserva datos en volúmenes)
+    docker compose down -v                 # apagar y BORRAR datos (¡destructivo!)
+
+--- OJO: puertos ---------------------------------------------------------
+  En la Mac de desarrollo existe un archivo pythonServer/docker-compose.override.yml
+  que remapea los puertos a 5433/8001 porque ahí 5432/8000 están ocupados por
+  OTRO proyecto (contenedores 'dbjaguar'/'jaguar'). Ese override es LOCAL de esa
+  Mac y NO forma parte del proyecto.
+    -> En Ubuntu limpio NO lo copies (o bórralo): usa 5432/8000 por defecto.
+    -> Si por lo que sea 5432 u 8000 ya están ocupados en la Ubuntu, entonces sí
+       crea un override así (el "!override" es obligatorio; sin él Compose
+       CONCATENA los puertos en vez de reemplazarlos):
+
+         services:
+           db:
+             ports: !override
+               - "5433:5432"
+           backend:
+             ports: !override
+               - "8001:8000"
+
+--- Nota de arranque -----------------------------------------------------
+  app/settings.py debe tener  extra = "ignore"  en su clase Config. El .env es
+  compartido con Postgres/MinIO (tiene POSTGRES_USER, MINIO_ROOT_*, etc.) y sin
+  esa línea pydantic v2 aborta el arranque con "Extra inputs are not permitted".
+  (Ya está en el código; solo tenlo presente si el backend no levanta.)
+
+
+---------------------------------------------------------------------------
+ B. FIRMWARE (ESP32-C3) — solo si vas a flashear la placa
+---------------------------------------------------------------------------
+
+1) Instalar arduino-cli y el core ESP32:
+
+  curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+  sudo mv bin/arduino-cli /usr/local/bin/
+  arduino-cli config init
+  arduino-cli core update-index
+  arduino-cli core install esp32:esp32       # incluye el ESP32-C3
+  arduino-cli lib install ArduinoJson        # v6
+
+2) Permiso del puerto serie (típico en Ubuntu):
+
+  sudo usermod -aG dialout $USER
+  # cierra sesión y vuelve a entrar
+
+3) Crear ESP32_controller/sensible.h (no viene en el repo). El firmware usa dos
+   símbolos: apSsid y apPassword (los consume WiFi.AP.create en el .ino).
+   Plantilla:
+
+       #ifndef _SENSIBLE
+       #define _SENSIBLE
+       // SSID del punto de acceso que crea el ESP32 (la red "SmartPlant").
+       const char* apSsid = "SmartPlant";
+       // Passphrase WPA2 del AP: 8-63 caracteres. CÁMBIALA.
+       const char* apPassword = "cambia-esta-clave";
+       #endif
+
+4) Compilar y flashear (ajusta el puerto; suele ser /dev/ttyACM0 o /dev/ttyUSB0):
+
+  arduino-cli compile --fqbn esp32:esp32:esp32c3 ESP32_controller
+  arduino-cli upload -p /dev/ttyACM0 --fqbn esp32:esp32:esp32c3 ESP32_controller
+
+  Monitor serie (para ver los logs de printSystemData a 115200 baud):
+  arduino-cli monitor -p /dev/ttyACM0 -c baudrate=115200
+
+5) Usar el portal: conéctate a la red Wi-Fi "SmartPlant" desde el celular/PC;
+   el portal captivo abre el formulario solo (gateway 192.168.4.1).
+
+
+---------------------------------------------------------------------------
+ C. PORTAL WEB (no requiere setup aparte)
+---------------------------------------------------------------------------
+
+  El portal es un único HTML embebido que sirve el firmware. Se edita el fuente
+  HTML/mainForm.html y se REGENERA el artefacto que sirve el ESP32:
+
+    python3 scripts/gen_mainform.py        # desde la raíz del proyecto
+
+  Genera ESP32_controller/mainForm.h. Nunca se edita el .h a mano.
+  Para validar el JS tras editar (opcional, requiere node):
+    # extraer <script> y correr: node --check
+
+
+---------------------------------------------------------------------------
+ Resumen de lo mínimo para "solo el backend corriendo"
+---------------------------------------------------------------------------
+  cd pythonServer
+  cp .env.example .env         # y cambia JWT_SECRET_KEY
+  docker compose up -d --build
+  docker compose exec backend alembic upgrade head
+  curl http://localhost:8000/health

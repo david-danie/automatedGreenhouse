@@ -45,6 +45,7 @@ HTML/
 - LED blanco → GPIO 0 (salida digital, lógica invertida), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
 - Buzzer → GPIO 3, ventilador → GPIO 7, bomba de agua → GPIO 10
 - PWM: 1 kHz, 8 bits (duty 0–255) en azul y rojo; se envían como 0–100 % y se escalan internamente. El blanco es digital: el portal manda `0`/`1` y el firmware evalúa `> 0`.
+- **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara, la blanca**; los espectros azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Luz Blanca** es una tarjeta destacada al frente (la "lámpara principal") y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"** dentro de la misma sección *Iluminación*. Se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledA`/`ledR` sliders 0–100, `ledB` toggle 0/1) conservan su contrato con el firmware.
 - RTC externo **DS3231** por I²C (dirección `0x68`); la hora se sincroniza desde el navegador en `/newparams`.
 
 ---
@@ -190,6 +191,46 @@ entre tareas; `printTask` **solo imprime** la copia en RAM de `_currentTime` (ya
 RTC). Tras un corte de luz, `begin()` recarga `_systemStatus` desde NVS y el loop lo
 re-aplica en segundos. El reboot anterior era **redundante** para aplicar la config; solo
 `**reset**` reinicia ahora.
+
+---
+
+## Portal V2 (en desarrollo, aún no homologado)
+
+Existe una reescritura del portal en `HTML/portal-v2/mainForm.html`. **Todavía NO
+es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.html`
+→ `mainForm.h`). La V2 vive aparte como borrador y no está en el artefacto servido.
+
+**Qué cambia respecto a la V1:**
+- **Navegación hub-and-spoke** en vez de pasos lineales: el dashboard es el centro
+  y de ahí se sale a destinos independientes (`edit`, `wifi`, `ota`) y se vuelve.
+  `auth` deja de ser un destino y pasa a ser una **compuerta**: solo se cruza si la
+  sesión no está vigente, recuerda a dónde ibas (`pendingIntent`) y te deposita ahí.
+- **Estados:** `welcome · register · auth · view · edit · wifi · ota · flashing · exit`
+  (la V1 no tenía `ota`, `flashing` ni `exit` como vista propia).
+- **Base sin estilos a propósito:** el markup lleva hooks (`.view`, `.field`,
+  `.dash-section`, `.help`, `.actions`, `.msg`, `.net-list`) para añadir el CSS
+  encima sin tocar el JS. El cambio de vista usa el atributo `hidden`, no el CSS.
+- **Textos de ayuda** con `<details>/<summary>` nativos en la vista de edición.
+- **Banner de solo lectura** (`#dashAuthHint`): el dashboard no exige sesión (leer es
+  libre); el banner recuerda que para *editar* hay que iniciar sesión. Solo se
+  muestra cuando no hay sesión vigente (`getToken() && sessionValid`).
+
+**Qué le falta para homologarse:**
+1. **CSS** (hoy se ve funcional pero sin estilo).
+2. **Endpoint OTA en el firmware** (`POST /otaupdate`, ver abajo): la vista `ota`
+   sube el `.bin` por `multipart`, pero el firmware aún no expone la ruta.
+3. **`firmwareVersion` en `/getparams`**: la vista OTA lo muestra; hoy el firmware
+   no lo expone (está comentado en `Plant.cpp`), así que se ve "desconocida".
+4. **Promover** `portal-v2/mainForm.html` → `HTML/mainForm.html`, regenerar
+   `mainForm.h` y actualizar esta doc (la máquina de estados cambia).
+
+**Cómo probarla sin dispositivo:** hay una copia con firmware simulado en
+`HTML/portal-v2/mainForm.preview.html` (mock de `fetch`/`XHR`). Se abre directo en
+el navegador; arranca en el dashboard sin login y simula Wi-Fi, guardado y OTA.
+**No se sirve desde el ESP32 ni se regenera a `mainForm.h`** — es solo para revisar
+UI/UX. La fuente de verdad de la V2 es `mainForm.html` (sin mock). Editar
+`MOCK.params` dentro del `.preview.html` cambia el escenario (p. ej.
+`hasRegisteredUser:false` → arranca en `welcome`).
 
 ---
 
@@ -560,6 +601,57 @@ segura".
 - Siempre: **CA pinning**, **hora válida antes del handshake**, **MFLN** si el
   servidor lo permite, y **vigilar el heap** porque AP+STA + WebServer + TLS es
   lo más exigente que correrá el C3 a la vez.
+
+---
+
+## OTA local (subir el `.bin` desde el teléfono) — pendiente en firmware
+
+Caso de uso: el usuario tiene el binario en su teléfono y lo **sube al dispositivo
+por la red del AP**, sin internet ni nube. Útil cuando el equipo está en un lugar
+de difícil acceso. **No confundir con la "OTA segura" sobre TLS/Internet** (sección
+anterior): esta es local, por HTTP dentro del enlace WPA2, y sin firma.
+
+**Estado:** el **lado cliente ya está** en la V2 (vistas `ota`/`flashing`: input de
+archivo, subida `multipart` por `XMLHttpRequest` con barra de progreso). **Falta el
+endpoint en el firmware:** `POST /otaupdate` **no existe todavía**.
+
+### Requisito CRÍTICO: tabla de particiones con dos slots OTA
+La librería `Update` (y `ArduinoOTA`/`httpUpdate`) escribe el binario nuevo en el
+slot **inactivo** mientras el firmware corre desde el activo, y al validar cambia el
+arranque en `otadata`. **Esto exige una tabla de particiones con `ota_0` + `ota_1` +
+`otadata`.** No es opcional: sin dos slots, `Update` de la app falla. Escribir sobre
+el slot en ejecución dejaría el equipo **inservible** ante un corte a media escritura.
+
+- Esquemas que **SÍ** sirven: *Default 4MB with spiffs* (~1.2 MB/slot),
+  *Minimal SPIFFS (1.9MB APP with OTA)* (~1.9 MB/slot).
+- Esquemas que **NO** sirven: *Huge APP (3MB No OTA)*, *Minimal (No OTA)* — un solo
+  slot de app, sin OTA.
+
+> **Reproducibilidad:** hoy el proyecto **no** declara esquema de particiones (ni un
+> `.csv` en el sketch, ni `build.partitions` en `ci.json`): depende del menú
+> *Tools → Partition Scheme* del Arduino IDE, ajuste manual que no queda versionado.
+> Antes de implementar la OTA conviene **fijar un `partitions.csv`** en el sketch y
+> declararlo, para que el slot OTA no dependa de recordar un ajuste del IDE (en otra
+> máquina/Ubuntu la OTA fallaría de forma silenciosa). Verificar además que el `.bin`
+> (AP+STA + WebServer + portal + `Update`) cabe en el slot elegido.
+
+### Diseño previsto del endpoint `POST /otaupdate`
+1. **Auth por token en la query** (`?token=`): el cuerpo es `multipart`, no JSON.
+   Validar el token **al inicio** de la subida y abortar en el primer trozo si es
+   inválido, para no recibir ~1 MB antes de rechazar (`401`).
+2. **Escritura en streaming** con `Update.begin(UPDATE_SIZE_UNKNOWN)` → `Update.write()`
+   por trozos → `Update.end(true)`. No requiere el binario completo en RAM.
+3. **Integridad:** `Update` valida el *magic byte* del firmware ESP32 (rechaza un
+   archivo que no sea firmware). Opcional: que el cliente mande tamaño/MD5 para
+   detectar corrupción de transporte.
+4. **Reinicio** al terminar; el AP parpadea (radio única) y el cliente reconecta —
+   la V2 ya avisa "no cierres la ventana" y maneja el post-reinicio.
+5. **Sin firma criptográfica:** acepta cualquier `.bin` válido de quien tenga sesión
+   y esté en el AP. Aceptable para subir el propio binario; la firma es cosa de la
+   OTA segura por Internet, no de esta local.
+
+También conviene exponer `firmwareVersion` en `/getparams` (hoy comentado en
+`Plant.cpp`) para que la vista OTA muestre la versión instalada.
 
 ---
 

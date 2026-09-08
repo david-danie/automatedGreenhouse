@@ -40,6 +40,10 @@ bool isSpanishAccentUtf8(unsigned char lead, unsigned char cont);
 // ---- Riego/ventilación ----
 // ¿El intervalo (horas entre activaciones) es uno de validFrequencies?
 bool isValidFrequency(uint8_t f);
+// Traduce el intervalo en horas a una etiqueta legible para logs/UI:
+// 0="Apagado", <24="Cada Nh", 24="Diario", 168="Semanal", múltiplos de 24=
+// "Cada N dias", y cualquier otro="Cada Nh". No incluye la duración.
+String frequencyToText(uint8_t hours);
 
 // ---- Fecha ----
 // Contador continuo de días desde una referencia fija (puro, monótono). Lo usa

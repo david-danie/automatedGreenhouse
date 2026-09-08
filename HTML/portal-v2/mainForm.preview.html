@@ -102,6 +102,135 @@
          *   .net-list        lista de redes Wi-Fi encontradas
          */
     </style>
+    <!-- ===================================================================
+         MODO PREVIEW (mock) — SOLO PARA PROBAR EN EL NAVEGADOR SIN ESP32
+         ===================================================================
+         Este archivo es una COPIA de mainForm.html con un simulador del
+         firmware inyectado. NO se sirve desde el dispositivo ni se regenera a
+         mainForm.h. La fuente de verdad sigue siendo mainForm.html (sin mock).
+
+         Qué simula:
+           - /getparams  -> cultivo de ejemplo, hasRegisteredUser + sessionValid
+                            en true, así arranca en el dashboard y la compuerta
+                            de auth se cruza sola (sin pedir login).
+           - /wifiscan, /wificredentials, /newparams, /exit -> respuestas OK.
+           - /otaupdate  -> simula progreso de subida y éxito.
+         Cambia MOCK.params abajo para probar otros escenarios (p.ej.
+         hasRegisteredUser:false para ver welcome/registro).
+    -->
+    <script>
+    (function () {
+        "use strict";
+
+        const MOCK = {
+            // Estado del dispositivo simulado. Edítalo para probar escenarios.
+            params: {
+                hasRegisteredUser: true,   // false -> arranca en welcome/registro
+                sessionValid: false,       // false -> dashboard en modo lectura (muestra el banner); true -> se salta el login
+                wifiConnected: false,
+                wifiSsid: "",
+                firmwareVersion: "1.0.1-preview",
+                planta: "Albahaca",
+                enable: true,
+                fpOn: 18, fpOff: 6,
+                ledA: 70, ledR: 45, ledB: 1,
+                irrH: 3, irrM: 15, ventH: 6, ventM: 20,
+                dia: 34, semana: 5
+            },
+            networks: [
+                { ssid: "MiRed",   rssi: -48, secure: true },
+                { ssid: "Vecino",  rssi: -71, secure: false },
+                { ssid: "IoT_2G",  rssi: -80, secure: true }
+            ]
+        };
+
+        const json = (obj, status = 200) => Promise.resolve({
+            ok: status >= 200 && status < 300,
+            status,
+            json: () => Promise.resolve(obj),
+            text: () => Promise.resolve(JSON.stringify(obj))
+        });
+
+        // ---- Intercepta fetch ----
+        const realFetch = window.fetch;
+        window.fetch = function (url, opts) {
+            const u = String(url);
+            const okMsg = (message) => json({ status: true, message });
+
+            if (u.startsWith("/getparams")) return json(MOCK.params);
+            if (u.startsWith("/usercredentials")) {
+                MOCK.params.hasRegisteredUser = true;
+                MOCK.params.sessionValid = true;
+                return json({ status: true, message: "Usuario registrado.", token: "preview-token" });
+            }
+            if (u.startsWith("/authusercredentials")) {
+                const body = opts && opts.body ? JSON.parse(opts.body) : {};
+                if (body.pass === "**reset**") return json({ status: true, message: "Equipo restaurado (simulado)." });
+                MOCK.params.sessionValid = true;
+                return json({ status: true, message: "Acceso concedido.", token: "preview-token" });
+            }
+            if (u.startsWith("/newparams")) {
+                try { Object.assign(MOCK.params, JSON.parse(opts.body)); } catch (e) {}
+                return okMsg("Parámetros actualizados (simulado).");
+            }
+            if (u.startsWith("/wifiscan")) return json({ networks: MOCK.networks });
+            if (u.startsWith("/wificredentials")) {
+                try {
+                    const b = JSON.parse(opts.body);
+                    MOCK.params.wifiConnected = true;
+                    MOCK.params.wifiSsid = b.ssid || "MiRed";
+                } catch (e) {}
+                return okMsg("Conexión iniciada (simulado).");
+            }
+            if (u.startsWith("/exit")) return okMsg("Desconectado (simulado). Puedes cerrar esta ventana.");
+            return realFetch ? realFetch(url, opts) : json({}, 404);
+        };
+
+        // ---- Intercepta XMLHttpRequest (lo usa la subida OTA) ----
+        const RealXHR = window.XMLHttpRequest;
+        window.XMLHttpRequest = function () {
+            const u = { method: "GET", url: "" };
+            const listeners = {};
+            const uploadListeners = {};
+            const api = {
+                upload: { addEventListener: (t, cb) => { (uploadListeners[t] = uploadListeners[t] || []).push(cb); } },
+                addEventListener: (t, cb) => { (listeners[t] = listeners[t] || []).push(cb); },
+                open: (m, url) => { u.method = m; u.url = url; },
+                setRequestHeader: () => {},
+                status: 0,
+                responseText: "",
+                send: function () {
+                    // Simula progreso de subida y luego éxito, para ver la vista flashing.
+                    const emitUp = (t, e) => (uploadListeners[t] || []).forEach((cb) => cb(e));
+                    const emit = (t, e) => (listeners[t] || []).forEach((cb) => cb(e));
+                    let pct = 0;
+                    const timer = setInterval(() => {
+                        pct += 20;
+                        emitUp("progress", { lengthComputable: true, loaded: pct, total: 100 });
+                        if (pct >= 100) {
+                            clearInterval(timer);
+                            setTimeout(() => {
+                                api.status = 200;
+                                api.responseText = JSON.stringify({ status: true, message: "Firmware instalado (simulado)." });
+                                emit("load", {});
+                            }, 600);
+                        }
+                    }, 400);
+                }
+            };
+            return api;
+        };
+
+        // Aviso visible de que esto es preview.
+        document.addEventListener("DOMContentLoaded", () => {
+            const b = document.createElement("div");
+            b.textContent = "MODO PREVIEW — datos simulados, sin dispositivo";
+            b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;" +
+                "background:#ff9800;color:#000;font:600 12px system-ui;text-align:center;padding:4px";
+            document.body.appendChild(b);
+        });
+    })();
+    </script>
 </head>
 
 <body>

@@ -136,6 +136,23 @@ bool isValidFrequency(uint8_t f) {
 }
 
 /**
+ * @brief Intervalo en horas -> etiqueta legible para logs/UI.
+ *
+ * El valor es el intervalo ENTRE activaciones (ver validFrequencies): 0 apaga,
+ * 24 es diario, 168 semanal, y los múltiplos de 24 se expresan en días. Para no
+ * perder el dato crudo en diagnóstico, quien lo imprima puede añadir el valor
+ * numérico aparte. No describe la duración (los minutos encendido).
+ */
+String frequencyToText(uint8_t hours) {
+  if (hours == 0)         return "Apagado";
+  if (hours < 24)         return "Cada " + String(hours) + "h";
+  if (hours == 24)        return "Diario";
+  if (hours == 168)       return "Semanal";
+  if (hours % 24 == 0)    return "Cada " + String(hours / 24) + " dias";
+  return "Cada " + String(hours) + "h";
+}
+
+/**
  * @brief Días transcurridos desde una fecha de referencia fija.
  *
  * Algoritmo "days from civil" de Howard Hinnant: PURO (sin estado) y MONÓTONO

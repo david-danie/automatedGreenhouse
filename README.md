@@ -335,6 +335,8 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
 - [x] Sesión con token (sin reenviar credenciales)
 - [x] Conectividad Wi-Fi del usuario (AP+STA, escaneo, conexión + polling)
 - [ ] Servir el portal **gzip** (`Content-Encoding: gzip`) para menos flash y carga más rápida
+- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-v2/`): estructura y JS listos; falta CSS, el endpoint OTA y homologarlo como versión oficial ([ver estado](docs/ARCHITECTURE.md))
+- [ ] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): lado cliente listo en la V2; falta el endpoint `POST /otaupdate` en el firmware y una tabla de particiones con dos slots OTA ([ver requisitos](docs/ARCHITECTURE.md))
 - [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos. Ya está en pie la base — la infraestructura corre en Docker (Postgres/Timescale, MinIO y Mosquitto), Alembic crea el esquema completo (5 tablas + hypertable), el registro/login/refresh funciona con JWT y los dispositivos se vinculan a una cuenta recibiendo su propio token revocable. En curso: recibir configuración y telemetría por REST (escrito, pendiente de probar). Falta exponer las lecturas para la app, servir OTA y la ingesta por MQTT ([ver estado](pythonServer/README.md))
 - [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
 - [ ] Medición de temperatura y humedad (DS18B20 contemplado en el diseño original)

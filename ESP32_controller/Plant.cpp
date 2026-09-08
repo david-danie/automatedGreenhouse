@@ -680,44 +680,57 @@ void Plant::hardReset() {
 void Plant::printSystemData() {
   // Solo imprime la copia en RAM de _currentTime; el refresco desde el RTC (I²C)
   // lo hace loop() en un único task, para no compartir el bus Wire entre tareas.
-  Serial.printf("\n===================== ESTADO DEL SISTEMA =====================\n");
-
-  Serial.printf("[SYS] MAC:%s | Usuario:%s | Sistema:%s\n",
-                _MAC,
-                _systemStatus[hasRegisteredUser] ? "REGISTRADO" : "NO REGISTRADO",
-                _systemStatus[systemEnable] ? "ACTIVO" : "INACTIVO");
-
-  Serial.printf("[AUTH] Username:%s | Pass:%s\n", _username, maskPassword(_userpass).c_str());
-
-  /*Serial.printf("[WIFI] SSID:%s | Pass:%s | Conexion:%s\n",
-                ssid,
-                maskPassword(wifiPass).c_str(),
-                _systemStatus[hasWifiCredentials] ? "SI" : "NO");*/
-
-  Serial.printf("[LUZ] Prende:%02dh | Apaga:%02dh | Azul:%d%% | Roja:%d%% | Blanca:%d%%\n",
-                _systemStatus[photoperiodOn],
-                _systemStatus[photoperiodOff],
-                _systemStatus[blueDutyCycle],
-                _systemStatus[redDutyCycle],
-                _systemStatus[whiteDutyCycle]);
-
-  Serial.printf("[RIEGO] Intervalo:%dh por %d minutos\n",
-                _systemStatus[irrigationFrequency],
-                _systemStatus[irrigationDuration]);
-
-  Serial.printf("[VENT] Intervalo:%dh por %d minutos\n",
-                _systemStatus[ventilationFrequency],
-                _systemStatus[ventilationDuration]);
+  // Los valores crudos que ya no son "porcentaje/horas directas" (LED blanco
+  // ON/OFF, frecuencias con semántica de intervalo) se traducen a texto legible.
 
   int cropDayAge = cropDayFromRtc();  // derivado del RTC + ancla (getCurrentTime ya corrió arriba)
-  Serial.printf("[CULTIVO] %02d/%02d/%02d %02d:%02d:%02d Semana:%d | Dia:%d\n",
-                _currentTime[day], _currentTime[month], _currentTime[year],
-                _currentTime[hour], _currentTime[minute], _currentTime[second],
-                cropDayAge > 0 ? (cropDayAge - 1) / 7 + 1 : 0,
-                cropDayAge);
-  Serial.printf("[CROP] Planta:%s\n", _plantName);
+  int cropWeekAge = cropDayAge > 0 ? (cropDayAge - 1) / 7 + 1 : 0;
 
-  Serial.printf("================================\n\n");
+  // Estilo de logs: etiqueta a la izquierda (ancho fijo) + separador + valor,
+  // agrupado por secciones (identidad / cultivo / actuadores) con una línea en
+  // blanco entre ellas. Solo ASCII, para que cualquier monitor serie lo renderice.
+  // Título: en lugar de un rótulo fijo, lleva la fecha/hora del RTC centrada.
+  Serial.printf("\n---------------- %02d/%02d/%02d  %02d:%02d:%02d ----------------\n",
+                _currentTime[day], _currentTime[month], _currentTime[year],
+                _currentTime[hour], _currentTime[minute], _currentTime[second]);
+
+  // -- Identidad y estado -- (el "ACTIVO/INACTIVO" vive aquí, sin repetirse)
+  Serial.printf(" Sistema  ·  %s · %s\n",
+                _systemStatus[systemEnable] ? "ACTIVO" : "INACTIVO",
+                _systemStatus[hasRegisteredUser] ? "REGISTRADO" : "NO REGISTRADO");
+  Serial.printf(" MAC      ·  %s\n", _MAC);
+  Serial.printf(" Usuario  ·  %s  (%s)\n",
+                _username[0] ? _username : "(sin definir)",
+                maskPassword(_userpass).c_str());
+  /*Serial.printf(" Wi-Fi    ·  %s  (%s)\n",
+                _SSID[0] ? _SSID : "(sin red)",
+                _systemStatus[hasWifiCredentials] ? "conectado" : "sin conexion");*/
+
+  // -- Cultivo --
+  Serial.printf("\n Cultivo  ·  %s - Sem %d, Dia %d\n",
+                _plantName[0] ? _plantName : "(sin definir)",
+                cropWeekAge, cropDayAge);
+
+  // -- Actuadores --
+  Serial.printf("\n Luz      ·  %02dh-%02dh  Blanca %s   Azul %d%%  Roja %d%%\n",
+                _systemStatus[photoperiodOn],
+                _systemStatus[photoperiodOff],
+                _systemStatus[whiteDutyCycle] > 0 ? "ON" : "OFF"
+                _systemStatus[blueDutyCycle],
+                _systemStatus[redDutyCycle]);
+                
+  Serial.printf(" Riego    ·  %-10s ·  %d min\n",
+                frequencyToText(_systemStatus[irrigationFrequency]).c_str(),
+                _systemStatus[irrigationDuration]);
+  Serial.printf(" Ventil.  ·  %-10s ·  %d min\n",
+                frequencyToText(_systemStatus[ventilationFrequency]).c_str(),
+                _systemStatus[ventilationDuration]);
+
+  Serial.printf("----------------------------------------------------\n\n");
+}
+
+  Serial.printf("======================================================\n\n");
+}
 }
 
 HttpResponse buildHttpResponse(requestStatus status) {

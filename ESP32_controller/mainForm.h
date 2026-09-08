@@ -191,6 +191,76 @@ static const char mainForm[] = R"===(
         .switch input:focus-visible + .switch-slider {
             box-shadow: 0 0 0 2px rgba(76, 175, 80, .4);
         }
+        .light-primary {
+            margin-bottom: 12px;
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+            border-radius: 8px;
+        }
+        .light-primary-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            cursor: pointer;
+        }
+        .light-primary-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .light-primary-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #2e7d32;
+        }
+        .light-primary-hint {
+            font-size: 12px;
+            color: #689f38;
+        }
+        .light-advanced {
+            margin-bottom: 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .light-advanced > summary {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #616161;
+            cursor: pointer;
+            list-style: none;
+        }
+        .light-advanced > summary::-webkit-details-marker {
+            display: none;
+        }
+        .light-advanced > summary::before {
+            content: '▸';
+            color: #9e9e9e;
+            transition: transform .2s ease;
+        }
+        .light-advanced[open] > summary::before {
+            transform: rotate(90deg);
+        }
+        .light-advanced-tag {
+            font-size: 11px;
+            font-weight: 400;
+            color: #9e9e9e;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1px 8px;
+        }
+        .light-advanced-body {
+            padding: 4px 16px 8px;
+        }
+        .light-advanced-body .form-group:last-child {
+            margin-bottom: 8px;
+        }
         .password-wrapper,
         .form-group {
             position: relative;
@@ -738,6 +808,13 @@ static const char mainForm[] = R"===(
                             <div class="dash-spectrum-grid">
                                 <div class="dash-spectrum-col">
                                     <div class="dash-spectrum-top">
+                                        <span class="dash-dot is-white" style="background:#ffffff"></span>
+                                        <span class="dash-spectrum-val" id="dashLedB">—</span>
+                                    </div>
+                                    <span class="dash-stat-label">Luz Blanca</span>
+                                </div>
+                                <div class="dash-spectrum-col">
+                                    <div class="dash-spectrum-top">
                                         <span class="dash-dot" style="background:#2196F3"></span>
                                         <span class="dash-spectrum-val" id="dashLedA">—</span>
                                     </div>
@@ -749,13 +826,6 @@ static const char mainForm[] = R"===(
                                         <span class="dash-spectrum-val" id="dashLedR">—</span>
                                     </div>
                                     <span class="dash-stat-label">Espectro Rojo</span>
-                                </div>
-                                <div class="dash-spectrum-col">
-                                    <div class="dash-spectrum-top">
-                                        <span class="dash-dot is-white" style="background:#ffffff"></span>
-                                        <span class="dash-spectrum-val" id="dashLedB">—</span>
-                                    </div>
-                                    <span class="dash-stat-label">Espectro Blanco</span>
                                 </div>
                             </div>
                         </div>
@@ -826,29 +896,40 @@ static const char mainForm[] = R"===(
                         <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="ledA">Espectro Azul: <span id="luzAzulValue">50%</span></label>
-                    <div class="slider-container">
-                        <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="50">
-                        <div class="slider-progress" id="progressA"></div>
-                    </div>
+                <div class="section-header">
+                    <span>Iluminación</span>
                 </div>
-                <div class="form-group">
-                    <label for="ledR">Espectro Rojo: <span id="luzRojaValue">50%</span></label>
-                    <div class="slider-container">
-                        <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="50">
-                        <div class="slider-progress" id="progressR"></div>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="section-toggle" for="ledB">
-                        Luz Blanca
+                <div class="light-primary">
+                    <label class="light-primary-toggle" for="ledB">
+                        <span class="light-primary-text">
+                            <span class="light-primary-name">Luz Blanca</span>
+                            <span class="light-primary-hint">Lámpara principal</span>
+                        </span>
                         <span class="switch">
                             <input type="checkbox" id="ledB" name="ledB">
                             <span class="switch-slider"></span>
                         </span>
                     </label>
                 </div>
+                <details class="light-advanced">
+                    <summary>Espectros avanzados <span class="light-advanced-tag">opcional</span></summary>
+                    <div class="light-advanced-body">
+                        <div class="form-group">
+                            <label for="ledA">Espectro Azul: <span id="luzAzulValue">50%</span></label>
+                            <div class="slider-container">
+                                <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="50">
+                                <div class="slider-progress" id="progressA"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="ledR">Espectro Rojo: <span id="luzRojaValue">50%</span></label>
+                            <div class="slider-container">
+                                <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="50">
+                                <div class="slider-progress" id="progressR"></div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
                 <div class="section-header">
                     <span>Riego</span>
                 </div>
@@ -1070,6 +1151,8 @@ static const char mainForm[] = R"===(
             document.getElementById('ventM').value = p.ventM;
             updateSliderProgress('ledA', 'progressA');
             updateSliderProgress('ledR', 'progressR');
+            const adv = document.querySelector('.light-advanced');
+            if (adv) adv.open = Number(p.ledA) > 0 || Number(p.ledR) > 0;
         }
         function actualizarDashboard() {
             const p = params;
@@ -1409,7 +1492,7 @@ static const char mainForm[] = R"===(
                     key === 'ledA' || key === 'ledR')
                     data[key] = Number(value.trim())
                 else if (key === 'ledB')
-                    {}
+                    {} // se maneja abajo como checkbox (blanco = ON/OFF)
                 else
                     data[key] = value.trim();
             });
