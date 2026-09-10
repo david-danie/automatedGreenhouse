@@ -154,3 +154,68 @@ recrearlos a mano en cada máquina:
   docker compose up -d --build
   docker compose exec backend alembic upgrade head
   curl http://localhost:8000/health
+
+
+ Bug funcional: el interruptor "Sistema activo" no hace nada
+  
+  systemEnable se guarda, se reporta en /getparams y se imprime como ACTIVO/INACTIVO, pero
+  turnOnDevices() nunca lo consulta. Sus únicos tres usos son escritura, serialización y log.
+  Es decir, el usuario desactiva el sistema desde el portal, la UI le dice "INACTIVO", y el
+  riego, las luces y la ventilación siguen operando con normalidad. Es el punto que yo
+  atacaría primero: la corrección es una guarda al inicio de turnOnDevices() junto al
+  fail-safe del RTC que ya está ahí.
+  
+  Roadmap declarado, aún abierto
+  
+  OTA local. No existe la ruta: solo hay 8 registradas y ninguna es /otaupdate. Y hay un
+  requisito que suele morderse: no hay partitions.csv, así que se usa el esquema por defecto
+  del core. Con el portal ya en ~73 KB dentro del binario, hay que elegir explícitamente un
+  esquema con dos slots OTA y confirmar que el binario cabe en uno; si el sketch acabó en un
+  esquema de una sola app, el OTA es imposible por más código que se escriba.
+  
+  gzip del portal. handleRoot sigue sirviendo texto plano. Dato colateral: el artefacto está
+  en ~73 KB, no en los ~49 KB que dicen el README y ARCHITECTURE.md — esa cifra quedó
+  desactualizada.
+  
+  Portal V2 (falta CSS y promoverlo), TLS + OTA firmada, y sensores de temperatura/humedad.
+  
+  Seguridad
+  
+  - Contraseña de usuario en claro en NVS (putString("userpass", ...), línea 143). Cualquiera
+  con acceso al flash la extrae. Debería guardarse como hash con salt.
+  - El reset de fábrica no requiere autenticación. **reset** se evalúa antes de comparar
+  credenciales —a propósito, para no quedar bloqueado si olvidas la contraseña—, así que
+  cualquiera conectado al AP puede borrar la configuración. La única barrera real es la clave
+  WPA2.
+  - Sin límite de intentos de login: fuerza bruta local sin coste alguno.
+  - El token de sesión viaja en la query string de /getparams; las query strings tienden a
+  acabar en historiales y logs.
+  
+  Robustez
+  
+  - El escaneo Wi-Fi bloquea ~2 s dentro del request y congela el portal.
+  - Carrera de datos en el log: printTask lee _currentTime mientras loop() lo reescribe, sin
+  sincronización. Solo puede ensuciar una línea impresa, no el control.
+  - Con el fail-safe nuevo, si el RTC nunca se pone en hora el equipo queda inerte y solo lo
+  dice el log serie — decidiste no exponerlo en el portal, así que lo dejo anotado como punto
+  abierto consciente. De hecho isRtcValid(), que añadí para eso, hoy no se llama desde ningún
+  sitio.
+  - manageDevice con duración 0 nunca enciende, y el portal permite 0 minutos. Conviene
+  decidir si se valida o se documenta.
+  
+  Deuda y limpieza
+  
+  - getToken() y downloadOTA() están declarados en Plant.h y nunca definidos ni llamados.
+  - #include <HTTPClient.h> + el miembro HTTPClient http + jwtToken no se usan: HTTPClient
+   arrastra bastante flash y RAM en un chip donde eso importa.
+  - Constantes muertas: intervalToSend, buzzerOn, buzzerOff, port80, dnsPort (0 usos fuera de
+  Constants.h).
+  - El buzzer tiene pin y constantes pero está comentado y sin implementar.
+  - cropWeek/cropDay siguen ocupando slots del enum y de NVS aunque ya se derivan del RTC; no
+  se pueden quitar sin reinterpretar los datos de los equipos en campo.
+  
+  Mi orden sugerido: el bug de systemEnable primero por ser correctitud funcional visible;
+  luego el hash de la contraseña; después particiones + endpoint OTA, que es la funcionalidad
+  grande y donde el esquema de particiones puede bloquearte si no se resuelve antes de
+  escribir código. ¿Arrancamos por systemEnable?
+

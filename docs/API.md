@@ -80,26 +80,27 @@ Estado del dispositivo. Es la primera llamada que hace el front para decidir qu�
 | `sessionValid` | bool | `true` si el `token` recibido sigue vigente (permite saltar el login) |
 | `wifiConnected` | bool | Estado del STA (conexión a la red del usuario) |
 | `wifiSsid` | string | SSID asociado, o `""` si el STA no está conectado |
+| `firmwareVersion` | string | Versión del binario en ejecución (constante de compilación `firmwareVersion` en `Constants.h`, **no** un valor en NVS: así cada binario reporta lo que realmente es tras un OTA). La vista OTA del portal la muestra; si falta, pinta "desconocida" |
 
 **Presentes solo si `hasRegisteredUser == true`:**
 
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `planta` | string | Nombre de la planta |
-| `enable` | bool | Sistema activo |
+| `enable` | bool | Interruptor general del cultivo. En `false` no se acciona **nada** (luces, riego ni ventilación), ignorando fotoperiodo e intervalos |
 | `fpOn` | 0–23 | Hora de prendido del fotoperiodo |
 | `fpOff` | 0–23 | Hora de apagado del fotoperiodo |
-| `ledA` | 0–100 | Espectro azul (%) |
-| `ledR` | 0–100 | Espectro rojo (%) |
-| `ledB` | 0 / 1 | Luz blanca ON/OFF (ver [nota sobre `ledB`](#nota-sobre-ledb)) |
+| `ledAzul` | 0–100 | Espectro azul (%) |
+| `ledRojo` | 0–100 | Espectro rojo (%) |
+| `ledBlanco` | 0 / 1 | Luz blanca ON/OFF (ver [nota sobre `ledBlanco`](#nota-sobre-ledblanco)) |
 | `irrH` | horas | Intervalo de riego (ver [nota de frecuencias](#nota-de-frecuencias)) |
 | `irrM` | 0–59 | Duración del riego (min) |
 | `ventH` | horas | Intervalo de ventilación |
 | `ventM` | 0–59 | Duración de la ventilación (min) |
-| `dia` | number | Día del ciclo del cultivo (derivado del RTC; `0` = sin anclar) |
+| `dia` | number | Día del ciclo del cultivo (derivado del RTC; `0` = sin anclar **o** RTC sin hora fiable) |
 | `semana` | number | Semana del ciclo, derivada de `dia` |
 
-`dia` y `semana` **no** se almacenan: se calculan desde el ancla `cropStart` en NVS y la fecha del RTC, así que el cultivo sigue envejeciendo aunque el equipo haya estado apagado.
+`dia` y `semana` **no** se almacenan: se calculan desde el ancla `cropStart` en NVS y la fecha del RTC, así que el cultivo sigue envejeciendo aunque el equipo haya estado apagado. Devuelven `0` también si el RTC no da una hora de confianza (ver [nota sobre el RTC](#nota-sobre-el-rtc-y-el-modo-seguro)).
 
 ---
 
@@ -174,12 +175,12 @@ Todas las claves son obligatorias; su ausencia devuelve `MISSING_FIELDS` (o `INV
 | Campo | Rango | Notas |
 |---|---|---|
 | `planta` | 3–20 chars | Charset con espacios; sin espacios dobles; no solo dígitos; sin 4+ repetidos |
-| `enable` | bool | Sistema activo |
+| `enable` | bool | Interruptor general del cultivo. En `false` no se acciona **nada** (luces, riego ni ventilación), ignorando fotoperiodo e intervalos |
 | `fpOn` | 0–23 | `fpOn != fpOff` |
 | `fpOff` | 0–23 | El ciclo puede cruzar medianoche |
-| `ledA` | 0–100 | Espectro azul (%) |
-| `ledR` | 0–100 | Espectro rojo (%) |
-| `ledB` | 0 / 1 | Luz blanca ON/OFF |
+| `ledAzul` | 0–100 | Espectro azul (%) |
+| `ledRojo` | 0–100 | Espectro rojo (%) |
+| `ledBlanco` | 0 / 1 | Luz blanca ON/OFF (**estricto**: cualquier otro valor → `INVALID_WHITE_LED_VALUE`) |
 | `irrH` | `validFrequencies` | Intervalo en horas |
 | `irrM` | 0–59 | Duración en minutos |
 | `ventH` | `validFrequencies` | Intervalo en horas |
@@ -209,7 +210,7 @@ Todas las claves son obligatorias; su ausencia devuelve `MISSING_FIELDS` (o `INV
 {
   "planta": "Albahaca", "enable": true,
   "fpOn": 18, "fpOff": 6,
-  "ledA": 70, "ledR": 45, "ledB": 1,
+  "ledAzul": 70, "ledRojo": 45, "ledBlanco": 1,
   "irrH": 3, "irrM": 15, "ventH": 4, "ventM": 20,
   "token": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
   "seg": 15, "min": 30, "hr": 10,
@@ -309,14 +310,39 @@ El tope es 255 (`uint8_t`): un intervalo mayor a ~10 días exigiría ampliar `va
 
 Si `validFrequencies` cambia en `Constants.h`, hay que actualizar en paralelo las `<option>` del `<select>` y la constante JS `VALID_FREQUENCIES` en `HTML/mainForm.html`.
 
-## Nota sobre `ledB`
+## Nota sobre el RTC y el modo seguro
+
+El scheduling depende por completo del DS3231, así que el firmware **no acciona nada si la hora no es de fiar**. Una lectura se considera fiable solo si cumple las tres condiciones:
+
+1. El chip responde por I²C y entrega los 7 registros de tiempo.
+2. Los valores caen en rango (`seg/min ≤ 59`, `hora ≤ 23`, `diaSem 1–7`, `dia 1–31`, `mes 1–12`, `anio ≤ 99`).
+3. El bit **OSF** (*Oscillator Stop Flag*, registro `0x0F` bit 7) está en 0.
+
+El OSF es el que distingue una hora real de un valor por defecto: un DS3231 sin batería arranca en `2000-01-01 00:00:00`, que **pasa el chequeo de rangos** pero no es la hora. El chip levanta OSF cuando el oscilador se detuvo, y el firmware lo baja al escribir la hora desde el navegador.
+
+**Consecuencias observables cuando la hora no es fiable:**
+
+- Luces, bomba y ventilador quedan **apagados** (mismo apagado total que `enable: false`).
+- `dia` y `semana` de `/getparams` devuelven `0`.
+- El log serie lo indica en la línea de estado.
+
+**Cómo se sale de ese estado:** guardando parámetros (`POST /newparams`), porque el navegador manda la fecha/hora y el firmware la escribe en el RTC y limpia el OSF. Es decir, se resuelve solo en el flujo normal de uso; no hace falta ninguna acción especial.
+
+> Este es el motivo más probable de un "no hace nada" en un equipo recién montado o con la pila del RTC agotada: cambiar la pila y volver a guardar parámetros.
+
+---
+
+## Nota sobre `ledBlanco`
 
 El LED blanco está en **GPIO 0 como salida digital**, no como canal PWM: solo tiene dos estados.
 
 - El portal envía `0` o `1`.
-- El firmware sigue aceptando `0–100` (la validación `INVALID_LED_VALUE` es común a los tres LEDs) pero lo interpreta como booleano: `_systemStatus[whiteDutyCycle] > 0 ? LOW : HIGH` (lógica invertida). Cualquier valor mayor a 0 enciende.
+- El firmware **exige** `0` o `1`: cualquier otro valor se rechaza con `INVALID_WHITE_LED_VALUE` (400). La validación tiene su propio estado, separado de `INVALID_LED_VALUE`, que cubre solo los espectros azul y rojo.
+- Internamente se guarda tal cual en `_systemStatus[whiteLedOn]` y se aplica con lógica invertida: `_systemStatus[whiteLedOn] > 0 ? LOW : HIGH`. `/getparams` siempre devuelve `0` o `1`.
 
-Los canales azul (`ledA`) y rojo (`ledR`) sí son PWM y usan el rango 0–100 % completo, escalado internamente a 0–255.
+Los canales azul (`ledAzul`) y rojo (`ledRojo`) sí son PWM y usan el rango 0–100 % completo, escalado internamente a 0–255.
+
+> **Cambio de contrato:** antes estas claves se llamaban `ledA`, `ledR` y `ledB`. Se renombraron porque `ledB` significaba "Blanco" pero se leía como "blue". Además, `ledB` aceptaba `0–100` y lo normalizaba, así que un `47` pasaba como "encendida" aunque el contrato dijera `0/1`. Un cliente que use los nombres viejos recibirá `MISSING_FIELDS`.
 
 ---
 
@@ -367,7 +393,8 @@ Definido en `buildHttpResponse()` (`Plant.cpp`).
 | `INVALID_PHOTOPERIOD_TYPE` | 400 | Valor de fotoperiodo inválido (solamente enteros). |
 | `INVALID_IRRIGATION_TYPE` | 400 | Valores de irrigación inválidos (frecuencia permitida y minutos 0-59). |
 | `INVALID_VENTILATION_TYPE` | 400 | Valores de ventilación inválidos (frecuencia permitida y minutos 0-59). |
-| `INVALID_LED_VALUE` | 400 | Los valores de los LEDs deben estar entre 0 y 100%. |
+| `INVALID_LED_VALUE` | 400 | Los espectros azul y rojo deben estar entre 0 y 100%. |
+| `INVALID_WHITE_LED_VALUE` | 400 | La luz blanca solo acepta 0 (apagada) o 1 (encendida). |
 
 ### Fecha y hora
 

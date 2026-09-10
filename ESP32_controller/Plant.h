@@ -75,6 +75,12 @@ class Plant {
     bool setCurrentTime();
     bool getCurrentTime();
 
+    // ¿La última lectura del RTC dio una hora fiable? False si el DS3231 no
+    // respondió, devolvió valores fuera de rango o su bit OSF indica que el
+    // oscilador se detuvo (hora perdida). turnOnDevices() no acciona nada
+    // mientras sea false, y el portal lo reporta para avisar al usuario.
+    bool isRtcValid();
+
     void hardReset();
 
 
@@ -100,8 +106,29 @@ class Plant {
 
   private:
 
+    // Apaga TODOS los actuadores (luces, bomba y ventilador). Existe como punto
+    // ÚNICO para que los dos caminos que exigen "todo apagado" —sistema
+    // desactivado por el usuario y RTC sin hora fiable— se comporten igual, y
+    // para que al añadir un actuador nuevo no se olvide uno de los dos.
+    void allDevicesOff();
+
+    // ---- Bit OSF del DS3231 (registro 0x0F) ----
+    // ¿El oscilador se detuvo alguna vez? (true = la hora guardada no es fiable).
+    // Devuelve true también si la lectura I²C falla: ante la duda, no confiar.
+    bool rtcLostPower();
+    // Limpia el OSF tras fijar una hora buena, para que las lecturas siguientes
+    // vuelvan a considerarse fiables.
+    void rtcClearLostPower();
+
     uint8_t _systemStatus[15] = {0};  
     uint8_t _currentTime[10];
+
+    // true si la última lectura del RTC (getCurrentTime) fue correcta Y contiene
+    // una fecha/hora plausible. Si el DS3231 no responde o devuelve basura, se
+    // pone en false y turnOnDevices() NO acciona actuadores (fail-safe): agendar
+    // riego/luz con una hora inválida podría regar de más o dejar el cultivo a
+    // oscuras. Arranca en false hasta la primera lectura válida.
+    bool _rtcValid = false;
 
     // Buffers dimensionados al peor caso UTF-8 (maxChars * 2 + 1) para que un
     // valor válido del formulario nunca se trunque al guardarse.
@@ -128,7 +155,9 @@ class Plant {
     // derivan cropDay/cropWeek sin contadores ni lógica de medianoche.
     uint32_t _cropStartDay = 0;
 
-    String firmwareVersion;
+    // La versión del firmware NO es un miembro: es la constante de compilación
+    // firmwareVersion (Constants.h). Un miembro con ese nombre la sombrearía
+    // dentro de los métodos de la clase y /getparams reportaría una cadena vacía.
     String jwtToken;
     
     Preferences p;

@@ -44,7 +44,7 @@ An **end-to-end embedded system** built under real hardware constraints
 | **Never store a Wi-Fi password that doesn't work** | **Deferred persistence**: credentials are written to NVS *only* once the connection reaches `WL_CONNECTED` — no failed-retry loops after a reboot. |
 | **Authenticate without resending credentials** | 128-bit **session token** (`esp_random()`), fixed TTL, in RAM (dies on reboot, expiration via `millis()`, wrap-around safe). The AP is encrypted with **WPA2-PSK**. |
 | **Identical validation in browser and device** | Rules replicated **bit for bit** front↔firmware, counting by **UTF-8 character** (not bytes), so accents and ñ don't desync the limits between JS and C++. |
-| **Less flash and faster portal load** | The readable HTML (source of truth) is **regenerated without comments** into the artifact the ESP32 serves (~57 → ~49 KB), with `gzip` as the next step (~12–18 KB). |
+| **Less flash and faster portal load** | The readable HTML (source of truth) is **regenerated without comments** into the artifact the ESP32 serves (~73 KB). That cleanup now saves only ~0.5 KB: the real win will come from `gzip` (~12–18 KB estimated), still pending. |
 
 ---
 

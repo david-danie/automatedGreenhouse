@@ -268,18 +268,18 @@
                 <div class="dash-section">
                     <h3>Espectros de luz</h3>
                     <div class="field">
-                        <label for="ledA">Azul: <output id="ledAOut">0</output>%</label>
-                        <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="50">
+                        <label for="ledAzul">Azul: <output id="ledAzulOut">0</output>%</label>
+                        <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
                     </div>
                     <div class="field">
-                        <label for="ledR">Rojo: <output id="ledROut">0</output>%</label>
-                        <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="50">
+                        <label for="ledRojo">Rojo: <output id="ledRojoOut">0</output>%</label>
+                        <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
                     </div>
                     <div class="field">
                         <!-- El blanco es una salida ON/OFF en el firmware (no PWM):
                              por eso es un interruptor y no un deslizador. -->
-                        <label for="ledB">Luz blanca</label>
-                        <input type="checkbox" id="ledB" name="ledB">
+                        <label for="ledBlanco">Luz blanca</label>
+                        <input type="checkbox" id="ledBlanco" name="ledBlanco">
                     </div>
                     <details class="help">
                         <summary>¿Para qué sirve?</summary>
@@ -607,8 +607,8 @@
             const irrM = $("irrM").value.trim();
             const ventH = $("ventH").value.trim();
             const ventM = $("ventM").value.trim();
-            const ledA = $("ledA").value.trim();
-            const ledR = $("ledR").value.trim();
+            const ledAzul = $("ledAzul").value.trim();
+            const ledRojo = $("ledRojo").value.trim();
 
             if (planta === "") {
                 e.push("El nombre de la planta es obligatorio.");
@@ -630,8 +630,8 @@
             if (!isStrictInteger(irrH) || !VALID_FREQUENCIES.includes(Number(irrH))) e.push("Selecciona una frecuencia de riego válida.");
             if (!isStrictInteger(ventH) || !VALID_FREQUENCIES.includes(Number(ventH))) e.push("Selecciona una frecuencia de ventilación válida.");
 
-            if (!isStrictInteger(ledA) || Number(ledA) > 100) e.push("El espectro azul debe estar entre 0 y 100 %.");
-            if (!isStrictInteger(ledR) || Number(ledR) > 100) e.push("El espectro rojo debe estar entre 0 y 100 %.");
+            if (!isStrictInteger(ledAzul) || Number(ledAzul) > 100) e.push("El espectro azul debe estar entre 0 y 100 %.");
+            if (!isStrictInteger(ledRojo) || Number(ledRojo) > 100) e.push("El espectro rojo debe estar entre 0 y 100 %.");
 
             return e;
         }
@@ -658,9 +658,9 @@
             $("dashDia").textContent = p.dia ?? "—";
             $("dashFpOn").textContent = p.fpOn ?? "—";
             $("dashFpOff").textContent = p.fpOff ?? "—";
-            $("dashLedA").textContent = (p.ledA ?? 0) + "%";
-            $("dashLedR").textContent = (p.ledR ?? 0) + "%";
-            $("dashLedB").textContent = Number(p.ledB) > 0 ? "Encendida" : "Apagada";
+            $("dashLedA").textContent = (p.ledAzul ?? 0) + "%";
+            $("dashLedR").textContent = (p.ledRojo ?? 0) + "%";
+            $("dashLedB").textContent = Number(p.ledBlanco) > 0 ? "Encendida" : "Apagada";
             $("dashIrrH").textContent = FREQ_LABELS[p.irrH] ?? "—";
             $("dashIrrM").textContent = p.irrM ?? "—";
             $("dashVentH").textContent = FREQ_LABELS[p.ventH] ?? "—";
@@ -688,9 +688,9 @@
             $("enable").checked = p.enable === true || p.enable === "true";
             $("fpOn").value = p.fpOn ?? 0;
             $("fpOff").value = p.fpOff ?? 0;
-            $("ledA").value = p.ledA ?? 0;
-            $("ledR").value = p.ledR ?? 0;
-            $("ledB").checked = Number(p.ledB) > 0;
+            $("ledAzul").value = p.ledAzul ?? 0;
+            $("ledRojo").value = p.ledRojo ?? 0;
+            $("ledBlanco").checked = Number(p.ledBlanco) > 0;
             $("irrH").value = p.irrH ?? 0;
             $("irrM").value = p.irrM ?? 0;
             $("ventH").value = p.ventH ?? 0;
@@ -699,8 +699,8 @@
         }
 
         function sincronizarSliders() {
-            $("ledAOut").textContent = $("ledA").value;
-            $("ledROut").textContent = $("ledR").value;
+            $("ledAzulOut").textContent = $("ledAzul").value;
+            $("ledRojoOut").textContent = $("ledRojo").value;
         }
 
         function poblarSelectsFrecuencia() {
@@ -807,8 +807,8 @@
             $("btnTogglePass").setAttribute("aria-label", oculto ? "Ocultar contraseña" : "Mostrar contraseña");
         });
 
-        $("ledA").addEventListener("input", sincronizarSliders);
-        $("ledR").addEventListener("input", sincronizarSliders);
+        $("ledAzul").addEventListener("input", sincronizarSliders);
+        $("ledRojo").addEventListener("input", sincronizarSliders);
 
         /* =====================================================================
            Credenciales (alta y login)
@@ -894,9 +894,9 @@
                 enable: $("enable").checked,
                 fpOn: Number($("fpOn").value),
                 fpOff: Number($("fpOff").value),
-                ledA: Number($("ledA").value),
-                ledR: Number($("ledR").value),
-                ledB: $("ledB").checked ? 1 : 0,   // blanco = ON/OFF
+                ledAzul: Number($("ledAzul").value),
+                ledRojo: Number($("ledRojo").value),
+                ledBlanco: $("ledBlanco").checked ? 1 : 0,   // blanco = ON/OFF
                 irrH: Number($("irrH").value),
                 irrM: Number($("irrM").value),
                 ventH: Number($("ventH").value),

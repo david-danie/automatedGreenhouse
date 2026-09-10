@@ -40,6 +40,14 @@ const uint8_t dnsPort = 53;
 // invalida solo.
 const uint32_t SESSION_TTL_MS = 30UL * 60UL * 1000UL; // 30 min
 
+// ¡OJO CON EL ORDEN! _systemStatus se persiste en NVS con putBytes (por ÍNDICE,
+// no por nombre): insertar, quitar o reordenar enumeradores reinterpreta los
+// datos ya guardados en los equipos en campo. Renombrar SÍ es seguro; mover, no.
+//
+// Correspondencia con las claves JSON del portal:
+//   ledAzul   -> blueDutyCycle    (PWM, 0-100 %)
+//   ledRojo   -> redDutyCycle     (PWM, 0-100 %)
+//   ledBlanco -> whiteLedOn       (ON/OFF, 0/1: salida digital, no PWM)
 enum SystemStatus : uint8_t {
     hasRegisteredUser = 1,
     hasWifiCredentials,
@@ -48,7 +56,8 @@ enum SystemStatus : uint8_t {
     photoperiodOff,           // hora de apagado de las luces (0-23). Se agrega al
     blueDutyCycle,
     redDutyCycle,
-    whiteDutyCycle,
+    whiteLedOn,               // LED blanco: salida DIGITAL (GPIO 0), no PWM. Se
+                              // guarda normalizado a 0/1; cualquier valor > 0 enciende.
     irrigationFrequency,
     irrigationDuration,
     ventilationFrequency,
@@ -69,8 +78,29 @@ enum currentTime : uint8_t {
     ctrl
 };
 
+// ===== Versión del firmware =====
+// Se reporta en GET /getparams (clave "firmwareVersion") y la vista OTA del
+// portal la muestra como "versión actual". Es una constante de COMPILACIÓN, no
+// un valor en NVS, a propósito: la versión describe al binario que se está
+// ejecutando. Si se guardara en NVS, tras un OTA el binario nuevo seguiría
+// reportando la versión vieja hasta que alguien reescribiera ese registro.
+// Así, cada binario dice exactamente lo que es.
+// -> SUBIR ESTE VALOR en cada release que se vaya a distribuir por OTA.
+// (const char* const: puntero const, para que el header pueda incluirse en
+//  varias unidades de compilación sin colisión de símbolos en el enlazado.)
+const char* const firmwareVersion = "1.0.0";
+
 const uint8_t  DS3231Adress = 0x68;
 const uint8_t rtcReadBytes = 7;
+
+// Registro de estado del DS3231 y su bit OSF (Oscillator Stop Flag, bit 7).
+// El chip pone OSF en 1 cuando el oscilador se detuvo en algún momento (primer
+// arranque sin batería, celda agotada, pérdida total de alimentación). Mientras
+// OSF valga 1 la hora NO es de fiar, aunque los registros contengan una fecha
+// dentro de rango (un RTC virgen devuelve 2000-01-01, que "parece" válida). Se
+// limpia al escribir la hora desde el navegador (setCurrentTime).
+const uint8_t DS3231StatusReg = 0x0F;
+const uint8_t DS3231OsfMask   = 0x80;
 
 // ===== Límites de longitud de los campos (en caracteres / code points) =====
 // Deben coincidir con las validaciones del formulario (String.length de JS).
@@ -122,7 +152,8 @@ enum requestStatus {
     INVALID_PHOTOPERIOD_TYPE,
     INVALID_IRRIGATION_TYPE,
     INVALID_VENTILATION_TYPE,
-    INVALID_LED_VALUE,
+    INVALID_LED_VALUE,          // azul/rojo fuera de 0-100 (canales PWM)
+    INVALID_WHITE_LED_VALUE,    // blanco distinto de 0/1 (salida digital, ON/OFF)
 
     INVALID_SECOND_FORMAT,
     INVALID_MINUTE_FORMAT,

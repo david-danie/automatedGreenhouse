@@ -31,8 +31,12 @@ HTML/
 - **`ESP32_controller/mainForm.h` es un artefacto generado**: el mismo HTML pero **sin
   comentarios** (los comentarios viven solo en el `.html` de respaldo) y envuelto en el
   raw-string C. Es lo que el dispositivo sirve; **no se edita a mano**.
-- Quitar los comentarios del `.h` no es cosmético: reduce ~8 KB los bytes que el AP
-  manda en cada carga del portal (~57 KB → ~49 KB), sin tocar la lógica.
+- Quitar los comentarios del `.h` **ya casi no ahorra nada**: medido hoy, el fuente son
+  75,353 bytes y el artefacto 74,879 (~73 KB), es decir **474 bytes (0.6 %)**. El
+  generador solo elimina comentarios de **línea completa**, y al crecer el portal la
+  proporción de esas líneas se volvió marginal. La cifra "~57 KB → ~49 KB" que aparecía
+  aquí correspondía a un estado muy anterior del archivo. El ahorro real está en
+  **gzip** (~12–18 KB estimados), todavía pendiente.
 - Generar el `.h` desde el `.html`: strip de comentarios HTML (`<!-- -->`), CSS (`/* */`)
   y JS (`//`) + colapso de líneas en blanco + wrapper `static const char mainForm[] = R"===(` … `)===";`.
   Tras generar, vale la pena un `node --check` sobre el `<script>` para confirmar que el
@@ -45,7 +49,7 @@ HTML/
 - LED blanco → GPIO 0 (salida digital, lógica invertida), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
 - Buzzer → GPIO 3, ventilador → GPIO 7, bomba de agua → GPIO 10
 - PWM: 1 kHz, 8 bits (duty 0–255) en azul y rojo; se envían como 0–100 % y se escalan internamente. El blanco es digital: el portal manda `0`/`1` y el firmware evalúa `> 0`.
-- **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara, la blanca**; los espectros azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Luz Blanca** es una tarjeta destacada al frente (la "lámpara principal") y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"** dentro de la misma sección *Iluminación*. Se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledA`/`ledR` sliders 0–100, `ledB` toggle 0/1) conservan su contrato con el firmware.
+- **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara, la blanca**; los espectros azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Luz Blanca** es una tarjeta destacada al frente (la "lámpara principal") y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"** dentro de la misma sección *Iluminación*. Se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledAzul`/`ledRojo` sliders 0–100, `ledBlanco` toggle 0/1) conservan su contrato con el firmware.
 - RTC externo **DS3231** por I²C (dirección `0x68`); la hora se sincroniza desde el navegador en `/newparams`.
 
 ---
@@ -87,7 +91,7 @@ el formulario es una máquina de estados que decide qué mostrar según el dispo
 Al cargar, el `#dashboard` arranca **oculto** (`display:none`): el cliente hace
 `GET /getparams` (adjuntando `?token=` si guardó uno) y, según la respuesta, revela directo
 el panel correcto (sin parpadear datos antes de tiempo ni transiciones falsas). El JSON
-espeja las llaves del formulario (`planta`, `fpOn`, `ledA`…), así que el front las usa tal
+espeja las llaves del formulario (`planta`, `fpOn`, `ledAzul`…), así que el front las usa tal
 cual (objeto `params`, sin traducir nombres). Si `/getparams` **falla** (transporte), se
 pinta un `mensaje-error` rojo y se reintenta recargando. La respuesta incluye
 `hasRegisteredUser` y `sessionValid`:
@@ -184,6 +188,24 @@ contraseña. El registro **no** acepta reset (no hay nada previo que borrar).
 4. `turnOnDevices()` aplica la config **al instante** (PWM de LEDs según fotoperiodo + duty,
    relés de bomba/ventilador según frecuencia/duración).
 
+### Interruptor general del cultivo (`enable` → `systemEnable`)
+
+`turnOnDevices()` arranca con dos guardas que cortan todo antes de evaluar horarios:
+
+1. **`systemEnable == 0`** → `allDevicesOff()` y retorna. Es el "off" explícito del usuario
+   desde el portal: no se acciona **nada** (ni luces, ni riego, ni ventilación) aunque el
+   fotoperiodo o el intervalo digan que toca. Tiene prioridad sobre el resto.
+2. **`_rtcValid == false`** → mismo apagado total (ver *Validez del RTC y modo seguro*).
+
+Ambas comparten `allDevicesOff()` para que no puedan divergir si se añade un actuador
+nuevo. Como `/newparams` llama a `turnOnDevices()` al final, desmarcar la casilla apaga
+todo **de inmediato**, sin reiniciar.
+
+> Hasta esta versión `systemEnable` se guardaba, se reportaba en `/getparams` y se
+> imprimía como `ACTIVO/INACTIVO`, pero **nunca se consultaba**: el cultivo seguía
+> operando aunque la UI dijera "INACTIVO". La edad del cultivo (`dia`/`semana`) **sí**
+> sigue avanzando con el sistema desactivado, porque se deriva del calendario.
+
 Luego el `loop()`, cada `deviceUpdateInterval`, refresca `_currentTime` desde el RTC
 (`getCurrentTime()`) y re-aplica `turnOnDevices()`. **Todo el I²C ocurre en el `loop()`
 (loopTask)** — donde también corren los handlers HTTP — para no compartir el bus `Wire`
@@ -219,8 +241,8 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
 1. **CSS** (hoy se ve funcional pero sin estilo).
 2. **Endpoint OTA en el firmware** (`POST /otaupdate`, ver abajo): la vista `ota`
    sube el `.bin` por `multipart`, pero el firmware aún no expone la ruta.
-3. **`firmwareVersion` en `/getparams`**: la vista OTA lo muestra; hoy el firmware
-   no lo expone (está comentado en `Plant.cpp`), así que se ve "desconocida".
+3. ~~**`firmwareVersion` en `/getparams`**~~ — **ya implementado**: el firmware lo
+   expone desde la constante de compilación `firmwareVersion` (`Constants.h`).
 4. **Promover** `portal-v2/mainForm.html` → `HTML/mainForm.html`, regenerar
    `mainForm.h` y actualizar esta doc (la máquina de estados cambia).
 
@@ -239,7 +261,7 @@ Ver el detalle de payloads, validaciones y catálogo de errores en **[`API.md`](
 
 | Método | Ruta                  | Handler                  | Propósito |
 |--------|-----------------------|--------------------------|-----------|
-| GET    | `/`                   | `handleRoot`             | Sirve el HTML único (`mainForm`) vía `send_P` (directo desde flash, sin copiarlo a un `String` de ~49 KB en cada request) |
+| GET    | `/`                   | `handleRoot`             | Sirve el HTML único (`mainForm`) vía `send_P` (directo desde flash, sin copiarlo a un `String` de ~73 KB en cada request) |
 | GET    | `/getparams`          | `handleGetParameters`    | Estado del dispositivo en JSON (incluye `hasRegisteredUser`; con `?token=`, `sessionValid`; y siempre `wifiConnected`/`wifiSsid`) |
 | POST   | `/usercredentials`    | `handleUserCredentials`  | Alta de usuario (primer arranque). No reinicia; **devuelve `token`** de sesión |
 | POST   | `/authusercredentials`| `handleAuthUserCredentials` | Login para desbloquear edición; **devuelve `token`**; intercepta `**reset**` |
@@ -332,9 +354,51 @@ perdería esos días y, además, escribiría NVS cada noche).
 - Reusa `daysSinceEpoch()` del control de riego; `cropDay`/`cropWeek` siguen en el enum de
   `Constants.h` **solo** para no romper el layout NVS de `_systemStatus` (ya no se almacenan).
 
+## Validez del RTC y modo seguro (implementado)
+
+Todo el scheduling —fotoperiodo, riego, ventilación y edad del cultivo— se deriva del
+DS3231. Si esa hora es basura, el sistema no se equivoca "un poco": puede regar de más
+o dejar el cultivo a oscuras. Por eso `Plant` mantiene `_rtcValid` y **no acciona nada**
+mientras la hora no sea de fiar.
+
+**Tres condiciones para considerar válida una lectura** (`Plant::getCurrentTime`):
+
+1. El chip responde por I²C y entrega los 7 registros de tiempo.
+2. Los valores caen en rango (`seg/min ≤ 59`, `hora ≤ 23`, `diaSem 1–7`, `dia 1–31`,
+   `mes 1–12`, `anio ≤ 99`).
+3. El bit **OSF** (*Oscillator Stop Flag*, registro `0x0F` bit 7) está en 0.
+
+**Por qué no basta el chequeo de rangos:** un DS3231 sin batería arranca en
+`2000-01-01 00:00:00`, que **cumple todos los rangos** y sin embargo no es la hora real.
+El OSF es la única señal que distingue "hora fijada por el usuario" de "el reloj se
+reinició y esto es un default". El chip lo levanta cuando el oscilador se detuvo
+(primer arranque, pila agotada, pérdida total de alimentación) y el firmware lo baja en
+`setCurrentTime()`, al escribir la hora que manda el navegador.
+
+**Enmascarado de bits de control:** al convertir de BCD se limpian los bits que no son
+parte del número — `0x00` segundos (bit 7), `0x02` horas (bits 6–5, modo 12/24 h) y
+`0x05` mes (bit 7, *century*) — para que un bit alto no corrompa la conversión.
+
+**Comportamiento con `_rtcValid == false`:**
+
+- `turnOnDevices()` llama a `allDevicesOff()` y retorna: luces, bomba y ventilador
+  apagados. Es el mismo apagado total que `enable: false`, y ambos comparten ese helper
+  para que no puedan divergir si se añade un actuador.
+- `cropDayFromRtc()` devuelve `0`, así que `dia` y `semana` de `/getparams` van en `0`.
+- El log serie lo refleja en la línea de estado.
+
+**Recuperación:** ocurre sola en el uso normal. Guardar parámetros (`POST /newparams`)
+implica que el navegador manda su fecha/hora, el firmware la escribe y limpia el OSF.
+No hace falta ninguna acción especial ni un endpoint aparte.
+
+> **Nota de diagnóstico:** este modo seguro es la causa más probable de un equipo que
+> "no hace nada" recién montado o con la pila del RTC agotada. Hoy solo se ve por el
+> log serie: el portal no expone `rtcValid`, así que un usuario final no distingue
+> "modo seguro" de "sistema desactivado". Queda como mejora pendiente.
+
 ## Propuesta: servir el HTML comprimido (gzip) para mayor performance
 
-Hoy el HTML se embebe como texto (`mainForm.h`, ~49 KB tras quitarle los comentarios).
+Hoy el HTML se embebe como texto (`mainForm.h`, ~73 KB tras quitarle los comentarios).
 Comprimirlo con gzip suele reducirlo a ~12–18 KB, lo que significa **menos flash
 ocupado**, menos chunks por el AP y carga más rápida del portal. Los navegadores
 descomprimen gzip de forma transparente; solo hay que declarar el encabezado
@@ -523,9 +587,23 @@ firmware_releases    (catálogo de binarios para OTA, independiente)
 |-------|--------------|-------|
 | `users` (aquí `accounts`) | `id`, `email` (UNIQUE), `password_hash`, `is_admin`, `created_at` | Cuenta dueña de los dispositivos. Hash con bcrypt/argon2 |
 | `devices` | `id`, `mac` (UNIQUE), `account_id` (FK), `name`, `token_hash`, `firmware_version`, `last_seen_at`, `created_at` | La MAC identifica; `token_hash` = token de dispositivo hasheado (revocable) |
-| `device_configs` | `id`, `device_id` (FK), `planta`, `enable`, `fp_on`, `fp_off`, `led_a/r/b`, `irr_h/m`, `vent_h/m`, `crop_start_day`, `applied_at` | **Una fila por cambio** (histórico). La última = config vigente. Espeja las llaves de `/newparams` |
+| `device_configs` | `id`, `device_id` (FK), `planta`, `enable`, `fp_on`, `fp_off`, `led_a/r/b`, `irr_h/m`, `vent_h/m`, `crop_start_day`, `applied_at` | **Una fila por cambio** (histórico). La última = config vigente. Espeja los campos de `/newparams` en **snake_case**; ojo: los LED se llaman `led_a`/`led_r`/`led_b` aquí, mientras el portal usa `ledAzul`/`ledRojo`/`ledBlanco` (ver [nota](#desfase-de-nombres-entre-portal-y-backend)) |
 | `device_telemetry` | `id`, `device_id` (FK), `ts`, `wifi_rssi`, `uptime`, *(sensores futuros: temp, humedad…)* | **Serie temporal**: candidato a hypertable de **TimescaleDB** |
 | `firmware_releases` | `version`, `url`, `sha256`, `signature`, `min_version`, `published_at` | Catálogo para OTA (ver sección TLS / OTA) |
+
+#### Desfase de nombres entre portal y backend
+
+Los campos de LED **no se llaman igual** en los dos contratos:
+
+| Portal ↔ firmware (`/newparams`, `/getparams`) | Firmware → backend (REST, snake_case) |
+|---|---|
+| `ledAzul` (0–100) | `led_a` |
+| `ledRojo` (0–100) | `led_r` |
+| `ledBlanco` (0/1) | `led_b` |
+
+El backend ya define `led_a/led_r/led_b` en `models.py`, `schema.sql`, la migración `001_initial_schema.py` y los routers (`devices.py` ya valida `led_b` como `ge=0, le=1`, igual que el firmware). Las claves del portal se renombraron después, así que **cuando se implemente el envío de configuración al backend habrá que mapear explícitamente** `ledAzul→led_a`, `ledRojo→led_r`, `ledBlanco→led_b`, o bien renombrar las columnas con una migración nueva.
+
+Hoy no hay incompatibilidad activa: el firmware todavía no envía configuración al backend (`downloadOTA()`/`getToken()` siguen sin implementar). Es una decisión pendiente, no un bug.
 
 ### Flujos de información
 
@@ -650,8 +728,9 @@ el slot en ejecución dejaría el equipo **inservible** ante un corte a media es
    y esté en el AP. Aceptable para subir el propio binario; la firma es cosa de la
    OTA segura por Internet, no de esta local.
 
-También conviene exponer `firmwareVersion` en `/getparams` (hoy comentado en
-`Plant.cpp`) para que la vista OTA muestre la versión instalada.
+`firmwareVersion` ya se expone en `/getparams` (constante de compilación en
+`Constants.h`), así que la vista OTA puede mostrar la versión instalada. **Hay que
+subir ese valor en cada release que se distribuya por OTA.**
 
 ---
 

@@ -385,19 +385,19 @@
             cursor: pointer;
             border: none;
         }
-        #ledA::-webkit-slider-thumb {
+        #ledAzul::-webkit-slider-thumb {
             background: #2196F3;
             box-shadow: 0 2px 8px rgba(33, 150, 243, 0.5);
         }
-        #ledA::-moz-range-thumb {
+        #ledAzul::-moz-range-thumb {
             background: #2196F3;
             box-shadow: 0 2px 8px rgba(33, 150, 243, 0.5);
         }
-        #ledR::-webkit-slider-thumb {
+        #ledRojo::-webkit-slider-thumb {
             background: #f44336;
             box-shadow: 0 2px 8px rgba(244, 67, 54, 0.5);
         }
-        #ledR::-moz-range-thumb {
+        #ledRojo::-moz-range-thumb {
             background: #f44336;
             box-shadow: 0 2px 8px rgba(244, 67, 54, 0.5);
         }
@@ -901,13 +901,13 @@
                     <span>Iluminación</span>
                 </div>
                 <div class="light-primary">
-                    <label class="light-primary-toggle" for="ledB">
+                    <label class="light-primary-toggle" for="ledBlanco">
                         <span class="light-primary-text">
                             <span class="light-primary-name">Luz Blanca</span>
                             <span class="light-primary-hint">Lámpara principal</span>
                         </span>
                         <span class="switch">
-                            <input type="checkbox" id="ledB" name="ledB">
+                            <input type="checkbox" id="ledBlanco" name="ledBlanco">
                             <span class="switch-slider"></span>
                         </span>
                     </label>
@@ -916,16 +916,16 @@
                     <summary>Espectros avanzados <span class="light-advanced-tag">opcional</span></summary>
                     <div class="light-advanced-body">
                         <div class="form-group">
-                            <label for="ledA">Espectro Azul: <span id="luzAzulValue">50%</span></label>
+                            <label for="ledAzul">Espectro Azul: <span id="luzAzulValue">50%</span></label>
                             <div class="slider-container">
-                                <input type="range" id="ledA" name="ledA" min="0" max="100" step="5" value="50">
+                                <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
                                 <div class="slider-progress" id="progressA"></div>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="ledR">Espectro Rojo: <span id="luzRojaValue">50%</span></label>
+                            <label for="ledRojo">Espectro Rojo: <span id="luzRojaValue">50%</span></label>
                             <div class="slider-container">
-                                <input type="range" id="ledR" name="ledR" min="0" max="100" step="5" value="50">
+                                <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
                                 <div class="slider-progress" id="progressR"></div>
                             </div>
                         </div>
@@ -1141,21 +1141,21 @@
             document.getElementById('enable').checked = p.enable === true || p.enable === "true";
             document.getElementById('fpOn').value = p.fpOn;
             document.getElementById('fpOff').value = p.fpOff;
-            document.getElementById('ledA').value = p.ledA;
-            document.getElementById('luzAzulValue').innerText = `${p.ledA}%`;
-            document.getElementById('ledR').value = p.ledR;
-            document.getElementById('luzRojaValue').innerText = `${p.ledR}%`;
-            document.getElementById('ledB').checked = Number(p.ledB) > 0;
+            document.getElementById('ledAzul').value = p.ledAzul;
+            document.getElementById('luzAzulValue').innerText = `${p.ledAzul}%`;
+            document.getElementById('ledRojo').value = p.ledRojo;
+            document.getElementById('luzRojaValue').innerText = `${p.ledRojo}%`;
+            document.getElementById('ledBlanco').checked = Number(p.ledBlanco) > 0;
             document.getElementById('irrH').value = p.irrH;
             document.getElementById('irrM').value = p.irrM;
             document.getElementById('ventH').value = p.ventH;
             document.getElementById('ventM').value = p.ventM;
-            updateSliderProgress('ledA', 'progressA');
-            updateSliderProgress('ledR', 'progressR');
+            updateSliderProgress('ledAzul', 'progressA');
+            updateSliderProgress('ledRojo', 'progressR');
             // Si el cultivador ya usa los espectros (azul/rojo > 0), abre el
             // panel avanzado para que sus valores queden a la vista al cargar.
             const adv = document.querySelector('.light-advanced');
-            if (adv) adv.open = Number(p.ledA) > 0 || Number(p.ledR) > 0;
+            if (adv) adv.open = Number(p.ledAzul) > 0 || Number(p.ledRojo) > 0;
         }
         function actualizarDashboard() {
             const p = params;
@@ -1168,9 +1168,9 @@
             document.getElementById('dashDia').textContent = p.dia ?? "—";
             document.getElementById('dashFpOn').textContent = p.fpOn ?? "—";
             document.getElementById('dashFpOff').textContent = p.fpOff ?? "—";
-            setDashLed('dashLedA', p.ledA);
-            setDashLed('dashLedR', p.ledR);
-            setDashLedB(p.ledB);
+            setDashLed('dashLedA', p.ledAzul);
+            setDashLed('dashLedR', p.ledRojo);
+            setDashLedB(p.ledBlanco);
             document.getElementById('dashIrrH').textContent = FREQ_LABELS[p.irrH] ?? "—";
             document.getElementById('dashIrrM').textContent = p.irrM ?? "—";
             document.getElementById('dashVentH').textContent = FREQ_LABELS[p.ventH] ?? "—";
@@ -1494,15 +1494,15 @@
             formData.forEach((value, key) => {
                 if (key === 'fpOn' || key === 'fpOff' || key === 'irrH' || key === 'irrM' ||
                     key === 'ventH' || key === 'ventM' ||
-                    key === 'ledA' || key === 'ledR')
+                    key === 'ledAzul' || key === 'ledRojo')
                     data[key] = Number(value.trim())
-                else if (key === 'ledB')
+                else if (key === 'ledBlanco')
                     {} // se maneja abajo como checkbox (blanco = ON/OFF)
                 else
                     data[key] = value.trim();
             });
             data.enable = document.getElementById("enable").checked;
-            data.ledB = document.getElementById("ledB").checked ? 1 : 0;
+            data.ledBlanco = document.getElementById("ledBlanco").checked ? 1 : 0;
             const fechaHoraActual = new Date();
             data['dia'] = Number(fechaHoraActual.getDate());
             data['mes'] = Number(fechaHoraActual.getMonth() + 1);
@@ -1701,8 +1701,8 @@
             const ventMinInput = document.getElementById("ventM").value.trim();
             const irrHInput = document.getElementById("irrH").value.trim();
             const ventHInput = document.getElementById("ventH").value.trim();
-            const ledAInput = document.getElementById("ledA").value.trim();
-            const ledRInput = document.getElementById("ledR").value.trim();
+            const ledAzulInput = document.getElementById("ledAzul").value.trim();
+            const ledRojoInput = document.getElementById("ledRojo").value.trim();
             if (planta === "") {
                 errores.push("El nombre de la planta es obligatorio");
             } else {
@@ -1745,9 +1745,9 @@
                 errores.push("Selecciona una frecuencia de riego válida");
             if (!isStrictInteger(ventHInput) || !VALID_FREQUENCIES.includes(Number(ventHInput)))
                 errores.push("Selecciona una frecuencia de ventilación válida");
-            if (!isStrictInteger(ledAInput) || Number(ledAInput) < 0 || Number(ledAInput) > 100)
+            if (!isStrictInteger(ledAzulInput) || Number(ledAzulInput) < 0 || Number(ledAzulInput) > 100)
                 errores.push("El LED azul debe estar entre 0 y 100%");
-            if (!isStrictInteger(ledRInput) || Number(ledRInput) < 0 || Number(ledRInput) > 100)
+            if (!isStrictInteger(ledRojoInput) || Number(ledRojoInput) < 0 || Number(ledRojoInput) > 100)
                 errores.push("El LED rojo debe estar entre 0 y 100%");
             return errores;
         }
@@ -1775,8 +1775,8 @@
             if (!slider || !progress) return;
             const percent = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
             let color;
-            if (sliderId === 'ledA') color = '#2196F3';
-            else if (sliderId === 'ledR') color = '#f44336';
+            if (sliderId === 'ledAzul') color = '#2196F3';
+            else if (sliderId === 'ledRojo') color = '#f44336';
             progress.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percent}%, #e0e0e0 ${percent}%, #e0e0e0 100%)`;
         }
         function updateLampValue(sliderId, valueId, progressId) {
@@ -1790,8 +1790,8 @@
                 updateSliderProgress(sliderId, progressId);
             });
         }
-        updateLampValue('ledA', 'luzAzulValue', 'progressA');
-        updateLampValue('ledR', 'luzRojaValue', 'progressR');
+        updateLampValue('ledAzul', 'luzAzulValue', 'progressA');
+        updateLampValue('ledRojo', 'luzRojaValue', 'progressR');
     </script>
 </body>
 </html>

@@ -52,9 +52,9 @@ void Plant::begin(){
     strlcpy(_plantName, "", sizeof(_plantName));
 
 
-  /*preferences.begin("firmware", true);
-  firmwareVersion = preferences.getString("version", "1.0.1");
-  p.end();*/
+  // La versión del firmware no se carga de NVS: es la constante de compilación
+  // firmwareVersion (Constants.h), para que cada binario reporte lo que realmente
+  // es tras un OTA. Ver el comentario de esa constante.
 
   p.begin("config", true);
   p.getString("username", _username, sizeof(_username));
@@ -172,16 +172,16 @@ requestStatus Plant::validateCropParameters(const String& body){
   if (err) 
     return INVALID_JSON;
   
-  if (!doc.containsKey("planta")  ||
-      !doc.containsKey("enable")  ||
-      !doc.containsKey("fpOn")    ||
-      !doc.containsKey("fpOff")   ||
-      !doc.containsKey("ledA")    ||
-      !doc.containsKey("ledR")    ||
-      !doc.containsKey("ledB")    ||
-      !doc.containsKey("irrH")    ||
-      !doc.containsKey("irrM")    ||
-      !doc.containsKey("ventH")   ||
+  if (!doc.containsKey("planta")    ||
+      !doc.containsKey("enable")    ||
+      !doc.containsKey("fpOn")      ||
+      !doc.containsKey("fpOff")     ||
+      !doc.containsKey("ledAzul")   ||
+      !doc.containsKey("ledRojo")   ||
+      !doc.containsKey("ledBlanco") ||
+      !doc.containsKey("irrH")      ||
+      !doc.containsKey("irrM")      ||
+      !doc.containsKey("ventH")     ||
       !doc.containsKey("ventM"))
     return MISSING_FIELDS;
 
@@ -224,11 +224,17 @@ requestStatus Plant::validateCropParameters(const String& body){
   if (!doc["ventH"].is<uint8_t>() || !doc["ventM"].is<uint8_t>() || !isValidFrequency(doc["ventH"]) || doc["ventM"] > 59)
     return INVALID_VENTILATION_TYPE;
 
-  // LEDs = duty cycle 0-100% (igual que el form).
-  if (!doc["ledA"].is<uint8_t>() || doc["ledA"] > 100 ||
-      !doc["ledR"].is<uint8_t>() || doc["ledR"] > 100 ||
-      !doc["ledB"].is<uint8_t>() || doc["ledB"] > 100)
+  // Espectros azul (ledAzul) y rojo (ledRojo): canales PWM reales, 0-100 % (igual que el form).
+  if (!doc["ledAzul"].is<uint8_t>() || doc["ledAzul"] > 100 ||
+      !doc["ledRojo"].is<uint8_t>() || doc["ledRojo"] > 100)
     return INVALID_LED_VALUE;
+
+  // Blanco (ledBlanco): salida DIGITAL, solo 0 o 1. Antes se aceptaba 0-100 y se
+  // normalizaba, lo que dejaba pasar un 47 como "encendida" — el contrato decía
+  // 0/1 pero la implementación no lo exigía. Ambos portales ya envían
+  // `checked ? 1 : 0`, así que exigirlo no rompe ningún cliente.
+  if (!doc["ledBlanco"].is<uint8_t>() || doc["ledBlanco"] > 1)
+    return INVALID_WHITE_LED_VALUE;
 
   // Validaciones combinadas (tipo + rango en una sola línea)
   if (!doc["seg"].is<uint8_t>() || doc["seg"] > 59)           
@@ -249,9 +255,11 @@ requestStatus Plant::validateCropParameters(const String& body){
   _systemStatus[systemEnable] = doc["enable"] | false;
   _systemStatus[photoperiodOn] = doc["fpOn"] | 0;
   _systemStatus[photoperiodOff] = doc["fpOff"] | 0;
-  _systemStatus[blueDutyCycle] = doc["ledA"] | 0;
-  _systemStatus[redDutyCycle] = doc["ledR"] | 0;
-  _systemStatus[whiteDutyCycle] = doc["ledB"] | 0;
+  // El blanco ya viene validado como 0/1 estricto, así que se guarda tal cual:
+  // el estado interno y lo que reporta /getparams quedan siempre en 0/1.
+  _systemStatus[blueDutyCycle] = doc["ledAzul"] | 0;
+  _systemStatus[redDutyCycle] = doc["ledRojo"] | 0;
+  _systemStatus[whiteLedOn] = doc["ledBlanco"] | 0;
   _systemStatus[irrigationFrequency] = doc["irrH"] | 0;
   _systemStatus[irrigationDuration] = doc["irrM"] | 0;
   _systemStatus[ventilationFrequency] = doc["ventH"] | 0;
@@ -291,7 +299,34 @@ requestStatus Plant::validateCropParameters(const String& body){
   return STATUS_OK;
 }
 
+// Apaga todos los actuadores de golpe. Lógica invertida en los relés y en el LED
+// blanco: HIGH = apagado. Los canales PWM van a duty 0.
+void Plant::allDevicesOff() {
+  digitalWrite(whiteLedPin, HIGH);
+  ledcWrite(blueChannel, zero);
+  ledcWrite(redChannel, zero);
+  digitalWrite(waterPumpPin, HIGH);
+  digitalWrite(fanPin, HIGH);
+}
+
 void Plant::turnOnDevices(){
+  // Interruptor general del cultivo (systemEnable, campo "enable" del portal).
+  // Con el sistema DESACTIVADO no se acciona nada: ni luces, ni riego, ni
+  // ventilación, aunque el fotoperiodo o el intervalo digan que toca encender.
+  // Es el "off" explícito del usuario y tiene prioridad sobre todo lo demás.
+  if (!_systemStatus[systemEnable]) {
+    allDevicesOff();
+    return;
+  }
+
+  // Fail-safe: sin una hora válida del RTC no se puede agendar nada de forma
+  // segura (podríamos regar de más o dejar las luces mal). Apagamos TODOS los
+  // actuadores y salimos hasta que vuelva una lectura válida (ver getCurrentTime).
+  if (!_rtcValid) {
+    allDevicesOff();
+    return;
+  }
+
   // ** Control de Luces **
   // Ventana de fotoperiodo [prendido, apagado). Si prendido < apagado la ventana
   // es continua; si prendido > apagado, cruza medianoche.
@@ -302,7 +337,7 @@ void Plant::turnOnDevices(){
 
   if (luzEncendida) {
     // Ajusta las luces según los duty cycles configurados
-    digitalWrite(whiteLedPin, _systemStatus[whiteDutyCycle] > 0 ? LOW : HIGH);
+    digitalWrite(whiteLedPin, _systemStatus[whiteLedOn] > 0 ? LOW : HIGH);
     ledcWrite(blueChannel, map(_systemStatus[blueDutyCycle], 0, 100, 0, maxDutyCycle));
     ledcWrite(redChannel, map(_systemStatus[redDutyCycle], 0, 100, 0, maxDutyCycle));
   } else {
@@ -366,6 +401,7 @@ void Plant::manageDevice(int devicePin, int intervalHours, int durationMinutes, 
  * @return día de cultivo (>=1), o 0 si aún no se ancla o el RTC retrocedió.
  */
 int Plant::cropDayFromRtc() {
+  if (!_rtcValid) return 0;                          // sin hora fiable: no inventes edad
   if (_cropStartDay == 0) return 0;                  // cultivo sin anclar
 
   uint32_t today = daysSinceEpoch(2000 + _currentTime[year], _currentTime[month], _currentTime[day]);
@@ -376,11 +412,17 @@ int Plant::cropDayFromRtc() {
 // Serializa el estado del dispositivo a JSON para GET /getparams. El cliente
 // (mainForm) decide qué pintar según "hasRegisteredUser": si es false solo
 // se manda ese flag; si es true se incluyen todos los parámetros con las mismas
-// claves que espera el formulario (planta, fpOn, fpOff, ledA, irrH, etc.).
+// claves que espera el formulario (planta, fpOn, fpOff, ledAzul, irrH, etc.).
 String Plant::buildParamsJson(const String& token) {
   StaticJsonDocument<768> doc;
 
   doc["hasRegisteredUser"] = (bool)_systemStatus[hasRegisteredUser];
+
+  // Versión del binario en ejecución. Va SIEMPRE (no depende de que haya usuario
+  // registrado ni sesión): la vista OTA del portal la muestra como "versión
+  // actual" y sin ella pinta "desconocida". Se asigna como const char*, así que
+  // ArduinoJson la guarda por referencia (no copia la cadena al documento).
+  doc["firmwareVersion"] = firmwareVersion;
 
   // Reporta si la sesión sigue activa (el front salta el login si es true). La
   // ventana es FIJA: cargar /getparams no la extiende; expira a los SESSION_TTL_MS
@@ -398,9 +440,9 @@ String Plant::buildParamsJson(const String& token) {
     doc["enable"] = (bool)_systemStatus[systemEnable];
     doc["fpOn"]   = _systemStatus[photoperiodOn];
     doc["fpOff"]  = _systemStatus[photoperiodOff];
-    doc["ledA"]   = _systemStatus[blueDutyCycle];
-    doc["ledR"]   = _systemStatus[redDutyCycle];
-    doc["ledB"]   = _systemStatus[whiteDutyCycle];
+    doc["ledAzul"]   = _systemStatus[blueDutyCycle];   // PWM 0-100 %
+    doc["ledRojo"]   = _systemStatus[redDutyCycle];    // PWM 0-100 %
+    doc["ledBlanco"] = _systemStatus[whiteLedOn];      // ON/OFF 0/1
     doc["irrH"]   = _systemStatus[irrigationFrequency];
     doc["irrM"]   = _systemStatus[irrigationDuration];
     doc["ventH"]  = _systemStatus[ventilationFrequency];
@@ -621,6 +663,45 @@ void Plant::updateWifi() {
                 WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
 }
 
+// ---------------------------------------------------------------------------
+//  RTC DS3231: detección de pérdida de hora vía OSF (registro de estado 0x0F)
+// ---------------------------------------------------------------------------
+// Un chequeo de rangos NO basta para saber si la hora es buena: un DS3231 sin
+// batería arranca en 2000-01-01 00:00:00, que cae dentro de todos los rangos
+// válidos. El bit OSF distingue "hora fijada por el usuario" de "el reloj se
+// reinició y esta fecha es un default".
+
+bool Plant::rtcLostPower() {
+  Wire.beginTransmission(DS3231Adress);
+  Wire.write(DS3231StatusReg);
+  if (Wire.endTransmission() != 0)
+    return true;                       // sin poder leer el estado: no confiar
+
+  if (Wire.requestFrom(DS3231Adress, (uint8_t)1) != 1)
+    return true;
+
+  return (Wire.read() & DS3231OsfMask) != 0;
+}
+
+void Plant::rtcClearLostPower() {
+  // Lee-modifica-escribe: solo baja el bit OSF y deja intactos los demás bits
+  // de estado (habilitación de la salida de 32 kHz, banderas de alarma, etc.).
+  Wire.beginTransmission(DS3231Adress);
+  Wire.write(DS3231StatusReg);
+  if (Wire.endTransmission() != 0) return;
+  if (Wire.requestFrom(DS3231Adress, (uint8_t)1) != 1) return;
+
+  uint8_t status = Wire.read();
+  Wire.beginTransmission(DS3231Adress);
+  Wire.write(DS3231StatusReg);
+  Wire.write(status & ~DS3231OsfMask);
+  Wire.endTransmission();
+}
+
+bool Plant::isRtcValid() {
+  return _rtcValid;
+}
+
 bool Plant::setCurrentTime(){
   Wire.beginTransmission(DS3231Adress);
   Wire.write(0x00);
@@ -628,7 +709,16 @@ bool Plant::setCurrentTime(){
   for (uint8_t i = second; i <= year; i++)
       Wire.write(bin2bcd(_currentTime[i]));
 
-  return (Wire.endTransmission() == 0);
+  // Escribir la hora (desde /newparams, con valores ya validados por rango) es
+  // justo lo que rescata a un RTC sin inicializar: si la transmisión I²C tiene
+  // éxito, _currentTime ya contiene una hora buena y podemos volver a accionar
+  // sin esperar al siguiente refresco de getCurrentTime().
+  bool ok = (Wire.endTransmission() == 0);
+  if (ok) {
+    rtcClearLostPower();   // la hora ya es de fiar: baja el OSF
+    _rtcValid = true;
+  }
+  return ok;
 }
 
 bool Plant::getCurrentTime(){
@@ -636,16 +726,53 @@ bool Plant::getCurrentTime(){
   Wire.beginTransmission(DS3231Adress);
   Wire.write(0x00);
 
-  if (Wire.endTransmission() != 0)
+  if (Wire.endTransmission() != 0) {
+      _rtcValid = false;                 // el RTC no respondió (bus/alimentación)
       return false;
+  }
 
   uint8_t bytesReceived = Wire.requestFrom(DS3231Adress, rtcReadBytes);
-  if (bytesReceived != rtcReadBytes)
+  if (bytesReceived != rtcReadBytes) {
+      _rtcValid = false;                 // lectura incompleta
       return false;
+  }
 
-  for (uint8_t i = 1; i <= rtcReadBytes; i ++) 
-    _currentTime[i] = bcd2bin(Wire.read());  
-  return true; 
+  // Lee los 7 registros de tiempo (0x00..0x06) enmascarando los bits de control
+  // que NO forman parte del BCD, para que un bit alto no corrompa la conversión:
+  //   0x00 segundos: bit7 = CH (Clock Halt en algunos chips) -> & 0x7F
+  //   0x02 horas:    bit6 = modo 12/24h, bit5 = AM/PM/20h     -> & 0x3F (modo 24h)
+  //   0x05 mes:      bit7 = Century                            -> & 0x1F
+  uint8_t raw[rtcReadBytes];
+  for (uint8_t i = 0; i < rtcReadBytes; i++)
+    raw[i] = Wire.read();
+
+  raw[0] &= 0x7F;   // segundos
+  raw[2] &= 0x3F;   // horas (asume formato 24h, que es como lo escribe setCurrentTime)
+  raw[5] &= 0x1F;   // mes
+
+  // _currentTime se indexa con el enum currentTime (second=1..year=7); raw[0]
+  // es el registro de segundos.
+  for (uint8_t i = 0; i < rtcReadBytes; i++)
+    _currentTime[i + 1] = bcd2bin(raw[i]);
+
+  // Validación de plausibilidad: un RTC recién encendido sin batería, o con la
+  // celda agotada, suele devolver ceros o valores fuera de rango. Si algo no
+  // cuadra, marcamos la lectura como inválida para que turnOnDevices() no
+  // accione hardware con una hora basura.
+  bool inRange = (_currentTime[second]    <= 59) &&
+                 (_currentTime[minute]    <= 59) &&
+                 (_currentTime[hour]      <= 23) &&
+                 (_currentTime[dayOfWeek] >= 1 && _currentTime[dayOfWeek] <= 7) &&
+                 (_currentTime[day]       >= 1 && _currentTime[day]       <= 31) &&
+                 (_currentTime[month]     >= 1 && _currentTime[month]     <= 12) &&
+                 (_currentTime[year]      <= 99);
+
+  // Además del rango, el OSF: si el oscilador se detuvo, la fecha que devuelve
+  // el chip es un default (2000-01-01) y no la hora real, aunque esté "en rango".
+  // Hasta que el usuario fije la hora desde el navegador, no se acciona nada.
+  _rtcValid = inRange && !rtcLostPower();
+
+  return _rtcValid;
 
 }
 
@@ -715,7 +842,7 @@ void Plant::printSystemData() {
   Serial.printf("\n Luz      ·  %02dh-%02dh  Blanca %s   Azul %d%%  Roja %d%%\n",
                 _systemStatus[photoperiodOn],
                 _systemStatus[photoperiodOff],
-                _systemStatus[whiteDutyCycle] > 0 ? "ON" : "OFF"
+                _systemStatus[whiteLedOn] > 0 ? "ON" : "OFF",
                 _systemStatus[blueDutyCycle],
                 _systemStatus[redDutyCycle]);
                 
@@ -727,10 +854,6 @@ void Plant::printSystemData() {
                 _systemStatus[ventilationDuration]);
 
   Serial.printf("----------------------------------------------------\n\n");
-}
-
-  Serial.printf("======================================================\n\n");
-}
 }
 
 HttpResponse buildHttpResponse(requestStatus status) {
@@ -787,7 +910,9 @@ HttpResponse buildHttpResponse(requestStatus status) {
     case INVALID_VENTILATION_TYPE:
         return {400, "application/json", "{\"status\":false,\"message\":\"Valores de ventilación inválidos (frecuencia permitida y minutos 0-59).\"}"};
     case INVALID_LED_VALUE:
-        return {400, "application/json", "{\"status\":false,\"message\":\"Los valores de los LEDs deben estar entre 0 y 100%.\"}"};
+        return {400, "application/json", "{\"status\":false,\"message\":\"Los espectros azul y rojo deben estar entre 0 y 100%.\"}"};
+    case INVALID_WHITE_LED_VALUE:
+        return {400, "application/json", "{\"status\":false,\"message\":\"La luz blanca solo acepta 0 (apagada) o 1 (encendida).\"}"};
 
     case INVALID_SECOND_FORMAT:
         return {400, "application/json", "{\"status\":false,\"message\":\"El campo segundo debe ser un entero sin signo (0-59).\"}"};
