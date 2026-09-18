@@ -3,7 +3,8 @@
 // ===========================================================================
 #include "utils.h"
 #include <ctype.h>    // isalnum, isdigit
-#include <string.h>   // strlen
+#include <string.h>   // strlen, memcpy
+#include "mbedtls/md.h"   // mbedtls_md_hmac: API estable en mbedTLS 2.x y 3.x
 
 // ---- RTC DS3231: conversión binario <-> BCD ----
 uint8_t bcd2bin(uint8_t bcd){
@@ -170,18 +171,89 @@ uint32_t daysSinceEpoch(uint16_t y, uint8_t m, uint8_t d) {
   return (uint32_t)era * 146097UL + doe;
 }
 
-String maskPassword(const char* pass) {
-    if (!pass || pass[0] == '\0') return "";
+// ===========================================================================
+//  Contraseña: derivación PBKDF2-HMAC-SHA256 y comparación en tiempo constante
+// ===========================================================================
 
-    int len = strlen(pass);
-    if (len <= 2) return "**";
+bool pbkdf2Sha256(const uint8_t* pass, size_t passLen,
+                  const uint8_t* salt, size_t saltLen,
+                  uint32_t iterations,
+                  uint8_t* out, size_t outLen) {
+  // Solo se soporta dkLen == tamaño del hash: con eso PBKDF2 se reduce a UN
+  // bloque, que es todo lo que necesita este firmware y evita el bucle externo.
+  if (!pass || !salt || !out) return false;
+  if (outLen != pwHashBytes) return false;
+  if (saltLen == 0 || saltLen > pbkdf2MaxSaltBytes) return false;
+  if (iterations == 0) return false;
 
-    String masked;
-    masked.reserve(len); // evita reallocs
+  const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (!info) return false;
 
-    masked += pass[0];
-    masked += "****";
-    masked += pass[len - 1];
+  // U1 = HMAC(pass, salt || INT32BE(1)). El índice de bloque va en big-endian
+  // según el RFC; con un solo bloque siempre es 1.
+  uint8_t salted[pbkdf2MaxSaltBytes + 4];
+  memcpy(salted, salt, saltLen);
+  salted[saltLen + 0] = 0x00;
+  salted[saltLen + 1] = 0x00;
+  salted[saltLen + 2] = 0x00;
+  salted[saltLen + 3] = 0x01;
 
-    return masked;
+  uint8_t u[pwHashBytes];
+  if (mbedtls_md_hmac(info, pass, passLen, salted, saltLen + 4, u) != 0)
+    return false;
+  memcpy(out, u, pwHashBytes);
+
+  // DK = U1 xor U2 xor ... xor Uc, con Ui = HMAC(pass, Ui-1).
+  uint8_t tmp[pwHashBytes];
+  for (uint32_t i = 1; i < iterations; i++) {
+    // Se escribe en un temporal en vez de sobre `u` para no depender de que
+    // mbedTLS tolere que entrada y salida sean el mismo buffer.
+    if (mbedtls_md_hmac(info, pass, passLen, u, pwHashBytes, tmp) != 0)
+      return false;
+    memcpy(u, tmp, pwHashBytes);
+    for (size_t k = 0; k < pwHashBytes; k++)
+      out[k] ^= u[k];
+  }
+  return true;
+}
+
+bool constantTimeEquals(const uint8_t* a, const uint8_t* b, size_t len) {
+  if (!a || !b) return false;
+  // Acumula las diferencias en vez de cortar: el tiempo no depende de en qué byte
+  // difieren, así que no se filtra cuántos acertó el atacante.
+  uint8_t diff = 0;
+  for (size_t i = 0; i < len; i++)
+    diff |= (uint8_t)(a[i] ^ b[i]);
+  return diff == 0;
+}
+
+// ===========================================================================
+//  Hex
+// ===========================================================================
+
+void bytesToHex(const uint8_t* in, size_t len, char* out) {
+  static const char* digits = "0123456789abcdef";
+  for (size_t i = 0; i < len; i++) {
+    out[i * 2]     = digits[(in[i] >> 4) & 0x0F];
+    out[i * 2 + 1] = digits[in[i] & 0x0F];
+  }
+  out[len * 2] = '\0';
+}
+
+bool hexToBytes(const char* hex, uint8_t* out, size_t outLen) {
+  if (!hex || !out) return false;
+  if (strlen(hex) != outLen * 2) return false;
+
+  for (size_t i = 0; i < outLen; i++) {
+    uint8_t nibbles[2];
+    for (uint8_t k = 0; k < 2; k++) {
+      char c = hex[i * 2 + k];
+      if (c >= '0' && c <= '9')      nibbles[k] = (uint8_t)(c - '0');
+      else if (c >= 'a' && c <= 'f') nibbles[k] = (uint8_t)(c - 'a' + 10);
+      else if (c >= 'A' && c <= 'F') nibbles[k] = (uint8_t)(c - 'A' + 10);
+      else return false;
+    }
+    out[i] = (uint8_t)((nibbles[0] << 4) | nibbles[1]);
+  }
+  return true;
 }

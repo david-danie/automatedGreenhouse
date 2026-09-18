@@ -41,10 +41,28 @@ filtrado por IP/MAC, ni cabeceras): **el token en el body es la única llave**.
 ### Manejo del 401 en el cliente
 
 El portal guarda el token que devuelven login y registro, y lo reenvía en `/newparams`,
-`/wificredentials` (body) y `/getparams` (`?token=`). Si el firmware responde
+`/newcrop`, `/wificredentials` (body) y `/getparams` (`?token=`). Si el firmware responde
 `401 INVALID_SESSION` (token perdido tras un reinicio del ESP32, o expirado a los 30 min), el
 portal **limpia el token guardado y devuelve al usuario a la pantalla de login**, en lugar de
-mostrar un error genérico. Así el usuario simplemente se re-autentica y continúa.
+mostrar un error genérico.
+
+Dos detalles que hacen que eso sea utilizable y no una molestia:
+
+- **Se conserva lo que el usuario había escrito.** Al volver de una sesión caída el portal
+  **no** repuebla el formulario desde el dispositivo. Ocultar una vista no borra los campos,
+  así que los valores sobreviven al paso por el login; lo único que los destruía era el propio
+  portal al repoblarlos al reentrar. El mensaje lo dice: *"tus cambios siguen en el
+  formulario"*. Sin esto el usuario se re-autenticaba, veía los valores viejos de vuelta y
+  podía guardarlos **creyendo que guardaba los suyos** — un fallo silencioso en un equipo que
+  programa riego.
+- **Antes de entrar a una vista protegida se refresca el estado.** El portal consulta
+  `/getparams` antes de decidir si la sesión sigue viva, en vez de fiarse de la última copia
+  en memoria. Sin ese refresco se entraba a editar con un `sessionValid` obsoleto y el 401
+  aparecía recién al guardar, cuando el trabajo ya estaba hecho.
+
+El TTL es **fijo** (30 min desde el login, no se renueva con la actividad), así que la
+expiración a media sesión es un caso normal, no excepcional: de ahí que la recuperación tenga
+que ser limpia.
 
 ---
 
@@ -81,6 +99,7 @@ Estado del dispositivo. Es la primera llamada que hace el front para decidir qu�
 | `wifiConnected` | bool | Estado del STA (conexión a la red del usuario) |
 | `wifiSsid` | string | SSID asociado, o `""` si el STA no está conectado |
 | `firmwareVersion` | string | Versión del binario en ejecución (constante de compilación `firmwareVersion` en `Constants.h`, **no** un valor en NVS: así cada binario reporta lo que realmente es tras un OTA). La vista OTA del portal la muestra; si falta, pinta "desconocida" |
+| `rtcValid` | bool | Salud del reloj. En `false` el firmware **no acciona nada** aunque `enable` sea `true` (ver [nota sobre el RTC](#nota-sobre-el-rtc-y-el-modo-seguro)). El portal lo usa para el tercer estado del indicador; el backend lo querrá como telemetría |
 
 **Presentes solo si `hasRegisteredUser == true`:**
 
@@ -124,7 +143,7 @@ Alta del usuario en el primer arranque. **No** reinicia.
 - `pass`: 8–64 caracteres. Mismo charset, sin espacios.
 - Ninguno con 4 o más caracteres idénticos consecutivos.
 
-**Éxito:** guarda las credenciales en NVS (namespace `config`), marca `hasRegisteredUser=1` (namespace `system`) y **emite un token** para que el usuario nuevo entre a editar sin volver a autenticarse:
+**Éxito:** guarda el usuario y **la contraseña derivada** en NVS (namespace `config`: `username`, `pwSalt`, `pwHash`), marca `hasRegisteredUser=1` (namespace `system`) y **devuelve un `token`** de sesión. La contraseña en claro nunca se persiste ni se conserva en RAM (ver [Contraseña de usuario](ARCHITECTURE.md#1-contraseña-de-usuario-resuelto)).
 
 ```json
 { "status": true, "message": "Usuario registrado.", "token": "a1b2c3…" }
@@ -151,8 +170,19 @@ Login para desbloquear la edición, y puerta del factory reset.
 
 **Lógica, en orden:**
 
-1. Si `pass == "**reset**"` → `hardReset()` borra los namespaces `config` y `system`, responde `HARD_RESET` y **el dispositivo reinicia** tras 1 s. Se evalúa **antes** de comparar credenciales, así que funciona aunque se haya olvidado la contraseña.
-2. Si no, valida longitudes y compara contra lo guardado. En éxito emite token (no reinicia); si no coinciden → `MISMATCH_CREDENTIALS`.
+1. Si `pass == "**reset**"` → **reset de fábrica**: `hardReset()` borra **todos** los namespaces de Preferences (`system`, `plantData`, `config` y `wifi`, incluida la passphrase de la red del usuario), responde `HARD_RESET` y **el dispositivo reinicia** tras 1 s. Se evalúa **antes** de comparar credenciales, así que funciona aunque se haya olvidado la contraseña — es su razón de ser.
+
+   **Solo se acepta si la petición entró por la interfaz del AP.** Como no exige credenciales, su única barrera es la cercanía física. Hoy la comprobación es redundante —el servidor solo escucha en la IP del SoftAP, ver [Caveats de seguridad](ARCHITECTURE.md#caveats-de-seguridad)— y se mantiene como defensa en profundidad. Si llegara por otra interfaz se rechaza con `RESET_REQUIRES_AP` (403), comparando `server.client().localIP()` con `WiFi.softAPIP()`: la interfaz que aceptó la conexión, no un dato que el cliente pueda falsificar.
+
+   Para empezar una cosecha nueva sin perder la cuenta ni la red, la operación correcta es [`POST /newcrop`](#post-newcrop).
+2. **Bloqueo por intentos fallidos.** Si hay una ventana de bloqueo activa se responde `TOO_MANY_ATTEMPTS` (**429**) y se corta ahí. Se evalúa **después** del reset y **antes** de derivar el hash, y ese orden es deliberado:
+   - Después del reset, porque el reset es la vía de recuperación: si el bloqueo lo tapara, quien olvide su contraseña e insista se quedaría sin salida.
+   - Antes de derivar, porque cada derivación PBKDF2 cuesta cientos de ms bloqueando `handleClient()`. Rechazar rápido es lo que evita que el propio login sea un vector de denegación de servicio.
+
+   **Política:** los primeros **5** fallos consecutivos no se castigan (los errores de tecleo son normales). Del quinto en adelante la espera arranca en **5 s** y se **duplica** con cada fallo adicional —10, 20, 40, 80, 160— hasta un tope de **5 min**. Un login correcto limpia el contador. El contador **no** se reinicia al expirar la ventana: quien siga insistiendo espera cada vez más.
+
+   El estado vive **solo en RAM**: reiniciar el equipo lo borra. Es un trade-off aceptado —evita desgastar flash y evita un bloqueo persistente que sería un DoS— y significa que esto frena scripts, no a alguien con acceso físico.
+3. Si no, valida longitudes y compara contra lo guardado: deriva la contraseña con el salt de NVS y compara el resultado en tiempo constante. En éxito emite token (no reinicia); si no coinciden → `MISMATCH_CREDENTIALS` y se suma un fallo.
 
 ```json
 { "status": true, "message": "Acceso concedido.", "token": "a1b2c3…" }
@@ -182,9 +212,9 @@ Todas las claves son obligatorias; su ausencia devuelve `MISSING_FIELDS` (o `INV
 | `ledRojo` | 0–100 | Espectro rojo (%) |
 | `ledBlanco` | 0 / 1 | Luz blanca ON/OFF (**estricto**: cualquier otro valor → `INVALID_WHITE_LED_VALUE`) |
 | `irrH` | `validFrequencies` | Intervalo en horas |
-| `irrM` | 0–59 | Duración en minutos |
+| `irrM` | 0–59 | Duración en minutos. **Debe ser ≥ 1 si `irrH > 0`** (ver [nota de duración](#nota-sobre-frecuencia-y-duración)) |
 | `ventH` | `validFrequencies` | Intervalo en horas |
-| `ventM` | 0–59 | Duración en minutos |
+| `ventM` | 0–59 | Duración en minutos. **Debe ser ≥ 1 si `ventH > 0`** |
 
 **Sesión:**
 
@@ -222,17 +252,67 @@ En el primer `/newparams` con fecha válida se ancla `cropStart` en NVS. El guar
 
 ---
 
+## `POST /newcrop`
+
+Cierra el cultivo actual y deja el equipo listo para empezar otro. Es la operación de **cada cosecha**: rutinaria y autenticada.
+
+| | |
+|---|---|
+| Handler | `handleNewCrop` → `Plant::startNewCrop` |
+| Cuerpo | `{"token": "<hex 32>"}` |
+| Autorización | **Token de sesión obligatorio** |
+| Respuesta | Sobre `{status, message}` |
+
+```bash
+curl -X POST http://192.168.4.1/newcrop \
+     -H "Content-Type: application/json" \
+     -d '{"token":"a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"}'
+```
+
+**Qué borra y qué conserva:**
+
+| Se borra | Se conserva |
+|---|---|
+| Nombre de la planta (`plantData`) | Usuario y contraseña (`config`) |
+| Ancla de la edad del cultivo (`cropStart`) | Credenciales Wi-Fi (`wifi`) |
+| Parámetros: fotoperiodo, LEDs, riego y ventilación | Flags `hasRegisteredUser` y `hasWifiCredentials` |
+| `enable` (queda en `false`, todo apagado) | |
+
+Se aplica **al instante**: con `enable` en `false`, `turnOnDevices()` apaga todos los actuadores. Después, `dia` y `semana` valen `0` hasta que un `/newparams` con fecha válida vuelva a anclar el cultivo, que arranca de nuevo en el día 1.
+
+> **No confundir con el reset de fábrica.** Son dos operaciones distintas a propósito:
+>
+> | | `POST /newcrop` | `**reset**` en `/authusercredentials` |
+> |---|---|---|
+> | Propósito | Empezar una cosecha nueva | Escotilla de recuperación |
+> | Frecuencia | Habitual | Excepcional |
+> | Autenticación | **Token obligatorio** | **Ninguna** (es la salida si se olvida la contraseña) |
+> | Borra la cuenta | No | Sí |
+> | Borra la Wi-Fi | No | Sí |
+> | Desde dónde | Cualquier interfaz | **Solo por el AP** |
+
+---
+
 ## `GET /wifiscan`
 
-Escaneo de redes on-demand. Devuelve las **5 más fuertes sin SSID repetido**.
+Escaneo de redes on-demand, **asíncrono**. Devuelve las **5 más fuertes sin SSID repetido**.
 
 | | |
 |---|---|
 | Handler | `handleWifiScan` → `Plant::scanNetworks` |
 | Respuesta | JSON directo |
 
+Mientras el escaneo está en curso:
+
+```json
+{ "scanning": true, "networks": [] }
+```
+
+Cuando termina:
+
 ```json
 {
+  "scanning": false,
   "networks": [
     { "ssid": "MiRed",  "rssi": -48, "secure": true  },
     { "ssid": "Vecino", "rssi": -71, "secure": false }
@@ -240,7 +320,11 @@ Escaneo de redes on-demand. Devuelve las **5 más fuertes sin SSID repetido**.
 }
 ```
 
-El escaneo **bloquea ~2 s** dentro del request: aceptable para una acción puntual del usuario. Ante dos APs con el mismo SSID (repetidores) conserva el de mayor RSSI, y omite las redes ocultas (SSID vacío).
+El escaneo es **asíncrono**: la primera petición lo arranca y responde al instante con `{"scanning": true, "networks": []}`, sin bloquear `handleClient()`. El cliente vuelve a llamar al mismo endpoint (el portal lo hace cada ~700 ms, con tope de ~8 s) hasta recibir `"scanning": false` con la lista. Al entregar los resultados se liberan, así que la siguiente llamada arranca un escaneo nuevo — eso es lo que hace el botón "buscar de nuevo".
+
+Ante dos APs con el mismo SSID (repetidores) conserva el de mayor RSSI, y omite las redes ocultas (SSID vacío).
+
+> **Caveat de radio:** el ESP32-C3 tiene una sola antena, así que durante el escaneo salta de canal y el AP puede perder algún paquete. El portal ya **no se congela** (antes el request bloqueaba ~2 s), pero una petición que caiga justo en ese momento puede tardar más de lo normal.
 
 ---
 
@@ -323,8 +407,10 @@ El OSF es el que distingue una hora real de un valor por defecto: un DS3231 sin 
 **Consecuencias observables cuando la hora no es fiable:**
 
 - Luces, bomba y ventilador quedan **apagados** (mismo apagado total que `enable: false`).
-- `dia` y `semana` de `/getparams` devuelven `0`.
-- El log serie lo indica en la línea de estado.
+- `/getparams` reporta `rtcValid: false`.
+- `dia` y `semana` de `/getparams` devuelven `0`; el portal los pinta como `—`, porque un `0` afirmaría una edad de cultivo que no se puede calcular.
+- El indicador de estado del dashboard muestra un **tercer estado, "En espera"**, en lugar de "Activo": el sistema está habilitado pero no acciona nada. Sin ese estado la UI diría "Activo" mientras nada funciona.
+- El log serie **no** lo dice de forma explícita: solo se deduce de la fecha del encabezado (un RTC sin hora imprime algo como `01/01/00`).
 
 **Cómo se sale de ese estado:** guardando parámetros (`POST /newparams`), porque el navegador manda la fecha/hora y el firmware la escribe en el RTC y limpia el OSF. Es decir, se resuelve solo en el flujo normal de uso; no hace falta ninguna acción especial.
 
@@ -338,11 +424,23 @@ El LED blanco está en **GPIO 0 como salida digital**, no como canal PWM: solo t
 
 - El portal envía `0` o `1`.
 - El firmware **exige** `0` o `1`: cualquier otro valor se rechaza con `INVALID_WHITE_LED_VALUE` (400). La validación tiene su propio estado, separado de `INVALID_LED_VALUE`, que cubre solo los espectros azul y rojo.
-- Internamente se guarda tal cual en `_systemStatus[whiteLedOn]` y se aplica con lógica invertida: `_systemStatus[whiteLedOn] > 0 ? LOW : HIGH`. `/getparams` siempre devuelve `0` o `1`.
+- Internamente se guarda tal cual en `_systemStatus[whiteLedOn]` y se aplica con **lógica directa**: `deviceOn` (nivel alto) enciende. La polaridad de todas las salidas ON/OFF está centralizada en `deviceOn`/`deviceOff` (`Constants.h`). `/getparams` siempre devuelve `0` o `1`.
 
 Los canales azul (`ledAzul`) y rojo (`ledRojo`) sí son PWM y usan el rango 0–100 % completo, escalado internamente a 0–255.
 
 > **Cambio de contrato:** antes estas claves se llamaban `ledA`, `ledR` y `ledB`. Se renombraron porque `ledB` significaba "Blanco" pero se leía como "blue". Además, `ledB` aceptaba `0–100` y lo normalizaba, así que un `47` pasaba como "encendida" aunque el contrato dijera `0/1`. Un cliente que use los nombres viejos recibirá `MISSING_FIELDS`.
+
+---
+
+## Nota sobre frecuencia y duración
+
+`irrH`/`ventH` dicen **cada cuánto** se activa el dispositivo; `irrM`/`ventM`, **cuánto tiempo** permanece encendido dentro de la hora en que toca.
+
+**Regla:** si la frecuencia es mayor que 0, la duración debe ser **al menos 1 minuto**. La combinación "frecuencia activa + duración 0" se rechaza con `INVALID_IRRIGATION_DURATION` / `INVALID_VENTILATION_DURATION` (400).
+
+El motivo es que esa combinación **no hace nada**: `manageDevice()` enciende mientras `minuto_actual < duración`, así que con duración 0 la condición nunca se cumple y el dispositivo jamás arranca. Al mismo tiempo, el portal y el dashboard mostrarían una frecuencia configurada ("Cada 3h"), de modo que un riego que nunca ocurre pasaría inadvertido. Para desactivar existe la forma canónica y explícita: **frecuencia `0` ("Apagado")**.
+
+La regla es asimétrica a propósito: **frecuencia 0 con duración > 0 sí es válida**. Conservar el valor de duración mientras el dispositivo está apagado es útil para cuando se reactive.
 
 ---
 
@@ -356,6 +454,8 @@ Definido en `buildHttpResponse()` (`Plant.cpp`).
 |---|---|---|
 | `STATUS_OK` | 200 | Parámetros actualizados correctamente. |
 | `HARD_RESET` | 200 | Factory reset ejecutado. |
+| `NEW_CROP_DONE` | 200 | Cultivo reiniciado. Configura los parámetros del nuevo cultivo para comenzar. |
+| `RESET_REQUIRES_AP` | 403 | El restablecimiento solo puede hacerse desde la red Wi-Fi del dispositivo. Conéctate a la red SmartPlant e inténtalo de nuevo. |
 | `INVALID_JSON` | 400 | El formato de envío es inválido. |
 | `STORAGE_ERROR` | 400 | Los datos recibidos no se pudieron guardar. |
 | `MISSING_FIELDS` | 400 | Campos requeridos faltantes. |
@@ -373,6 +473,7 @@ Definido en `buildHttpResponse()` (`Plant.cpp`).
 | `USERNAME_REPEATED_CHARS` | 400 | El nombre de usuario tiene un caracter repetido más de 3 veces. |
 | `USERPASS_REPEATED_CHARS` | 400 | La contraseña de usuario tiene un caracter repetido más de 3 veces. |
 | `MISMATCH_CREDENTIALS` | 400 | Las credenciales enviadas no coinciden. |
+| `TOO_MANY_ATTEMPTS` | **429** | Demasiados intentos fallidos. Espera un momento antes de volver a intentarlo. |
 | `INVALID_SESSION` | **401** | Tu sesión expiró. Vuelve a iniciar sesión. |
 
 ### Nombre de la planta
@@ -393,6 +494,8 @@ Definido en `buildHttpResponse()` (`Plant.cpp`).
 | `INVALID_PHOTOPERIOD_TYPE` | 400 | Valor de fotoperiodo inválido (solamente enteros). |
 | `INVALID_IRRIGATION_TYPE` | 400 | Valores de irrigación inválidos (frecuencia permitida y minutos 0-59). |
 | `INVALID_VENTILATION_TYPE` | 400 | Valores de ventilación inválidos (frecuencia permitida y minutos 0-59). |
+| `INVALID_IRRIGATION_DURATION` | 400 | Con el riego activo la duración debe ser de al menos 1 minuto. Para desactivarlo, elige la frecuencia 'Apagado'. |
+| `INVALID_VENTILATION_DURATION` | 400 | Con la ventilación activa la duración debe ser de al menos 1 minuto. Para desactivarla, elige la frecuencia 'Apagado'. |
 | `INVALID_LED_VALUE` | 400 | Los espectros azul y rojo deben estar entre 0 y 100%. |
 | `INVALID_WHITE_LED_VALUE` | 400 | La luz blanca solo acepta 0 (apagada) o 1 (encendida). |
 

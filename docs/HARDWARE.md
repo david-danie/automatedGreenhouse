@@ -40,15 +40,19 @@ Definido en `ESP32_controller/Constants.h`.
 
 | Componente | GPIO | Tipo | Notas |
 |---|---|---|---|
-| LED blanco | 0 | Digital | Lógica invertida (`LOW` = encendido) |
+| LED blanco | 0 | Digital | Lógica directa (`HIGH` = encendido) |
 | LED azul | 1 | PWM canal 1 | 0–100 % desde el portal |
 | LED rojo | 2 | PWM canal 2 | 0–100 % desde el portal |
 | Buzzer | 3 | Digital | Señalización sonora (actualmente comentado en el firmware) |
-| Ventilador / extractor | 7 | Relé | Lógica invertida |
-| Bomba de agua | 10 | Relé | Lógica invertida |
+| Ventilador / extractor | 7 | Relé | Lógica directa |
+| Bomba de agua | 10 | Relé | Lógica directa |
 | RTC DS3231 | I²C `0x68` | — | Bus `Wire`, para el scheduling |
 
-**Lógica invertida:** los relés y el LED blanco se activan con `LOW`. En el arranque el constructor de `Plant` escribe `HIGH` en todas esas salidas para que ningún actuador arranque energizado antes de leer la configuración.
+**Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `HIGH`/`LOW` (lógica directa). Si se cambia a módulos de relé activos en bajo, basta intercambiar esas dos líneas y todo el firmware queda coherente. Antes la polaridad estaba repartida como literales `HIGH`/`LOW` en cinco puntos del código, con el riesgo de dejar alguno al revés — y en la bomba eso significa regar cuando debería estar apagada.
+
+**Estado inicial seguro:** `Plant::begin()` llama a `allDevicesOff()` antes de leer cualquier configuración, para que ningún actuador arranque energizado.
+
+**La inicialización de hardware NO va en el constructor:** `Plant planta;` es un objeto global, así que su constructor corre durante la inicialización estática de C++, antes de que el framework de Arduino termine de preparar los periféricos. Configurar GPIO o LEDC ahí puede fallar en silencio o quedar sobrescrito, dejando un pin como entrada flotante en lugar de salida firme; el síntoma típico es un relé o LED con **brillo débil** que no conmuta bien. Por eso `pinMode`, `ledcAttachChannel` y el estado inicial se hacen en `begin()`, invocado desde `setup()`.
 
 **Un solo canal digital para el blanco:** el blanco no tiene PWM asignado, así que solo admite ON/OFF. El portal envía `0` o `1` y el firmware evalúa `> 0`. Los espectros azul y rojo sí son regulables, que es donde la granularidad importa para el PAR.
 

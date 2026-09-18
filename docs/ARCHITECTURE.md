@@ -42,11 +42,16 @@ HTML/
   Tras generar, vale la pena un `node --check` sobre el `<script>` para confirmar que el
   strip no rompió sintaxis. Para verificar que ambos archivos coinciden: regenera a un
   temporal y haz `diff` contra el `.h` del repo (deben salir idénticos).
+- **`HTML/mainForm.preview.html` es el otro artefacto generado** (`scripts/gen_preview.py`):
+  el mismo portal con un mock de `fetch` inyectado antes de `</head>`, que responde los 8
+  endpoints con datos simulados y sin validar token. Igual que el `.h`, **no se edita a
+  mano**: se regenera desde el fuente. El escenario simulado se controla con las banderas del
+  bloque `MOCK.params` del propio archivo generado.
 
 ---
 
 ## Hardware (ESP32-C3, ver `Constants.h`)
-- LED blanco → GPIO 0 (salida digital, lógica invertida), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
+- LED blanco → GPIO 0 (salida digital, lógica directa: nivel alto enciende), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
 - Buzzer → GPIO 3, ventilador → GPIO 7, bomba de agua → GPIO 10
 - PWM: 1 kHz, 8 bits (duty 0–255) en azul y rojo; se envían como 0–100 % y se escalan internamente. El blanco es digital: el portal manda `0`/`1` y el firmware evalúa `> 0`.
 - **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara, la blanca**; los espectros azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Luz Blanca** es una tarjeta destacada al frente (la "lámpara principal") y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"** dentro de la misma sección *Iluminación*. Se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledAzul`/`ledRojo` sliders 0–100, `ledBlanco` toggle 0/1) conservan su contrato con el firmware.
@@ -57,7 +62,9 @@ HTML/
 ## Arranque y red
 Toda la configuración de red vive en `setup()` (`ESP32_controller.ino`), no en `Plant`:
 
-1. `planta.begin()` carga estado y credenciales desde **Preferences** (NVS), namespaces `config` y `system`.
+1. `planta.begin()` inicializa el hardware (GPIO/PWM y todo apagado) y carga el estado
+   desde **Preferences** (NVS): namespaces `system`, `plantData`, `config` y `wifi`
+   (ver [Persistencia en NVS](#persistencia-en-nvs-preferences)).
 2. Se fija el modo dual **explícito** `WiFi.mode(WIFI_AP_STA)` y se crea el AP Wi-Fi
    **`SmartPlant`** con **WPA2-PSK** vía `WiFi.AP.create(apSsid, apPassword)` **seguido de**
    `WiFi.AP.begin()` (SSID y passphrase viven en `sensible.h`), más DHCP + portal captivo.
@@ -170,12 +177,90 @@ La autenticación es por **token de sesión en RAM**, no por carga de página:
 claro a `/newparams`, pero la confidencialidad real la aporta el **WPA2 del AP** — sin él,
 cualquiera en la red podría capturar el token (viaja sin TLS dentro del enlace cifrado).
 
-### Reset de fábrica
+### Cultivo nuevo vs reset de fábrica
+
+Son **dos operaciones distintas**, y separarlas fue una decisión de diseño: antes el
+`**reset**` cargaba con los dos propósitos y por eso resultaba contradictorio —una acción
+que se hace cada cosecha no puede exigir las mismas garantías que una escotilla de
+emergencia, ni borrar las mismas cosas.
+
+| | `POST /newcrop` | `**reset**` en `/authusercredentials` |
+|---|---|---|
+| Para qué | Terminar una cosecha y empezar otra | Recuperar el equipo (p. ej. contraseña olvidada) |
+| Frecuencia | Habitual | Excepcional |
+| Autenticación | **Token obligatorio** | **Ninguna**, a propósito |
+| Borra cultivo (nombre, ancla, parámetros) | Sí | Sí |
+| Borra cuenta de usuario | **No** | Sí |
+| Borra credenciales Wi-Fi | **No** | Sí |
+| Interfaz aceptada | Cualquiera | **Solo el AP** |
+| UI | Botón explícito con confirmación | Palabra mágica en el campo de contraseña |
+
+**Por qué `/newcrop` exige token y el reset no.** Quien empieza un cultivo nuevo es el dueño,
+que por definición puede iniciar sesión: pedirle token no le cierra ninguna puerta. El reset,
+en cambio, existe precisamente para cuando **no** se puede iniciar sesión; exigirle token lo
+convertiría en un candado cuya única llave está dentro. Son requisitos opuestos porque
+resuelven problemas opuestos.
+
+**Por qué el reset se restringe por interfaz.** Al no pedir credenciales, su única barrera es
+la cercanía física, así que tiene que llegar por el AP. Hoy esa comprobación es **redundante**
+—el servidor ya solo escucha en la IP del SoftAP, así que toda petición viene del AP por
+construcción— y se mantiene a propósito como defensa en profundidad: si alguien volviera a
+ligar el servidor al wildcard, el reset seguiría protegido. El handler compara
+`server.client().localIP()` con `WiFi.softAPIP()` —la interfaz que aceptó la conexión, no un
+dato que el cliente envíe— y responde `RESET_REQUIRES_AP` (403) si no coincide. Es
+**fail-closed**: sin IP de AP válida, deniega.
+
+**Por qué la palabra mágica sigue siendo aceptable para el reset.** Un comando oculto en el
+campo de contraseña es un patrón pobre para algo rutinario —de ahí el botón de `/newcrop`—
+pero razonable para una escotilla que debe existir sin ocupar espacio en la interfaz y sin
+invitar a pulsarla por curiosidad.
+
+### Reset de fábrica (detalle)
 En la pantalla de **login** (`auth`), escribir como contraseña la palabra mágica
-**`**reset**`** dispara `hardReset()` en el backend (borra los namespaces `config` y
-`system` de Preferences) y reinicia el ESP32. Se intercepta en `authUserCredentials()`
-**antes** de comparar credenciales, así que funciona aunque se haya olvidado la
-contraseña. El registro **no** acepta reset (no hay nada previo que borrar).
+**`**reset**`** dispara `hardReset()`, que borra **todos** los namespaces de Preferences
+(`system`, `plantData`, `config` y `wifi`), y reinicia el ESP32. Se intercepta en
+`authUserCredentials()` **antes** de comparar credenciales. El registro **no** acepta reset
+(no hay nada previo que borrar).
+
+> **Incluye la red Wi-Fi.** El namespace `wifi` se borra junto al resto, para no dejar la
+> passphrase de la red del usuario almacenada tras un reset — importa si el equipo cambia de
+> manos. `hardReset()` también limpia las copias en RAM (`_SSID`, `_SSIDpass`,
+> `_wifiPending`) y la sesión activa. Por eso **tras un reset hay que reconfigurar la Wi-Fi**,
+> algo que `/newcrop` no requiere.
+
+### Persistencia en NVS (Preferences)
+
+Todo lo que sobrevive a un corte de luz vive aquí. Es el mapa completo:
+
+| Namespace | Clave | Tipo | Contenido | `/newcrop` | Reset fábrica |
+|---|---|---|---|---|---|
+| `system` | `systemStatus` | blob (13 B) | Flags y parámetros del cultivo (índices del enum `SystemStatus`) | **parcial**: reinicia parámetros y `systemEnable`; conserva `hasRegisteredUser` y `hasWifiCredentials` | sí, entero |
+| `system` | `cropStart` | `uint32` | Ancla de la edad del cultivo (`daysSinceEpoch`). Se escribe en el primer `/newparams` con fecha válida | sí | sí |
+| `plantData` | `plantName` | string | Nombre de la planta | sí | sí |
+| `config` | `username` | string | Nombre de usuario | **no** | sí |
+| `config` | `pwSalt` | string | Salt de 16 B en hex (32 chars), aleatorio por registro | **no** | sí |
+| `config` | `pwHash` | string | PBKDF2-HMAC-SHA256 de la contraseña, 32 B en hex (64 chars) | **no** | sí |
+| `wifi` | `ssid` | string | SSID de la red del usuario | **no** | sí |
+| `wifi` | `pass` | string | Passphrase de esa red, en texto plano | **no** | sí |
+
+**Lo que NO se persiste, a propósito:**
+
+- **Token de sesión** (`_sessionToken`) y su expiración: solo RAM, así que un reinicio o
+  corte de luz invalida la sesión sin nada que limpiar.
+- **Edad del cultivo** (`dia`/`semana`): se deriva de `cropStart` + RTC, no se guarda un
+  contador (así el cultivo "sigue envejeciendo" con el equipo apagado y no se desgasta
+  flash cada noche).
+- **Estado de los actuadores** y validez del RTC: se recalculan en cada `turnOnDevices()`.
+- **Versión del firmware**: es una constante de compilación (`Constants.h`), no un valor
+  guardado, para que cada binario reporte lo que realmente es tras un OTA.
+- **Hora**: vive en el RTC DS3231 (con su propia pila), no en NVS.
+
+**Cuidado al editar el enum `SystemStatus`:** el blob se guarda por **índice**, no por
+nombre. Renombrar es seguro; insertar, quitar o reordenar reinterpreta los datos ya
+guardados, y cambiar la **cantidad** de campos cambia el tamaño del blob —
+`Preferences::getBytes` no copia nada si lo guardado es más grande que el buffer, así que
+la configuración se leería en ceros sin ningún error. Por eso, al cambiar campos, se borra
+la flash antes de cargar el firmware.
 
 ### Cómo se aplican los parámetros (sin reboot)
 `/newparams` **ya no reinicia** el ESP32: los parámetros se aplican en vivo. Al final de
@@ -207,12 +292,14 @@ todo **de inmediato**, sin reiniciar.
 > sigue avanzando con el sistema desactivado, porque se deriva del calendario.
 
 Luego el `loop()`, cada `deviceUpdateInterval`, refresca `_currentTime` desde el RTC
-(`getCurrentTime()`) y re-aplica `turnOnDevices()`. **Todo el I²C ocurre en el `loop()`
-(loopTask)** — donde también corren los handlers HTTP — para no compartir el bus `Wire`
-entre tareas; `printTask` **solo imprime** la copia en RAM de `_currentTime` (ya no toca el
-RTC). Tras un corte de luz, `begin()` recarga `_systemStatus` desde NVS y el loop lo
-re-aplica en segundos. El reboot anterior era **redundante** para aplicar la config; solo
-`**reset**` reinicia ahora.
+(`getCurrentTime()`) y re-aplica `turnOnDevices()`. **Todo corre en un único task
+(`loopTask`)** — I²C, handlers HTTP y el log del estado cada `systemLogInterval`. Antes el
+log vivía en un `printTask` aparte que leía `_currentTime`/`_systemStatus` mientras este
+loop los reescribía: sin sincronización podía imprimir un arreglo a medio actualizar. Se
+eliminó esa tarea en lugar de añadir un mutex, así la carrera desaparece por construcción
+y se liberan sus 2 KB de stack. Tras un corte de luz, `begin()` recarga `_systemStatus`
+desde NVS y el loop lo re-aplica en segundos. El reboot anterior era **redundante** para
+aplicar la config; solo `**reset**` reinicia ahora.
 
 ---
 
@@ -227,18 +314,43 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   y de ahí se sale a destinos independientes (`edit`, `wifi`, `ota`) y se vuelve.
   `auth` deja de ser un destino y pasa a ser una **compuerta**: solo se cruza si la
   sesión no está vigente, recuerda a dónde ibas (`pendingIntent`) y te deposita ahí.
+
+  La compuerta (`requireAuth(intent)`) **refresca `/getparams` antes de decidir**, en vez
+  de fiarse de la copia en memoria: con el TTL fijo de 30 min, `sessionValid` se queda
+  obsoleto con facilidad y sin el refresco se entraría a editar para descubrir el 401 al
+  guardar. Y `sesionInvalida(mensaje, intent, conservarFormulario)` acepta un tercer
+  argumento que evita repoblar el formulario al reentrar, para no borrar lo que el usuario
+  había escrito (ver [Manejo del 401](API.md#manejo-del-401-en-el-cliente)). Los cuatro
+  flujos protegidos —`edit`, `wifi`, `ota` y `/newcrop`— pasan por la misma compuerta.
 - **Estados:** `welcome · register · auth · view · edit · wifi · ota · flashing · exit`
   (la V1 no tenía `ota`, `flashing` ni `exit` como vista propia).
-- **Base sin estilos a propósito:** el markup lleva hooks (`.view`, `.field`,
-  `.dash-section`, `.help`, `.actions`, `.msg`, `.net-list`) para añadir el CSS
-  encima sin tocar el JS. El cambio de vista usa el atributo `hidden`, no el CSS.
+- **CSS con paletas intercambiables.** El markup se construyó primero con hooks
+  (`.view`, `.field`, `.dash-section`, `.dash-item`, `.help`, `.actions`, `.msg`,
+  `.net-list`, `.crop-reset`) y la hoja se añadió encima **sin tocar el JS**. Está
+  organizada en dos capas: los colores viven aislados como **variables CSS** en cuatro
+  bloques de paleta, y los ~59 selectores de componente referencian **solo variables**
+  — ningún color literal. Cambiar de paleta es editar un atributo:
+
+  ```html
+  <html lang="es" data-theme="verde">   <!-- verde · oscuro · tierra · limpio -->
+  ```
+
+  Las cuatro paletas definen el **mismo juego de 18 variables** de color, así que
+  ninguna queda a medias heredando un color de otra. La forma (`--radius`, `--gap`,
+  `--font`) va en un bloque aparte común a todas: la paleta cambia el color, no el ritmo.
+
+  > **Invariante:** el cambio de vista usa el atributo `hidden`, no clases, y lo sostiene
+  > `[hidden] { display: none !important; }`. Si una regla de `.view` ganara especificidad
+  > sobre el atributo, **las ocho pantallas se verían a la vez**. Ninguna regla de `.view`
+  > debe tocar `display`.
 - **Textos de ayuda** con `<details>/<summary>` nativos en la vista de edición.
 - **Banner de solo lectura** (`#dashAuthHint`): el dashboard no exige sesión (leer es
   libre); el banner recuerda que para *editar* hay que iniciar sesión. Solo se
   muestra cuando no hay sesión vigente (`getToken() && sessionValid`).
 
 **Qué le falta para homologarse:**
-1. **CSS** (hoy se ve funcional pero sin estilo).
+1. ~~**CSS**~~ — **ya implementado** (ver arriba): hoja con paletas intercambiables por
+   `data-theme`. Queda elegir la definitiva y, si se quiere, recortar las no usadas.
 2. **Endpoint OTA en el firmware** (`POST /otaupdate`, ver abajo): la vista `ota`
    sube el `.bin` por `multipart`, pero el firmware aún no expone la ruta.
 3. ~~**`firmwareVersion` en `/getparams`**~~ — **ya implementado**: el firmware lo
@@ -266,7 +378,8 @@ Ver el detalle de payloads, validaciones y catálogo de errores en **[`API.md`](
 | POST   | `/usercredentials`    | `handleUserCredentials`  | Alta de usuario (primer arranque). No reinicia; **devuelve `token`** de sesión |
 | POST   | `/authusercredentials`| `handleAuthUserCredentials` | Login para desbloquear edición; **devuelve `token`**; intercepta `**reset**` |
 | POST   | `/newparams`          | `handleNewParameters`    | Guarda y **aplica en vivo** los parámetros del cultivo + hora (sin reiniciar). **Exige `token`** vigente |
-| GET    | `/wifiscan`           | `handleWifiScan`         | Escanea redes y devuelve `{networks:[{ssid,rssi,secure}]}` (top-5 sin nombres repetidos). Sin sobre `{status,message}` |
+| POST   | `/newcrop`            | `handleNewCrop`          | Cierra el cultivo y deja listo otro: borra nombre, ancla y parámetros; **conserva cuenta y Wi-Fi**. **Exige `token`** vigente |
+| GET    | `/wifiscan`           | `handleWifiScan`         | Escaneo **asíncrono**: arranca y responde `{scanning:true,networks:[]}`; al terminar `{scanning:false,networks:[{ssid,rssi,secure}]}` (top-5 sin nombres repetidos). Sin sobre `{status,message}` |
 | POST   | `/wificredentials`    | `handleWifiCredentials`  | Recibe `{ssid,pass,token}`, valida y **arranca** la conexión STA (no bloquea). **Exige `token`** vigente |
 | GET    | `/exit`               | `handleExit`             | Cierra sesión (`clearSession()`): JSON `{status, message}` que el front pinta en la tarjeta (no navega a otra página) |
 | *      | (cualquier otra)      | `handleNotFound`         | `302 → /` (portal captivo) |
@@ -302,6 +415,11 @@ Definidas en `Constants.h` y replicadas en JS dentro de `HTML/mainForm.html`
 - No se permiten **4+ caracteres idénticos consecutivos**.
 - Nombre de planta: sin espacios dobles y no puede ser solo dígitos.
 - Longitudes contadas por **carácter UTF-8** (`utf8Len`), no por bytes.
+- **Frecuencia/duración coherentes:** si `irrH`/`ventH` > 0, la duración correspondiente
+  debe ser ≥ 1 min. Con duración 0 el dispositivo nunca encendería (`manageDevice` exige
+  `minuto < duración`) pero la UI lo mostraría como configurado; para desactivar existe
+  la frecuencia `0`. La regla es asimétrica: frecuencia 0 con duración > 0 sí se acepta,
+  para conservar el valor mientras está apagado.
 
 ---
 
@@ -351,8 +469,13 @@ perdería esos días y, además, escribiría NVS cada noche).
 - **Cálculo** (`Plant::cropDayFromRtc`): `dia = daysSinceEpoch(hoy) − cropStart + 1` (el día
   del ancla es el día 1); `semana = (dia − 1) / 7 + 1`. Antes de anclar (o si el RTC va hacia
   atrás) ambos valen `0`.
-- Reusa `daysSinceEpoch()` del control de riego; `cropDay`/`cropWeek` siguen en el enum de
-  `Constants.h` **solo** para no romper el layout NVS de `_systemStatus` (ya no se almacenan).
+- Reusa `daysSinceEpoch()` del control de riego. Los enumeradores `cropDay`/`cropWeek`
+  **se eliminaron** de `SystemStatus`: eran los dos últimos índices y ya no se leían ni
+  escribían. `_systemStatus` pasó de 15 a 13 bytes, dimensionado por el centinela
+  `systemStatusCount` para que el arreglo siga al enum automáticamente. Como el blob de
+  NVS cambia de tamaño, al cargar este firmware hay que **borrar la flash** (es el
+  procedimiento habitual del proyecto): `Preferences::getBytes` no copia nada si lo
+  guardado es más grande que el buffer, así que un blob viejo se leería en ceros.
 
 ## Validez del RTC y modo seguro (implementado)
 
@@ -385,16 +508,33 @@ parte del número — `0x00` segundos (bit 7), `0x02` horas (bits 6–5, modo 12
   apagados. Es el mismo apagado total que `enable: false`, y ambos comparten ese helper
   para que no puedan divergir si se añade un actuador.
 - `cropDayFromRtc()` devuelve `0`, así que `dia` y `semana` de `/getparams` van en `0`.
-- El log serie lo refleja en la línea de estado.
+- El log serie **no** lo dice de forma explícita: solo se deduce de la fecha del
+  encabezado (un RTC sin hora imprime algo como `01/01/00`).
+- `/getparams` lo reporta como `rtcValid`, y el portal lo trata con **discreción
+  deliberada**: el indicador de estado del dashboard pasa a un tercer valor,
+  **"En espera"** (habilitado pero sin accionar), y `dia`/`semana` se pintan `—`.
+  Sin ese tercer estado la UI diría "Activo" mientras nada funciona.
 
 **Recuperación:** ocurre sola en el uso normal. Guardar parámetros (`POST /newparams`)
 implica que el navegador manda su fecha/hora, el firmware la escribe y limpia el OSF.
 No hace falta ninguna acción especial ni un endpoint aparte.
 
 > **Nota de diagnóstico:** este modo seguro es la causa más probable de un equipo que
-> "no hace nada" recién montado o con la pila del RTC agotada. Hoy solo se ve por el
-> log serie: el portal no expone `rtcValid`, así que un usuario final no distingue
-> "modo seguro" de "sistema desactivado". Queda como mejora pendiente.
+> "no hace nada" recién montado o con la pila del RTC agotada. El portal lo distingue
+> del apagado voluntario mediante el estado **"En espera"** (ver arriba).
+>
+> **Criterio de UX aplicado:** en un equipo nuevo `rtcValid == false` es el estado
+> **normal** —el RTC no se ha puesto en hora hasta el primer `/newparams`—, así que
+> alarmar sobre él enseñaría a ignorar los avisos. Por eso no hay banner ni color de
+> error: se corrige un elemento que ya existía para que deje de mentir, sin añadir
+> mobiliario visual. Se descartó un tooltip (`title`) porque el portal se usa desde el
+> celular, donde es inaccesible.
+>
+> **Mejora pendiente:** distinguir *configuración pendiente* de *hardware degradado*.
+> El mismo flag significa dos cosas: si el cultivo **nunca** se ancló, es setup normal;
+> si **ya estaba anclado** y la hora se perdió, la pila del RTC está agotada y eso sí
+> es accionable ("cambia la pila"). El firmware ya tiene los dos datos
+> (`_rtcValid` y `_cropStartDay`); faltaría exponer ese segundo bit.
 
 ## Propuesta: servir el HTML comprimido (gzip) para mayor performance
 
@@ -480,13 +620,132 @@ evitando depender del RTC DS3231 y su caso borde de "hora no seteada".
   (`clearToken`) y cae al login. El botón Salir hace logout (`/exit` + `clearToken`).
 
 ### Caveats de seguridad
-- El AP `SmartPlant` ahora usa **WPA2-PSK** (`sensible.h`), así que el enlace va cifrado;
-  aun así **no hay TLS** dentro del enlace. El token añade UX y cierra el hueco de reenviar
+- El AP `SmartPlant` usa **WPA2-PSK** (`sensible.h`), así que el enlace va cifrado; aun así
+  **no hay TLS** dentro del enlace. El token añade UX y cierra el hueco de reenviar
   credenciales en claro a `/newparams`, pero la confidencialidad real la aporta el WPA2: con
-  una passphrase compartida y conocida, alguien en la misma red podría capturar el token. El
-  modelo de amenaza efectivo es la **cercanía física** + conocer la passphrase del AP (de ahí
-  la recomendación de contraseña por dispositivo en `sensible.h`).
+  una passphrase compartida y conocida, alguien en la misma red podría capturar el token
+  (de ahí la recomendación de contraseña por dispositivo en `sensible.h`).
+- **El portal se sirve SOLO por el AP.** `WebServer server(apGatewayIp, 80)` liga el socket
+  a la IP del SoftAP (`192.168.4.1`) en vez de al wildcard, así que **ningún endpoint
+  responde por la interfaz STA**. Es la decisión de fondo: el portal es el plano de control
+  *local*, y el enlace con el backend será **saliente**, iniciado por el dispositivo.
+
+  Antes, con `WebServer server(80)`, el socket se ligaba a `0.0.0.0` —el propio comentario de
+  `NetworkServer::begin()` lo dice: *"leave it all-zero so the socket binds to the wildcard
+  (listen on every interface)"*— y en cuanto el equipo se unía a la red del usuario, **todo**
+  el portal quedaba alcanzable desde esa LAN: login, edición de parámetros, configuración de
+  red y el comando de reset, sin necesidad de la passphrase del AP. Un escaneo del `/24`
+  buscando el puerto 80 lo encontraba.
+
+  | | Antes | Ahora |
+  |---|---|---|
+  | Vía AP (`192.168.4.1`) | Sí | Sí |
+  | Vía red del usuario (STA) | **Sí** | **No** |
+
+  **Precio aceptado:** no se puede abrir el dashboard desde el celular estando en la Wi-Fi de
+  casa; hay que cambiarse a la red `SmartPlant`. A cambio, el modelo de amenaza vuelve a ser
+  únicamente **cercanía física + passphrase del AP**.
+
+  `setup()` comprueba en runtime que `WiFi.softAPIP()` coincide con `apGatewayIp` y avisa por
+  serie si no: un desajuste haría fallar el `bind()` en silencio y el portal quedaría muerto
+  sin ningún error visible.
+- **El DNS del portal captivo sí sigue escuchando en todas las interfaces.** `DNSServer::start()`
+  termina en `_udp.listen(_port)`, sin dirección, y responde **cualquier** dominio con la IP
+  del SoftAP. En la red del usuario eso deja un resolvedor DNS abierto que contesta
+  direcciones falsas. El impacto práctico es bajo (nada en la LAN lo usa como DNS por
+  defecto) y **la librería no permite ligarlo a una interfaz**, así que es una limitación
+  aceptada: eliminarla exigiría no levantar el DNS con el STA activo, lo que rompería el
+  portal captivo en modo AP+STA.
 - El token se genera solo en login/registro (no por request), evitando escrituras innecesarias.
+
+### Huecos de seguridad identificados y su resolución
+
+Los tres huecos identificados están **resueltos**. Eran **interdependientes**: el límite de
+intentos podía dejar al usuario fuera del equipo si se implementaba sin resolver antes el
+reset, y por eso se hicieron en ese orden.
+
+#### 1. Contraseña de usuario (resuelto)
+
+La contraseña ya **no se guarda ni se conserva en RAM**: en su lugar viven un salt aleatorio
+y la clave derivada con **PBKDF2-HMAC-SHA256** (`config/pwSalt` y `config/pwHash`, en hex).
+El buffer `_userpass` desapareció, igual que `maskPassword()`, y el log serie ya no imprime
+nada de la contraseña.
+
+**Decisiones de implementación:**
+
+- **`mbedtls_md_hmac()` de `mbedtls/md.h`**, no `mbedtls_pkcs5_pbkdf2_hmac()`. Es deliberado:
+  la API de PKCS#5 cambió de firma entre mbedTLS 2.x y 3.x (quedó deprecada en favor de la
+  variante `_ext`), lo que ataría el firmware a la versión del core; la de `md.h` es estable
+  en ambas.
+- **`dkLen` = 32 = tamaño de SHA-256**, así que PBKDF2 se reduce a **un solo bloque** y no
+  hace falta el bucle externo del RFC: `U1 = HMAC(pass, salt‖INT32BE(1))`,
+  `Ui = HMAC(pass, Ui-1)`, `DK = U1 ⊕ … ⊕ Uc`.
+- **Salt de 16 B por registro** desde `esp_random()` (RNG por hardware): dos equipos con la
+  misma contraseña producen hashes distintos, así que una tabla precalculada no sirve.
+- **Comparación en tiempo constante** (`constantTimeEquals`): acumula las diferencias en vez
+  de cortar en el primer byte distinto, para no filtrar por tiempo cuántos bytes acertó un
+  atacante.
+- **Fail-closed al cargar:** si `pwSalt`/`pwHash` faltan o están corruptos, los buffers quedan
+  en cero y ningún login coincide. El equipo queda accesible solo por reset de fábrica, que es
+  preferible a aceptar cualquier contraseña.
+
+**Pendiente de calibrar:** `pbkdf2Iterations` está en 20 000 como punto de partida. Hay que
+**cronometrarlo en la placa**: el login bloquea `handleClient()` mientras deriva (1 núcleo
+@160 MHz), así que es un compromiso directo entre coste para el atacante y latencia del
+login. La constante vive en `Constants.h`.
+
+#### 2. Reset de fábrica sin autenticación (resuelto por interfaz, no por token)
+
+Se resolvió **sin exigir autenticación**, que era la vía planteada originalmente y resultó
+ser la equivocada: el reset existe para cuando no se puede iniciar sesión, así que pedirle
+token lo habría inutilizado.
+
+En su lugar se hicieron tres cosas:
+
+1. **Separar operaciones.** Lo que el usuario hace cada cosecha se movió a
+   [`POST /newcrop`](#cultivo-nuevo-vs-reset-de-fábrica), que **sí** exige token y conserva
+   cuenta y Wi-Fi. El reset quedó reducido a su papel real: escotilla de recuperación.
+2. **Ligar el servidor a la interfaz del AP**, que cierra la clase entera de exposición: ya
+   no es solo el reset, es que *ningún* endpoint responde desde la red del usuario.
+3. **Restringir el reset por interfaz** en el handler, hoy redundante por lo anterior pero
+   conservado como defensa en profundidad.
+
+Lo que **no** resuelve: quien conozca la passphrase del AP sigue pudiendo resetear sin
+credenciales. Eso es deliberado —es la vía de recuperación— y su endurecimiento requeriría
+hardware: un botón físico o conteo de arranques, que permitiría entonces exigir token también
+al reset. Queda como opción si el PCB se revisa.
+
+#### 3. Login sin límite de intentos (resuelto)
+
+`POST /authusercredentials` ya no se puede martillear sin coste. Estado en RAM
+(`_failedLogins`, `_lockoutUntil`) y política en `Constants.h`.
+
+**Política:** los primeros `loginMaxAttempts` (5) fallos consecutivos no se castigan —los
+errores de tecleo son normales—. Del quinto en adelante la espera arranca en
+`loginLockoutBaseMs` (5 s) y se **duplica** con cada fallo adicional hasta
+`loginLockoutMaxMs` (5 min): 5, 10, 20, 40, 80, 160, 300. Un login correcto limpia el
+contador; expirar la ventana **no** lo limpia, así que quien insista espera cada vez más.
+
+**El orden de las comprobaciones es la parte que importa,** y no es arbitrario:
+
+1. **El comando `**reset**` se evalúa antes del bloqueo.** Es la vía de recuperación: si el
+   bloqueo lo tapara, quien olvide su contraseña e insista unas cuantas veces se quedaría
+   sin ninguna salida. Ésta era la interdependencia que hacía necesario resolver el punto 2
+   antes que este.
+2. **El bloqueo se evalúa antes de derivar el hash.** Cada PBKDF2 cuesta cientos de ms
+   bloqueando `handleClient()`; si el bloqueo se comprobara después, un atacante obtendría
+   exactamente lo que busca un DoS —consumir el único núcleo— aun estando bloqueado.
+
+**En RAM y no en NVS, a propósito:** evita desgastar flash en cada intento fallido y evita
+un bloqueo *persistente*, que sería un vector de denegación de servicio peor que el ataque
+que previene. El precio es que un corte de energía reinicia el contador, así que esto frena
+scripts que insisten, no a alguien con acceso físico —que ya está fuera del modelo de
+amenaza—.
+
+**Comparación de tiempos a prueba del wrap de `millis()`** (~49 días), con la misma resta
+con signo que usa `isSessionValid()`.
+
+---
 
 ## Conexión Wi-Fi del usuario (modo STA) — implementada
 
@@ -546,8 +805,10 @@ bucle de reintentos fallidos tras reiniciar).
   router, el AP **migra al canal del router** y los clientes del portal (el
   celular) pueden **caerse un instante** justo al conectar. Reasocian solos y el
   polling se reanuda; por eso el polling tolera fallos de transporte intermedios.
-- **El escaneo es bloqueante (~2 s)** y corre dentro del request `/wifiscan`:
-  aceptable para una acción puntual del usuario.
+- **El escaneo es asíncrono:** `/wifiscan` arranca `WiFi.scanNetworks(true)` y responde
+  `scanning: true` al instante; el front consulta el mismo endpoint hasta recibir la
+  lista. Antes bloqueaba ~2 s dentro del request y congelaba el portal. Queda el límite
+  físico de una sola antena: durante el escaneo el AP puede perder algún paquete.
 - **Sin tráfico saliente todavía:** el firmware no abre ninguna conexión a un
   backend. Por construcción, un dispositivo **no hace peticiones inútiles**.
 

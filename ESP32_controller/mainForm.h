@@ -448,6 +448,29 @@ static const char mainForm[] = R"===(
             color: white;
             box-shadow: 0 4px 16px rgba(255, 112, 67, 0.3);
         }
+        .crop-reset {
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .crop-reset button {
+            width: 100%;
+            background: #ffffff;
+            color: #8d6e63;
+            border: 1px solid #d7ccc8;
+            box-shadow: none;
+            font-size: 15px;
+        }
+        .crop-reset button:hover {
+            background: #efebe9;
+        }
+        .crop-reset-hint {
+            margin: 10px 0 0;
+            font-size: 12.5px;
+            color: #8d8d8d;
+            text-align: center;
+            line-height: 1.5;
+        }
         .footer {
             padding-top: 32px;
             text-align: center;
@@ -990,6 +1013,10 @@ static const char mainForm[] = R"===(
                     <button type="submit" class="btn-primary">Actualizar</button>
                     <button type="button" class="btn-secondary" id="btnCancel">Cancelar</button>
                 </div>
+                <div class="crop-reset">
+                    <button type="button" id="btnNewCrop">Iniciar cultivo nuevo</button>
+                    <p class="crop-reset-hint">Borra el nombre, el conteo de días y los parámetros para empezar una cosecha nueva. Conserva tu usuario y la red Wi-Fi.</p>
+                </div>
             </div>
             <div id="stepWelcome" style="display:none;">
                 <div class="welcome">
@@ -1070,6 +1097,7 @@ static const char mainForm[] = R"===(
     </div>
     <script>
         const PARAMS_ENDPOINT = "/getparams";
+        const NEW_CROP_ENDPOINT = "/newcrop";
         const TOKEN_KEY = "spToken";
         function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
         function setToken(t) { if (t) localStorage.setItem(TOKEN_KEY, t); }
@@ -1157,12 +1185,13 @@ static const char mainForm[] = R"===(
         function actualizarDashboard() {
             const p = params;
             const activo = p.enable === true || p.enable === "true";
+            const horaOk = p.rtcValid !== false;
             document.getElementById('dashPlanta').textContent = p.planta || "Planta";
             const status = document.getElementById('dashStatus');
-            status.textContent = activo ? "Activo" : "Inactivo";
-            status.classList.toggle('is-off', !activo);
-            document.getElementById('dashSemana').textContent = p.semana ?? "—";
-            document.getElementById('dashDia').textContent = p.dia ?? "—";
+            status.textContent = !activo ? "Inactivo" : (horaOk ? "Activo" : "En espera");
+            status.classList.toggle('is-off', !activo || !horaOk);
+            document.getElementById('dashSemana').textContent = horaOk ? (p.semana ?? "—") : "—";
+            document.getElementById('dashDia').textContent = horaOk ? (p.dia ?? "—") : "—";
             document.getElementById('dashFpOn').textContent = p.fpOn ?? "—";
             document.getElementById('dashFpOff').textContent = p.fpOff ?? "—";
             setDashLed('dashLedA', p.ledAzul);
@@ -1227,6 +1256,7 @@ static const char mainForm[] = R"===(
         let estado = "view";
         let exitVolverA = "view";
         let authIntent = "edit";
+        let authKeepForm = false;
         document.getElementById("year").textContent = new Date().getFullYear();
         const READABLE_SYMBOLS = "_-.@!#$%&*?+=";
         const READABLE_LETTER = /[a-zA-Z0-9áéíóúüÁÉÍÓÚÜñÑ]/;
@@ -1463,7 +1493,8 @@ static const char mainForm[] = R"===(
                 cambiarPaso(stepAuth, stepWifi, "forward");
                 escanearRedes();
             } else {
-                actualizarFormulario();
+                if (!authKeepForm) actualizarFormulario();
+                authKeepForm = false;
                 setEstado("edit");
                 cambiarPaso(stepAuth, stepParams, "forward");
             }
@@ -1471,6 +1502,51 @@ static const char mainForm[] = R"===(
         btnCancel.addEventListener("click", () => {
             setEstado("view");
             cambiarPaso(stepParams, dashboard, "back");
+        });
+        btnNewCrop.addEventListener("click", async () => {
+            if (!confirm("¿Iniciar un cultivo nuevo?\n\nSe borrarán el nombre, el conteo de días y los parámetros.\nTu usuario y la red Wi-Fi se conservan.")) return;
+            const token = getToken();
+            if (!token) {
+                authIntent = "edit";
+                authKeepForm = true;
+                mostrarToast(false, "Tu sesión expiró. Vuelve a iniciar sesión.");
+                setEstado("auth");
+                cambiarPaso(stepParams, stepAuth, "forward");
+                return;
+            }
+            const textoOriginal = btnNewCrop.textContent;
+            btnNewCrop.disabled = true;
+            btnNewCrop.textContent = "Reiniciando…";
+            try {
+                const res = await fetch(NEW_CROP_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token })
+                });
+                const json = await res.json();
+                if (res.status === 401) {
+                    clearToken();
+                    authIntent = "edit";
+                    authKeepForm = true;
+                    mostrarToast(false, json.message || "Tu sesión expiró. Vuelve a iniciar sesión.");
+                    setEstado("auth");
+                    cambiarPaso(stepParams, stepAuth, "forward");
+                    return;
+                }
+                const ok = res.ok && json.status === true;
+                mostrarToast(ok, json.message || (ok ? "Cultivo reiniciado." : "No se pudo reiniciar el cultivo."));
+                if (ok) {
+                    await obtenerValoresDispositivo();
+                    actualizarDashboard();
+                    setEstado("view");
+                    cambiarPaso(stepParams, dashboard, "back");
+                }
+            } catch (e) {
+                mostrarToast(false, "No se pudo conectar con el dispositivo.");
+            } finally {
+                btnNewCrop.disabled = false;
+                btnNewCrop.textContent = textoOriginal;
+            }
         });
         form.addEventListener("submit", function (e) {
             e.preventDefault();
@@ -1530,7 +1606,9 @@ static const char mainForm[] = R"===(
                         cambiarPaso(stepParams, dashboard, "back");
                     } else if (res.status === 401) {
                         clearToken();
-                        mostrarToast(false, json.message || "Tu sesión expiró. Vuelve a iniciar sesión.");
+                        authIntent = "edit";
+                        authKeepForm = true;
+                        mostrarToast(false, "Tu sesión expiró. Inicia sesión y vuelve a pulsar Actualizar; tus cambios siguen en el formulario.");
                         setEstado("auth");
                         cambiarPaso(stepParams, stepAuth, "forward");
                     } else {
@@ -1569,13 +1647,23 @@ static const char mainForm[] = R"===(
             wifiScanError.style.display = "none";
             btnWifiConnect.style.display = "none";
             btnWifiRescan.style.display = "none";
+            const INTERVALO_MS = 700;
+            const MAX_INTENTOS = 12;   // ~8 s
             let data;
-            try {
-                const res = await fetch(WIFI_SCAN_ENDPOINT, { headers: { "Accept": "application/json" } });
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                data = await res.json();
-            } catch (e) {
-                mostrarErrorEscaneo("No se pudo escanear. Revisa el dispositivo e intenta de nuevo.");
+            for (let intento = 0; intento < MAX_INTENTOS; intento++) {
+                try {
+                    const res = await fetch(WIFI_SCAN_ENDPOINT, { headers: { "Accept": "application/json" } });
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    data = await res.json();
+                } catch (e) {
+                    mostrarErrorEscaneo("No se pudo escanear. Revisa el dispositivo e intenta de nuevo.");
+                    return;
+                }
+                if (data.scanning !== true) break;
+                await new Promise((r) => setTimeout(r, INTERVALO_MS));
+            }
+            if (!data || data.scanning === true) {
+                mostrarErrorEscaneo("El escaneo está tardando demasiado. Intenta de nuevo.");
                 return;
             }
             const redes = Array.isArray(data.networks) ? data.networks : [];
@@ -1740,6 +1828,10 @@ static const char mainForm[] = R"===(
                 errores.push("Selecciona una frecuencia de riego válida");
             if (!isStrictInteger(ventHInput) || !VALID_FREQUENCIES.includes(Number(ventHInput)))
                 errores.push("Selecciona una frecuencia de ventilación válida");
+            if (Number(irrHInput) > 0 && Number(irrMinInput) === 0)
+                errores.push("Con el riego activo la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)");
+            if (Number(ventHInput) > 0 && Number(ventMinInput) === 0)
+                errores.push("Con la ventilación activa la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)");
             if (!isStrictInteger(ledAzulInput) || Number(ledAzulInput) < 0 || Number(ledAzulInput) > 100)
                 errores.push("El LED azul debe estar entre 0 y 100%");
             if (!isStrictInteger(ledRojoInput) || Number(ledRojoInput) < 0 || Number(ledRojoInput) > 100)

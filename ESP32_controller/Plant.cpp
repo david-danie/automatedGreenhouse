@@ -6,11 +6,23 @@
 #include <esp_random.h>   // esp_random(): RNG por hardware para el token de sesión
 #include "Constants.h"
 #include "Plant.h"
-#include "sensible.h"
 #include "utils.h"     // helpers libres (BCD, validación de strings/UTF-8, fecha, etc.)
 
+// El constructor NO toca hardware a propósito. `Plant planta;` es un objeto
+// GLOBAL en el .ino, así que este código corre durante la inicialización estática
+// de C++, ANTES de que el framework de Arduino termine de inicializar los
+// periféricos: configurar GPIO/LEDC ahí puede fallar en silencio o quedar
+// sobrescrito, dejando un pin como entrada flotante en vez de salida firme
+// (síntoma típico: un relé o LED con brillo débil en lugar de encender/apagar).
+// Todo el setup de hardware vive en begin(), que se llama desde setup().
 Plant::Plant(){
+}
 
+void Plant::begin(){
+
+  Serial.begin(115200);
+
+  // ---- Inicialización de hardware (aquí, NO en el constructor) ----
   ledcAttachChannel(blueLedPin, pwmFrequency, pwmResolution, blueChannel);
   ledcAttachChannel(redLedPin, pwmFrequency, pwmResolution, redChannel);
 
@@ -19,24 +31,14 @@ Plant::Plant(){
   pinMode(fanPin, OUTPUT);
   //pinMode(buzzerPin, OUTPUT);
 
-  digitalWrite(whiteLedPin, HIGH);
-  digitalWrite(waterPumpPin, HIGH);
-  digitalWrite(fanPin, HIGH);
-  //digitalWrite(buzzerPin, LOW);
-  ledcWrite(blueChannel, zero);
-  ledcWrite(redChannel, zero);
+  // Estado inicial seguro: todo apagado antes de leer cualquier configuración.
+  allDevicesOff();
 
   uint8_t mac[6];
-
   if (esp_efuse_mac_get_default(mac) == ESP_OK) {
     snprintf(_MAC, sizeof(_MAC), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   }
-  
-}
 
-void Plant::begin(){
-
-  Serial.begin(115200);
   Wire.begin();
   delay(500);
 
@@ -58,9 +60,24 @@ void Plant::begin(){
 
   p.begin("config", true);
   p.getString("username", _username, sizeof(_username));
-  p.getString("userpass", _userpass, sizeof(_userpass));
-
+  // La contraseña se guarda como salt + clave derivada, ambos en hex. Si falta o
+  // está corrupto, los buffers quedan en cero y ningún login podrá coincidir: el
+  // equipo queda inaccesible salvo por el reset de fábrica, que es el
+  // comportamiento correcto (mejor negar el paso que aceptar cualquier cosa).
+  char saltHex[pwSaltHexLen + 1] = {0};
+  char hashHex[pwHashHexLen + 1] = {0};
+  p.getString("pwSalt", saltHex, sizeof(saltHex));
+  p.getString("pwHash", hashHex, sizeof(hashHex));
   p.end();
+
+  memset(_pwSalt, 0, sizeof(_pwSalt));
+  memset(_pwHash, 0, sizeof(_pwHash));
+  if (!hexToBytes(saltHex, _pwSalt, sizeof(_pwSalt)) ||
+      !hexToBytes(hashHex, _pwHash, sizeof(_pwHash))) {
+    if (_systemStatus[hasRegisteredUser])
+      Serial.println("[Auth] No se pudo leer el hash de la contraseña: el login fallará. "
+                     "Usa el reset de fábrica desde el AP para volver a registrar.");
+  }
 
   // Credenciales Wi-Fi del usuario (modo STA). Viven en su propio namespace
   // "wifi"; el flag hasWifiCredentials (en _systemStatus/"system") decide si se
@@ -73,10 +90,6 @@ void Plant::begin(){
   getCurrentTime();   // primer refresco del RTC (aquí, en setup/loopTask, sin concurrencia)
   printSystemData();
 
-}
-
-bool Plant::getRegisteredUser(){
-  return _systemStatus[hasRegisteredUser];
 }
 
 // Getters para que setup() (.ino) decida AP puro vs AP+STA y arranque el STA.
@@ -133,16 +146,35 @@ requestStatus Plant::validateUserCredentials(const String& body){
       return USERPASS_REPEATED_CHARS;
 
     strlcpy(_username, username.c_str(), sizeof(_username));
-    strlcpy(_userpass, userpass.c_str(), sizeof(_userpass));
 
-    // ---- 6. Guardar en Preferences -
+    // ---- 6. Derivar la contraseña (nunca se guarda en claro) ----
+    // Salt nuevo de 128 bits por registro: dos equipos con la misma contraseña
+    // producen hashes distintos, así que una tabla precalculada no sirve.
+    for (uint8_t i = 0; i < pwSaltBytes; i += 4) {
+      uint32_t r = esp_random();
+      memcpy(_pwSalt + i, &r, (pwSaltBytes - i >= 4) ? 4 : (pwSaltBytes - i));
+    }
+    if (!pbkdf2Sha256((const uint8_t*)userpass.c_str(), userpass.length(),
+                      _pwSalt, pwSaltBytes, pbkdf2Iterations,
+                      _pwHash, pwHashBytes))
+      return STORAGE_ERROR;
+
+    char saltHex[pwSaltHexLen + 1];
+    char hashHex[pwHashHexLen + 1];
+    bytesToHex(_pwSalt, pwSaltBytes, saltHex);
+    bytesToHex(_pwHash, pwHashBytes, hashHex);
+
+    // ---- 7. Guardar en Preferences ----
     if (!p.begin("config", false))
         return STORAGE_ERROR;
-  
+
     p.putString("username", _username);
-    p.putString("userpass", _userpass);
+    p.putString("pwSalt", saltHex);
+    p.putString("pwHash", hashHex);
+    // Limpia la clave del formato anterior (contraseña en claro) si existiera.
+    p.remove("userpass");
     p.end();
-    Serial.println("[System] Credenciales de usuario guardadas");
+    Serial.println("[System] Credenciales guardadas (contraseña derivada con PBKDF2)");
 
     if (!p.begin("system", false))
         return STORAGE_ERROR;
@@ -224,6 +256,18 @@ requestStatus Plant::validateCropParameters(const String& body){
   if (!doc["ventH"].is<uint8_t>() || !doc["ventM"].is<uint8_t>() || !isValidFrequency(doc["ventH"]) || doc["ventM"] > 59)
     return INVALID_VENTILATION_TYPE;
 
+  // Coherencia frecuencia/duración: con la frecuencia activa (>0) y duración 0 el
+  // dispositivo NUNCA se encendería, porque manageDevice exige
+  // `minuto < duracion`. Esa combinación se ve "configurada" en el portal y en el
+  // dashboard, así que un riego que no ocurre pasaría inadvertido. Para desactivar
+  // ya existe la frecuencia 0 ("Apagado"), que es la forma canónica y explícita.
+  // Al revés SÍ se permite (frecuencia 0 con duración >0): conservar el valor
+  // mientras está apagado es útil para cuando se reactive.
+  if ((uint8_t)doc["irrH"] > 0 && (uint8_t)doc["irrM"] == 0)
+    return INVALID_IRRIGATION_DURATION;
+  if ((uint8_t)doc["ventH"] > 0 && (uint8_t)doc["ventM"] == 0)
+    return INVALID_VENTILATION_DURATION;
+
   // Espectros azul (ledAzul) y rojo (ledRojo): canales PWM reales, 0-100 % (igual que el form).
   if (!doc["ledAzul"].is<uint8_t>() || doc["ledAzul"] > 100 ||
       !doc["ledRojo"].is<uint8_t>() || doc["ledRojo"] > 100)
@@ -299,14 +343,65 @@ requestStatus Plant::validateCropParameters(const String& body){
   return STATUS_OK;
 }
 
-// Apaga todos los actuadores de golpe. Lógica invertida en los relés y en el LED
-// blanco: HIGH = apagado. Los canales PWM van a duty 0.
+// Cierra el cultivo actual y deja el equipo listo para otro. Ver la nota de
+// Plant.h: operación rutinaria y AUTENTICADA, distinta del reset de fábrica.
+requestStatus Plant::startNewCrop(const String& body) {
+  StaticJsonDocument<128> doc;
+  if (deserializeJson(doc, body))
+    return INVALID_JSON;
+
+  // Misma puerta que /newparams: borrar el cultivo es destructivo, así que exige
+  // una sesión vigente. A diferencia del reset de fábrica, aquí NO hay razón para
+  // permitirlo sin credenciales: quien empieza un cultivo nuevo es el dueño, que
+  // por definición puede entrar.
+  if (!doc.containsKey("token"))
+    return INVALID_SESSION;
+  String token = doc["token"] | "";
+  token.trim();
+  if (!isSessionValid(token))
+    return INVALID_SESSION;
+
+  // Se reinicia TODO el estado del cultivo y se preservan explícitamente los dos
+  // flags que no describen al cultivo sino al equipo: la cuenta y la red. Ponerlo
+  // así (borrar todo y restaurar lo que sobrevive) hace que un parámetro nuevo
+  // añadido al enum en el futuro se reinicie por defecto, que es lo deseable.
+  uint8_t hadUser = _systemStatus[hasRegisteredUser];
+  uint8_t hadWifi = _systemStatus[hasWifiCredentials];
+  memset(_systemStatus, 0, sizeof(_systemStatus));
+  _systemStatus[hasRegisteredUser] = hadUser;
+  _systemStatus[hasWifiCredentials] = hadWifi;
+
+  // El ancla vuelve a 0: el próximo /newparams con fecha válida re-ancla el cultivo
+  // y el contador arranca de nuevo en el día 1.
+  _cropStartDay = 0;
+
+  if (!p.begin("system", false))
+    return STORAGE_ERROR;
+  p.putBytes("systemStatus", _systemStatus, sizeof(_systemStatus));
+  p.putULong("cropStart", 0);
+  p.end();
+
+  _plantName[0] = '\0';
+  if (!p.begin("plantData", false))
+    return STORAGE_ERROR;
+  p.putString("plantName", _plantName);
+  p.end();
+
+  // Aplica al instante: con systemEnable en 0 esto apaga todos los actuadores.
+  turnOnDevices();
+  Serial.println("[System] Cultivo reiniciado (cuenta y Wi-Fi conservadas)");
+
+  return NEW_CROP_DONE;
+}
+
+// Apaga todos los actuadores de golpe. La polaridad de las salidas ON/OFF vive en
+// deviceOn/deviceOff (Constants.h). Los canales PWM van a duty 0.
 void Plant::allDevicesOff() {
-  digitalWrite(whiteLedPin, HIGH);
+  digitalWrite(whiteLedPin, deviceOff);
   ledcWrite(blueChannel, zero);
   ledcWrite(redChannel, zero);
-  digitalWrite(waterPumpPin, HIGH);
-  digitalWrite(fanPin, HIGH);
+  digitalWrite(waterPumpPin, deviceOff);
+  digitalWrite(fanPin, deviceOff);
 }
 
 void Plant::turnOnDevices(){
@@ -337,12 +432,12 @@ void Plant::turnOnDevices(){
 
   if (luzEncendida) {
     // Ajusta las luces según los duty cycles configurados
-    digitalWrite(whiteLedPin, _systemStatus[whiteLedOn] > 0 ? LOW : HIGH);
+    digitalWrite(whiteLedPin, _systemStatus[whiteLedOn] > 0 ? deviceOn : deviceOff);
     ledcWrite(blueChannel, map(_systemStatus[blueDutyCycle], 0, 100, 0, maxDutyCycle));
     ledcWrite(redChannel, map(_systemStatus[redDutyCycle], 0, 100, 0, maxDutyCycle));
   } else {
     // Apaga todas las luces
-    digitalWrite(whiteLedPin, HIGH);
+    digitalWrite(whiteLedPin, deviceOff);
     ledcWrite(blueChannel, zero);
     ledcWrite(redChannel, zero);
   }
@@ -385,8 +480,8 @@ void Plant::manageDevice(int devicePin, int intervalHours, int durationMinutes, 
     activeDevice = (epochHours % (uint32_t)intervalHours == 0) && (_currentTime[minute] < durationMinutes);
   }
 
-  // Lógica invertida: LOW enciende (0 lógico), HIGH apaga (1 lógico)
-  digitalWrite(devicePin, activeDevice ? LOW : HIGH);
+  // Polaridad centralizada en deviceOn/deviceOff (Constants.h).
+  digitalWrite(devicePin, activeDevice ? deviceOn : deviceOff);
 }
 
 /**
@@ -424,6 +519,14 @@ String Plant::buildParamsJson(const String& token) {
   // ArduinoJson la guarda por referencia (no copia la cadena al documento).
   doc["firmwareVersion"] = firmwareVersion;
 
+  // Salud del reloj. Va SIEMPRE (no depende de usuario ni sesión) porque es la
+  // única forma de distinguir "apagado a propósito" de "modo seguro": con el RTC
+  // sin hora fiable el firmware NO acciona nada aunque enable sea true, y sin
+  // este campo el portal mostraría "sistema activo" mientras nada funciona.
+  // También es el dato que el backend querrá como telemetría (pila del RTC
+  // agotada en equipos en campo).
+  doc["rtcValid"] = isRtcValid();
+
   // Reporta si la sesión sigue activa (el front salta el login si es true). La
   // ventana es FIJA: cargar /getparams no la extiende; expira a los SESSION_TTL_MS
   // del login, haya o no actividad.
@@ -460,7 +563,7 @@ String Plant::buildParamsJson(const String& token) {
 // Valida credenciales contra las guardadas, sin escribir nada. Sirve para
 // desbloquear el modo edición del dashboard (POST /authusercredentials) antes
 // de permitir el guardado real en /newparams.
-requestStatus Plant::authUserCredentials(const String& body) {
+requestStatus Plant::authUserCredentials(const String& body, bool fromAP) {
   StaticJsonDocument<128> doc;
   if (deserializeJson(doc, body))
     return INVALID_JSON;
@@ -477,20 +580,82 @@ requestStatus Plant::authUserCredentials(const String& body) {
   // usuario/datos guardados que borrar. Se evalúa antes de validar credenciales
   // para que funcione aunque se haya olvidado la contraseña (no compara contra
   // las guardadas). El registro NO acepta reset: ahí no hay nada previo.
+  //
+  // Restringido a la interfaz del AP: como no exige credenciales, su única
+  // barrera es la cercanía física. Con el STA activo el servidor responde también
+  // por la red del usuario, así que sin esta comprobación cualquier host de esa
+  // LAN podría borrar la configuración sin conocer ni la passphrase del AP.
   if (userpass == "**reset**") {
+    if (!fromAP)
+      return RESET_REQUIRES_AP;
     hardReset();
     return HARD_RESET;
   }
+
+  // Bloqueo por intentos fallidos. El orden de estas comprobaciones importa y no es
+  // arbitrario:
+  //   1) El comando de reset se evalúa ARRIBA, antes del bloqueo. Es la vía de
+  //      recuperación: si el bloqueo lo tapara, quien olvide su contraseña e insista
+  //      unas cuantas veces se quedaría sin ninguna salida.
+  //   2) El bloqueo se evalúa ANTES de derivar el hash. Cada derivación cuesta
+  //      cientos de ms bloqueando handleClient(), así que responder rápido a un
+  //      intento bloqueado es lo que evita que el propio login sea un vector de DoS.
+  if (loginLocked())
+    return TOO_MANY_ATTEMPTS;
 
   if (utf8Len(username) < minUsernameChars || utf8Len(username) > maxUsernameChars)
     return INVALID_USERNAME_LENGTH;
   if (utf8Len(userpass) < minUserpassChars || utf8Len(userpass) > maxUserpassChars)
     return INVALID_USERPASS_LENGTH;
 
-  if (username != _username || userpass != _userpass)
+  if (username != _username) {
+    registerLoginFailure();
     return MISMATCH_CREDENTIALS;
+  }
 
+  // Deriva con el salt guardado y compara contra el hash. Nunca se compara la
+  // contraseña en claro porque el firmware ya no la tiene.
+  uint8_t intento[pwHashBytes];
+  if (!pbkdf2Sha256((const uint8_t*)userpass.c_str(), userpass.length(),
+                    _pwSalt, pwSaltBytes, pbkdf2Iterations,
+                    intento, pwHashBytes))
+    return STORAGE_ERROR;
+
+  if (!constantTimeEquals(intento, _pwHash, pwHashBytes)) {
+    registerLoginFailure();
+    return MISMATCH_CREDENTIALS;
+  }
+
+  // Éxito: se limpia el historial de fallos.
+  _failedLogins = 0;
+  _lockoutUntil = 0;
   return STATUS_OK;
+}
+
+// ¿El login está bloqueado ahora mismo? La resta con signo es a prueba del wrap de
+// millis() (~49 días), igual que en isSessionValid().
+bool Plant::loginLocked() {
+  if (_lockoutUntil == 0) return false;
+  if ((int32_t)(millis() - _lockoutUntil) < 0) return true;
+  _lockoutUntil = 0;   // la ventana ya pasó
+  return false;
+}
+
+// Suma un fallo y, pasado el umbral, fija una espera que se duplica con cada fallo
+// adicional hasta el tope. El contador NO se reinicia al expirar la ventana: si
+// alguien sigue insistiendo, la siguiente espera es más larga.
+void Plant::registerLoginFailure() {
+  if (_failedLogins < 255) _failedLogins++;
+  if (_failedLogins < loginMaxAttempts) return;
+
+  uint32_t espera = loginLockoutBaseMs;
+  for (uint8_t i = loginMaxAttempts; i < _failedLogins && espera < loginLockoutMaxMs; i++)
+    espera *= 2;
+  if (espera > loginLockoutMaxMs) espera = loginLockoutMaxMs;
+
+  _lockoutUntil = millis() + espera;
+  Serial.printf("[Auth] %u intentos fallidos: login bloqueado %lu s\n",
+                (unsigned)_failedLogins, (unsigned long)(espera / 1000));
 }
 
 // Emite un token de sesión de 128 bits (4 x esp_random(), RNG por hardware) en
@@ -540,13 +705,31 @@ bool Plant::isWifiConnected() {
 String Plant::scanNetworks() {
   // Top-5 por RSSI, deduplicado por SSID. Arreglos fijos (sin heap): el ESP32-C3
   // tiene RAM limitada y 5 entradas sobran para una lista legible.
+  // ---- Escaneo ASÍNCRONO (no bloquea handleClient) ----
+  // Antes esto llamaba a WiFi.scanNetworks() bloqueante: ~2 s dentro del request,
+  // durante los cuales el loop no atendía a nadie y el portal se congelaba. Ahora
+  // se usa el mismo patrón de "arranca y consulta" que la conexión STA: la primera
+  // petición lanza el escaneo y responde al instante con scanning=true; el front
+  // vuelve a preguntar hasta recibir la lista.
+  int16_t estado = WiFi.scanComplete();
+
+  // WIFI_SCAN_FAILED (-2) = no hay escaneo en curso ni resultados pendientes.
+  if (estado == WIFI_SCAN_FAILED) {
+    WiFi.scanNetworks(true);                          // true = asíncrono
+    return "{\"scanning\":true,\"networks\":[]}";
+  }
+  // WIFI_SCAN_RUNNING (-1) = sigue buscando.
+  if (estado == WIFI_SCAN_RUNNING)
+    return "{\"scanning\":true,\"networks\":[]}";
+
+  // estado >= 0: es el número de redes encontradas y ya están listas.
   const uint8_t MAX = 5;
   char     bestSsid[MAX][maxWifiSsidChars + 1];
   int32_t  bestRssi[MAX];
   bool     bestOpen[MAX];
   uint8_t  count = 0;
 
-  int n = WiFi.scanNetworks();
+  int n = estado;
   for (int i = 0; i < n; i++) {
     String ssid = WiFi.SSID(i);
     if (ssid.length() == 0) continue;                 // red oculta: sin nombre
@@ -579,9 +762,12 @@ String Plant::scanNetworks() {
       }
     }
   }
-  WiFi.scanDelete();                                  // libera los resultados del escaneo
+  // Libera los resultados: deja scanComplete() en WIFI_SCAN_FAILED, así la próxima
+  // petición arranca un escaneo nuevo (el botón "buscar de nuevo" del portal).
+  WiFi.scanDelete();
 
   StaticJsonDocument<768> doc;
+  doc["scanning"] = false;
   JsonArray nets = doc.createNestedArray("networks");
   for (uint8_t k = 0; k < count; k++) {
     JsonObject o = nets.createNestedObject();
@@ -792,16 +978,26 @@ void Plant::hardReset() {
     p.clear();
     p.end();
 
-    /*Serial.println("Clearing: firmware");
-    p.begin("firmware", false);
-    p.clear();
-    p.end();*/
-
     Serial.println("Clearing: config");
     p.begin("config", false);
     p.clear();
     p.end();
 
+    // La red del usuario también se borra: un "reset de fábrica" no debe dejar la
+    // passphrase de su Wi-Fi almacenada en flash (importa si el equipo cambia de
+    // manos). Sin esto quedaba huérfana: el flag hasWifiCredentials vive en
+    // "system" y sí se borraba, así que el STA no arrancaba, pero las credenciales
+    // seguían ahí.
+    Serial.println("Clearing: wifi");
+    p.begin("wifi", false);
+    p.clear();
+    p.end();
+
+    // Y las copias en RAM, para que el estado quede coherente aunque no se
+    // reiniciara justo después (hoy el handler de /authusercredentials reinicia).
+    _SSID[0] = '\0';
+    _SSIDpass[0] = '\0';
+    _wifiPending = false;
 }
 
 void Plant::printSystemData() {
@@ -826,9 +1022,8 @@ void Plant::printSystemData() {
                 _systemStatus[systemEnable] ? "ACTIVO" : "INACTIVO",
                 _systemStatus[hasRegisteredUser] ? "REGISTRADO" : "NO REGISTRADO");
   Serial.printf(" MAC      ·  %s\n", _MAC);
-  Serial.printf(" Usuario  ·  %s  (%s)\n",
-                _username[0] ? _username : "(sin definir)",
-                maskPassword(_userpass).c_str());
+  Serial.printf(" Usuario  ·  %s\n",
+                _username[0] ? _username : "(sin definir)");
   /*Serial.printf(" Wi-Fi    ·  %s  (%s)\n",
                 _SSID[0] ? _SSID : "(sin red)",
                 _systemStatus[hasWifiCredentials] ? "conectado" : "sin conexion");*/
@@ -862,6 +1057,10 @@ HttpResponse buildHttpResponse(requestStatus status) {
         return {200, "application/json", "{\"status\":true,\"message\":\"Parámetros actualizados correctamente.\"}"};
     case HARD_RESET:
         return {200, "application/json", "{\"status\":true,\"message\":\"Factory reset ejecutado.\"}"};
+    case NEW_CROP_DONE:
+        return {200, "application/json", "{\"status\":true,\"message\":\"Cultivo reiniciado. Configura los parámetros del nuevo cultivo para comenzar.\"}"};
+    case RESET_REQUIRES_AP:
+        return {403, "application/json", "{\"status\":false,\"message\":\"El restablecimiento solo puede hacerse desde la red Wi-Fi del dispositivo. Conéctate a la red SmartPlant e inténtalo de nuevo.\"}"};
     case INVALID_JSON:
         return {400, "application/json", "{\"status\":false,\"message\":\"El formato de envío es inválido.\"}"};
     case STORAGE_ERROR:
@@ -886,6 +1085,8 @@ HttpResponse buildHttpResponse(requestStatus status) {
         return {400, "application/json", "{\"status\":false,\"message\":\"La contraseña de usuario tiene un caracter repetido más de 3 veces.\"}"};
     case MISMATCH_CREDENTIALS: //
         return {400, "application/json", "{\"status\":false,\"message\":\"Las credenciales enviadas no coinciden.\"}"};
+    case TOO_MANY_ATTEMPTS:
+        return {429, "application/json", "{\"status\":false,\"message\":\"Demasiados intentos fallidos. Espera un momento antes de volver a intentarlo.\"}"};
     case INVALID_SESSION:
         return {401, "application/json", "{\"status\":false,\"message\":\"Tu sesión expiró. Vuelve a iniciar sesión.\"}"};
 
@@ -909,6 +1110,10 @@ HttpResponse buildHttpResponse(requestStatus status) {
         return {400, "application/json", "{\"status\":false,\"message\":\"Valores de irrigación inválidos (frecuencia permitida y minutos 0-59).\"}"};
     case INVALID_VENTILATION_TYPE:
         return {400, "application/json", "{\"status\":false,\"message\":\"Valores de ventilación inválidos (frecuencia permitida y minutos 0-59).\"}"};
+    case INVALID_IRRIGATION_DURATION:
+        return {400, "application/json", "{\"status\":false,\"message\":\"Con el riego activo la duración debe ser de al menos 1 minuto. Para desactivarlo, elige la frecuencia 'Apagado'.\"}"};
+    case INVALID_VENTILATION_DURATION:
+        return {400, "application/json", "{\"status\":false,\"message\":\"Con la ventilación activa la duración debe ser de al menos 1 minuto. Para desactivarla, elige la frecuencia 'Apagado'.\"}"};
     case INVALID_LED_VALUE:
         return {400, "application/json", "{\"status\":false,\"message\":\"Los espectros azul y rojo deben estar entre 0 y 100%.\"}"};
     case INVALID_WHITE_LED_VALUE:

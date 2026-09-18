@@ -46,8 +46,11 @@
 
 | Área | Estado |
 |---|---|
-| Firmware ESP32-C3 | Funcional: portal captivo, scheduling, RTC, sesión, Wi-Fi AP+STA |
+| Firmware ESP32-C3 | Funcional: portal captivo, scheduling, RTC con modo seguro, sesión, Wi-Fi AP+STA con escaneo asíncrono |
 | Portal web embebido | Funcional: dashboard, edición en vivo, configuración de red |
 | Hardware | Prototipo; PCB de la versión ESP32 en [`ESP32_Board/`](../ESP32_Board) (KiCad) |
+| Seguridad del portal | Los tres huecos resueltos: contraseña con PBKDF2, reset restringido al AP y límite de intentos de login — [ARCHITECTURE.md](ARCHITECTURE.md#huecos-de-seguridad-identificados-y-su-resolución) |
+| OTA local | Cliente listo (Portal V2); falta el endpoint y **fijar `partitions.csv`** con dos slots — [ARCHITECTURE.md](ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota) |
+| Portal gzip | Propuesta con flujo definido; sin implementar — [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Backend | **Diseño cerrado, código por escribir** — [BACKEND.md](BACKEND.md); la infraestructura local ya levanta ([`pythonServer/`](../pythonServer)) |
 | OTA segura | No iniciada; estrategia analizada en [ARCHITECTURE.md](ARCHITECTURE.md) |

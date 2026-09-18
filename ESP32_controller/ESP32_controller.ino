@@ -8,7 +8,13 @@
 #include "mainForm.h" 
 
 DNSServer dnsServer;
-WebServer server(80);
+// Ligado a la IP del SoftAP, NO al wildcard: el portal es el plano de control
+// LOCAL y no debe responder por la interfaz STA. Con `WebServer server(80)` el
+// socket se ligaba a 0.0.0.0 y, en cuanto el equipo se unía a la red del usuario,
+// todos los endpoints quedaban accesibles desde esa LAN sin conocer la passphrase
+// del AP. El constructor solo guarda la dirección; el bind() real ocurre en
+// server.begin(), que corre cuando el AP ya está levantado.
+WebServer server(apGatewayIp, 80);
 
 Plant planta;
 
@@ -20,6 +26,7 @@ void handleNotFound();
 void handleUserCredentials();
 void handleGetParameters();
 void handleNewParameters();
+void handleNewCrop();
 void handleAuthUserCredentials();
 void handleExit();
 void handleWifiScan();
@@ -41,6 +48,18 @@ void setup() {
   WiFi.AP.create(apSsid, apPassword);
   WiFi.AP.begin();
   WiFi.AP.enableDhcpCaptivePortal();
+
+  // El WebServer se liga a apGatewayIp (ver Constants.h). Si el SoftAP no acabara
+  // en esa IP, el bind fallaría en silencio y el portal quedaría inaccesible sin
+  // ningún error visible, así que se comprueba y se avisa aquí.
+  if (WiFi.softAPIP() != apGatewayIp) {
+    Serial.printf("[AP] AVISO: el SoftAP tiene %s pero el servidor se liga a %s. "
+                  "El portal NO responderá: ajusta apGatewayIp en Constants.h.\n",
+                  WiFi.softAPIP().toString().c_str(), apGatewayIp.toString().c_str());
+  } else {
+    Serial.printf("[AP] Portal servido solo en %s (la interfaz STA no lo expone)\n",
+                  apGatewayIp.toString().c_str());
+  }
 
   // Desactiva el modem-sleep: con STA habilitado el ESP32 duerme la radio según
   // el ciclo del STA (WIFI_PS_MIN_MODEM por defecto), lo que deja al SoftAP sin
@@ -70,21 +89,13 @@ void setup() {
   server.on("/usercredentials", HTTP_POST, handleUserCredentials);
   server.on("/getparams", HTTP_GET, handleGetParameters);
   server.on("/newparams", HTTP_POST, handleNewParameters);
+  server.on("/newcrop", HTTP_POST, handleNewCrop);
   server.on("/authusercredentials", HTTP_POST, handleAuthUserCredentials);
   server.on("/wifiscan", HTTP_GET, handleWifiScan);
   server.on("/wificredentials", HTTP_POST, handleWifiCredentials);
   server.on("/exit", handleExit);
   server.onNotFound(handleNotFound);
   server.begin();
-
-  xTaskCreate(
-      printTask,     // Función de la tarea
-      "PrintTask",   // Nombre
-      2048,          // Stack
-      NULL,          // Sin parámetros
-      1,             // Prioridad
-      NULL           // Handle
-  );
 
 }
 
@@ -98,12 +109,24 @@ void loop() {
   uint32_t now = millis();
   if (now - lastDeviceUpdate >= deviceUpdateInterval) {
     lastDeviceUpdate = now;
-    // Único punto de I²C periódico: refresca _currentTime desde el RTC aquí, en
-    // loopTask, para no compartir el bus Wire con printTask (que solo imprime).
+    // Único punto de I²C periódico: refresca _currentTime desde el RTC.
     planta.getCurrentTime();
     planta.turnOnDevices();
     // Persiste las credenciales Wi-Fi si un intento pendiente acaba de conectar.
     planta.updateWifi();
+  }
+
+  // El log del estado se imprime AQUÍ, no en una tarea aparte. Antes lo hacía un
+  // printTask que leía _currentTime/_systemStatus mientras este loop los
+  // reescribía: sin sincronización, podía imprimir un arreglo a medio actualizar
+  // (p. ej. una hora mezclada). Con un solo task tocando ese estado la carrera
+  // desaparece por construcción, sin necesidad de mutex, y se ahorran los 2 KB de
+  // stack de la tarea.
+  static uint32_t lastLog = 0;
+  if (now - lastLog >= systemLogInterval) {
+    lastLog = now;
+    planta.printSystemData();
+    Serial.printf("Stack libre minimo (loop): %u bytes\n", uxTaskGetStackHighWaterMark(NULL));
   }
 
   delay(2);  // cede CPU al IDLE task (alimenta el watchdog) sin la latencia del delay(250) previo
@@ -160,7 +183,16 @@ void handleAuthUserCredentials() {
   String body = server.arg("plain");
   Serial.println("*****  " + server.uri() + "  *****");
 
-  requestStatus status = planta.authUserCredentials(body);
+  // ¿La petición entró por la interfaz del AP? localIP() es la IP LOCAL del socket,
+  // es decir la interfaz que aceptó la conexión: por el AP vale softAPIP(), por el
+  // STA la IP de la red del usuario. No es un dato que el cliente envíe, así que no
+  // se puede falsificar como una cabecera. Solo se usa para autorizar el comando de
+  // reset (ver Plant::authUserCredentials). Fail-closed: si no hay IP de AP válida
+  // se deniega, en lugar de permitir.
+  IPAddress apIp = WiFi.softAPIP();
+  bool fromAP = (apIp != IPAddress((uint32_t)0)) && (server.client().localIP() == apIp);
+
+  requestStatus status = planta.authUserCredentials(body, fromAP);
 
   // Login OK → emitimos token de sesión y lo devolvemos para desbloquear la
   // edición durante 30 min sin re-autenticar en cada carga.
@@ -197,6 +229,19 @@ void handleNewParameters() {
 
 }
 
+void handleNewCrop() {
+  // Cierra el cultivo actual: borra nombre, ancla de días y parámetros, y conserva
+  // la cuenta y la Wi-Fi. Exige token de sesión (es una acción destructiva del
+  // dueño, no una vía de recuperación). El reset de FÁBRICA es otra cosa: vive en
+  // /authusercredentials como el comando **reset**, sin token y solo por el AP.
+  String body = server.arg("plain");
+  Serial.println("*****  " + server.uri() + "  *****");
+
+  requestStatus status = planta.startNewCrop(body);
+  response = buildHttpResponse(status);
+  server.send(response.code, response.contentType, response.body);
+}
+
 void handleExit() {
   // Logout: invalida la sesión de edición en el dispositivo (el front además
   // limpia su token en localStorage). Responde JSON {status, message} que el
@@ -224,12 +269,4 @@ void handleWifiCredentials() {
   requestStatus status = planta.saveWifiCredentials(body);
   response = buildHttpResponse(status);
   server.send(response.code, response.contentType, response.body);
-}
-
-void printTask(void *pvParameters) {
-  while (true) {
-    planta.printSystemData();
-    Serial.printf("Stack libre minimo: %u bytes\n", uxTaskGetStackHighWaterMark(NULL));
-    vTaskDelay(pdMS_TO_TICKS(5000));  // Esperar 5 segundos
-  }
 }

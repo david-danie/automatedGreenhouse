@@ -1,6 +1,22 @@
 #ifndef _CONSTANTS
 #define _CONSTANTS
 
+#include <Arduino.h>   // HIGH/LOW: este header define niveles lógicos, así que no
+                       // depende del orden de inclusión de quien lo use.
+
+// ===== Polaridad de las salidas ON/OFF (relés y LED blanco) =====
+// El nivel que ENCIENDE vive SOLO aquí. Antes estaba repartido como HIGH/LOW
+// literales en cinco sitios (constructor, allDevicesOff, turnOnDevices y
+// manageDevice), y cambiar de módulos "activos en bajo" a "activos en alto"
+// obligaba a cazarlos uno por uno con el riesgo de dejar alguno al revés —que en
+// la bomba significa regar cuando debería estar apagada—.
+//
+// Configuración actual: LÓGICA DIRECTA (el pin en alto enciende).
+// Si el hardware fuese de relés activos en bajo, basta intercambiar estas dos
+// líneas y TODO el firmware queda coherente.
+const uint8_t deviceOn  = HIGH;
+const uint8_t deviceOff = LOW;
+
 // Pines ESP32 DEV
 /*const byte whiteLedPin = 2; // Cambia según tus conexiones
 const byte blueLedPin = 14;
@@ -17,8 +33,8 @@ const uint8_t buzzerPin = 3;
 const uint8_t fanPin = 7;
 const uint8_t waterPumpPin = 10;
 
-// Canales PWM
-const uint8_t whiteChannel = 0;     // Canal asignado a pwmPin1
+// Canales PWM. Solo azul y rojo son PWM; el blanco es salida digital (GPIO 0), así
+// que no tiene canal asignado.
 const uint8_t blueChannel = 1;      // Canal asignado a pwmPin2
 const uint8_t redChannel = 2;       // Canal asignado a pwmPin3
 
@@ -29,9 +45,6 @@ const uint8_t maxDutyCycle = 255;
 
 const uint8_t zero = 0;
 
-const uint8_t port80 = 80;
-const uint8_t dnsPort = 53;
-
 // ===== Sesión de edición =====
 // Ventana durante la cual un usuario autenticado puede editar parámetros sin
 // volver a introducir credenciales. TTL FIJO: se cuenta desde el login y la
@@ -40,9 +53,12 @@ const uint8_t dnsPort = 53;
 // invalida solo.
 const uint32_t SESSION_TTL_MS = 30UL * 60UL * 1000UL; // 30 min
 
-// ¡OJO CON EL ORDEN! _systemStatus se persiste en NVS con putBytes (por ÍNDICE,
-// no por nombre): insertar, quitar o reordenar enumeradores reinterpreta los
-// datos ya guardados en los equipos en campo. Renombrar SÍ es seguro; mover, no.
+// ¡OJO CON EL ORDEN! _systemStatus se persiste en NVS con putBytes (por ÍNDICE, no
+// por nombre): insertar, quitar o reordenar enumeradores reinterpreta lo ya
+// guardado. Renombrar SÍ es seguro; mover, no. Y si cambia la CANTIDAD de campos,
+// el blob guardado deja de medir lo mismo y Preferences::getBytes no copia nada
+// (devuelve 0 si lo guardado es más grande que el buffer), así que la config se
+// leería en ceros: al cambiar campos, borra la flash antes de cargar el firmware.
 //
 // Correspondencia con las claves JSON del portal:
 //   ledAzul   -> blueDutyCycle    (PWM, 0-100 %)
@@ -53,7 +69,7 @@ enum SystemStatus : uint8_t {
     hasWifiCredentials,
     systemEnable,
     photoperiodOn,            // hora de prendido de las luces (0-23)
-    photoperiodOff,           // hora de apagado de las luces (0-23). Se agrega al
+    photoperiodOff,           // hora de apagado de las luces (0-23)
     blueDutyCycle,
     redDutyCycle,
     whiteLedOn,               // LED blanco: salida DIGITAL (GPIO 0), no PWM. Se
@@ -62,9 +78,7 @@ enum SystemStatus : uint8_t {
     irrigationDuration,
     ventilationFrequency,
     ventilationDuration,
-    cropWeek,                 // OBSOLETO como almacenamiento: cropWeek/cropDay ya
-    cropDay,                  // no se guardan aquí; se DERIVAN del RTC + _cropStartDay
-                              // (ver Plant::cropDayFromRtc). 
+    systemStatusCount         // centinela: NO es un campo, marca el tamaño necesario
 };
 
 enum currentTime : uint8_t {
@@ -75,7 +89,7 @@ enum currentTime : uint8_t {
     day,
     month,
     year,
-    ctrl
+    currentTimeCount          // centinela: NO es un campo, marca el tamaño necesario
 };
 
 // ===== Versión del firmware =====
@@ -89,6 +103,50 @@ enum currentTime : uint8_t {
 // (const char* const: puntero const, para que el header pueda incluirse en
 //  varias unidades de compilación sin colisión de símbolos en el enlazado.)
 const char* const firmwareVersion = "1.0.0";
+
+// ===== Dirección del SoftAP =====
+// IP por defecto del SoftAP del ESP32 y única interfaz por la que se sirve el
+// portal: el WebServer se liga a ELLA en vez de al wildcard 0.0.0.0, para que
+// ningún endpoint responda por la interfaz STA (la red doméstica del usuario).
+// Sin esto, con AP+STA activo el portal completo —login, edición de parámetros,
+// configuración de red— quedaba alcanzable desde esa LAN.
+//
+// El valor debe coincidir con el que realmente asigna el SoftAP. No se llama a
+// softAPConfig(), así que es el default del core; setup() lo verifica en runtime y
+// avisa por serie si difiere, porque un desajuste dejaría el portal inaccesible.
+const IPAddress apGatewayIp(192, 168, 4, 1);
+
+// ===== Hash de la contraseña de usuario (PBKDF2-HMAC-SHA256) =====
+// La contraseña NO se guarda: se guarda un salt aleatorio y la clave derivada.
+// Quien lea la flash (volcado por USB, esptool) no obtiene la contraseña.
+const uint8_t pwSaltBytes = 16;          // salt de esp_random(), 128 bits
+const uint8_t pwHashBytes = 32;          // salida de SHA-256; dkLen = hLen -> UN bloque
+const uint8_t pwSaltHexLen = pwSaltBytes * 2;   // 32 chars en NVS
+const uint8_t pwHashHexLen = pwHashBytes * 2;   // 64 chars en NVS
+
+// Iteraciones del PBKDF2. Es el compromiso central: más iteraciones encarecen un
+// ataque por diccionario sobre la flash, pero el login BLOQUEA handleClient()
+// mientras deriva (1 núcleo @160 MHz).
+// PENDIENTE DE MEDIR EN LA PLACA: cronometrar authUserCredentials() y ajustar para
+// que el login no pase de ~0.5 s. Este valor es un punto de partida razonable.
+const uint32_t pbkdf2Iterations = 20000;
+
+// Tope del salt que acepta el helper pbkdf2Sha256 (dimensiona su buffer interno).
+const uint8_t pbkdf2MaxSaltBytes = 32;
+
+// ===== Límite de intentos de login =====
+// Frena la fuerza bruta contra POST /authusercredentials. El contador vive en RAM
+// (no en NVS) a propósito: evita desgastar flash en cada intento fallido y evita un
+// vector de denegación de servicio que dejaría el equipo bloqueado de forma
+// PERSISTENTE. El precio es que un reinicio lo reinicia, así que no protege contra
+// quien tenga acceso físico —que ya está fuera del modelo de amenaza— sino contra un
+// script que insiste.
+//
+// Los primeros fallos no se castigan: los errores de tecleo son normales. A partir
+// del umbral el bloqueo crece de forma exponencial hasta un tope.
+const uint8_t  loginMaxAttempts   = 5;          // fallos consecutivos sin castigo
+const uint32_t loginLockoutBaseMs = 5000;       // primer bloqueo: 5 s
+const uint32_t loginLockoutMaxMs  = 300000;     // tope: 5 min
 
 const uint8_t  DS3231Adress = 0x68;
 const uint8_t rtcReadBytes = 7;
@@ -127,12 +185,21 @@ const uint8_t utf8MaxBytesPerChar = 2;
 enum requestStatus {
     STATUS_OK,
     HARD_RESET,
+    // Cultivo nuevo (POST /newcrop): operación RUTINARIA y autenticada. Borra los
+    // datos del cultivo (nombre, ancla de días y parámetros) pero CONSERVA la
+    // cuenta y la red Wi-Fi. Es distinta del reset de fábrica, que es la escotilla
+    // excepcional: sin credenciales, borra todo y solo se acepta por el AP.
+    NEW_CROP_DONE,
+    // Reset solicitado desde una interfaz que no es el AP (típicamente por STA,
+    // desde la red del usuario). Se rechaza: el reset no pide credenciales a
+    // propósito —es la vía de recuperación si se olvida la contraseña—, así que la
+    // barrera es la cercanía física, no la autenticación.
+    RESET_REQUIRES_AP,
     INVALID_JSON,
     STORAGE_ERROR,
     MISSING_FIELDS,
 
     MISSING_CREDENTIALS,
-    INVALID_CREDENTIALS,
     INVALID_USERNAME_LENGTH,
     INVALID_USERPASS_LENGTH,
     INVALID_USERNAME_CHARS,
@@ -140,6 +207,10 @@ enum requestStatus {
     USERNAME_REPEATED_CHARS,
     USERPASS_REPEATED_CHARS,
     MISMATCH_CREDENTIALS,
+    // Demasiados intentos fallidos consecutivos: el login está bloqueado
+    // temporalmente. Se evalúa ANTES de derivar el hash, porque cada derivación
+    // cuesta cientos de ms y si no el propio login sería un vector de DoS.
+    TOO_MANY_ATTEMPTS,
     INVALID_SESSION,            // token de sesión ausente, inválido o expirado
 
     MISSING_PLANTNAME_FIELD,
@@ -152,6 +223,11 @@ enum requestStatus {
     INVALID_PHOTOPERIOD_TYPE,
     INVALID_IRRIGATION_TYPE,
     INVALID_VENTILATION_TYPE,
+    // Frecuencia activa con duración 0: configuración que NO hace nada (ver
+    // manageDevice). Se rechaza porque en la UI es indistinguible de una
+    // configuración válida, y para desactivar ya existe la frecuencia 0.
+    INVALID_IRRIGATION_DURATION,
+    INVALID_VENTILATION_DURATION,
     INVALID_LED_VALUE,          // azul/rojo fuera de 0-100 (canales PWM)
     INVALID_WHITE_LED_VALUE,    // blanco distinto de 0/1 (salida digital, ON/OFF)
 
@@ -178,14 +254,19 @@ enum requestStatus {
 // intervalo > ~10 días exigiría ampliar este arreglo y _systemStatus a uint16_t.
 const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168};
 
-const uint8_t buzzerOn = 50;  // interval at which to blink (milliseconds)
-const uint8_t buzzerOff = 80;  // interval at which to blink (milliseconds)
-
-const int intervalToSend = 30000;  //
+// Patrón de pitido del buzzer (ms encendido / apagado). Reservado: el buzzer está
+// cableado (GPIO 3) pero su control aún no se implementa.
+const uint8_t buzzerOn = 50;
+const uint8_t buzzerOff = 80;
 
 // Cada cuánto se re-evalúa el control de luces/riego/ventilación en loop().
 // turnOnDevices() solo depende del reloj (hora/minuto), así que 1 s sobra; lo
 // importante es no bloquear server.handleClient() entre llamadas.
 const uint32_t deviceUpdateInterval = 1000;
+
+// Cada cuánto se imprime el estado por serie. Se hace desde loop() (no desde una
+// tarea aparte) para que _currentTime/_systemStatus los toque UN SOLO task: con
+// dos tareas sin sincronizar, una podía leer el arreglo a medio actualizar.
+const uint32_t systemLogInterval = 5000;
 
 #endif

@@ -214,7 +214,7 @@ Hay diferentes métodos de riego en la agricultura: riego por aspersión, por go
 
 <div align="justify">
 
-La calidad del aire de los espacios de cultivo influye en la temperatura y por lo tanto en el desarrollo de las plantas. Si es necesario forzar la circulación de aire limpio en los invernaderos y eliminar el aire viciado, se incluyen equipos de extracción y ventilación. El sistema controla un relé (lógica invertida) para activar el ventilador/extractor en intervalos configurables desde el portal.
+La calidad del aire de los espacios de cultivo influye en la temperatura y por lo tanto en el desarrollo de las plantas. Si es necesario forzar la circulación de aire limpio en los invernaderos y eliminar el aire viciado, se incluyen equipos de extracción y ventilación. El sistema controla un relé (lógica directa) para activar el ventilador/extractor en intervalos configurables desde el portal.
 
 </div>
 
@@ -230,12 +230,12 @@ El proyecto inició con un **ATmega328P** de Microchip/Atmel (8 bits, 32 KB flas
 
 | Componente | GPIO | Notas |
 |-----------|------|-------|
-| LED blanco | 0 | Salida digital (lógica invertida) |
+| LED blanco | 0 | Salida digital (lógica directa) |
 | LED azul | 1 | PWM canal 1 |
 | LED rojo | 2 | PWM canal 2 |
 | Buzzer | 3 | Señalización sonora |
-| Ventilador | 7 | Relé (lógica invertida) |
-| Bomba de agua | 10 | Relé (lógica invertida) |
+| Ventilador | 7 | Relé (lógica directa) |
+| Bomba de agua | 10 | Relé (lógica directa) |
 | RTC DS3231 | I²C `0x68` | Reloj externo para scheduling |
 
 <div align="justify">
@@ -290,7 +290,8 @@ El detalle completo —esquemáticos, salidas SSR, RTC, instalación eléctrica 
 │   ├── sensible.h             # Secretos del AP (no versionado)
 │   └── mainForm.h             # Artefacto generado: el HTML que sirve el ESP32
 ├── HTML/
-│   └── mainForm.html          # Fuente de verdad del portal (legible y comentada)
+│   ├── mainForm.html          # Fuente de verdad del portal (legible y comentada)
+│   └── mainForm.preview.html  # Artefacto generado: el portal con firmware simulado
 ├── ESP32_Board/               # Diseño de la tarjeta (KiCad)
 ├── pythonServer/              # Backend: FastAPI + Alembic + Docker (auth funcional)
 ├── docs/                      # Documentación técnica
@@ -306,7 +307,12 @@ El detalle completo —esquemáticos, salidas SSR, RTC, instalación eléctrica 
 
 <div align="justify">
 
-**Convención del portal:** se edita `HTML/mainForm.html` (fuente legible y comentada) y de ahí se regenera `ESP32_controller/mainForm.h`, que es el artefacto que sirve el dispositivo. Nunca al revés.
+**Convención del portal:** se edita `HTML/mainForm.html` (fuente legible y comentada) y de ahí se regeneran **dos artefactos**, nunca al revés:
+
+```bash
+python3 scripts/gen_mainform.py   # -> ESP32_controller/mainForm.h  (lo que sirve el dispositivo)
+python3 scripts/gen_preview.py    # -> HTML/mainForm.preview.html   (para revisar sin dispositivo)
+```
 
 </div>
 
@@ -333,10 +339,17 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
 
 - [x] Portal captivo + dashboard + edición de parámetros en vivo
 - [x] Sesión con token (sin reenviar credenciales)
-- [x] Conectividad Wi-Fi del usuario (AP+STA, escaneo, conexión + polling)
+- [x] Conectividad Wi-Fi del usuario (AP+STA, escaneo asíncrono, conexión + polling)
+- [x] Interruptor general del cultivo (`enable`) que realmente inhibe todos los actuadores
+- [x] Modo seguro del RTC: sin hora fiable (bit OSF del DS3231) no se acciona nada
+- [x] **Seguridad del portal** — los tres huecos conocidos, resueltos
+      ([ver detalle](docs/ARCHITECTURE.md#huecos-de-seguridad-identificados-y-su-resolución)):
+  - [x] Contraseña de usuario **hasheada** con PBKDF2-HMAC-SHA256 + salt de 16 B (queda calibrar las iteraciones en la placa)
+  - [x] Reset de fábrica **restringido a la interfaz del AP**, y operación rutinaria separada en `POST /newcrop` (autenticada, conserva cuenta y Wi-Fi)
+  - [x] **Límite de intentos** de login: espera creciente de 5 s a 5 min, contador en RAM
 - [ ] Servir el portal **gzip** (`Content-Encoding: gzip`) para menos flash y carga más rápida
-- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-v2/`): estructura y JS listos; falta CSS, el endpoint OTA y homologarlo como versión oficial ([ver estado](docs/ARCHITECTURE.md))
-- [ ] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): lado cliente listo en la V2; falta el endpoint `POST /otaupdate` en el firmware y una tabla de particiones con dos slots OTA ([ver requisitos](docs/ARCHITECTURE.md))
+- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-v2/`): estructura, JS y **CSS con paletas intercambiables** listos; falta elegir la paleta definitiva, el endpoint OTA y homologarlo como versión oficial ([ver estado](docs/ARCHITECTURE.md))
+- [ ] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): lado cliente listo en la V2; falta el endpoint `POST /otaupdate` en el firmware y **fijar un `partitions.csv`** con dos slots OTA ([ver requisitos](docs/ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota))
 - [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos. Ya está en pie la base — la infraestructura corre en Docker (Postgres/Timescale, MinIO y Mosquitto), Alembic crea el esquema completo (5 tablas + hypertable), el registro/login/refresh funciona con JWT y los dispositivos se vinculan a una cuenta recibiendo su propio token revocable. En curso: recibir configuración y telemetría por REST (escrito, pendiente de probar). Falta exponer las lecturas para la app, servir OTA y la ingesta por MQTT ([ver estado](pythonServer/README.md))
 - [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
 - [ ] Medición de temperatura y humedad (DS18B20 contemplado en el diseño original)

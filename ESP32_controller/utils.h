@@ -51,7 +51,29 @@ String frequencyToText(uint8_t hours);
 uint32_t daysSinceEpoch(uint16_t y, uint8_t m, uint8_t d);
 
 // ---- Logs ----
-// Enmascara una contraseña para imprimirla: primer char + **** + último.
-String maskPassword(const char* pass);
+// (maskPassword se eliminó: la contraseña ya no vive en RAM, solo su hash.)
+
+// ---- Contraseña: derivación y comparación ----
+// PBKDF2-HMAC-SHA256 con dkLen = 32 (un solo bloque, ver la implementación).
+// Se monta sobre mbedtls_md_hmac() a propósito: la API de `mbedtls/md.h` es estable
+// entre mbedTLS 2.x y 3.x, mientras que mbedtls_pkcs5_pbkdf2_hmac() cambió de firma
+// (quedó deprecada en favor de la variante _ext), lo que ataría el firmware a la
+// versión del core.
+// Devuelve false si los parámetros no son válidos o si mbedTLS falla.
+bool pbkdf2Sha256(const uint8_t* pass, size_t passLen,
+                  const uint8_t* salt, size_t saltLen,
+                  uint32_t iterations,
+                  uint8_t* out, size_t outLen);
+
+// Compara len bytes en tiempo CONSTANTE: no corta en el primer byte distinto, para
+// no filtrar por tiempo cuántos bytes del hash acertó un atacante.
+bool constantTimeEquals(const uint8_t* a, const uint8_t* b, size_t len);
+
+// ---- Hex ----
+// Escribe len*2 caracteres en minúscula + terminador. `out` debe tener len*2+1.
+void bytesToHex(const uint8_t* in, size_t len, char* out);
+// Convierte outLen*2 caracteres hex a bytes. False si hay algún carácter inválido
+// o la cadena no mide exactamente outLen*2.
+bool hexToBytes(const char* hex, uint8_t* out, size_t outLen);
 
 #endif

@@ -4,7 +4,6 @@
 #include <Wire.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
-#include <HTTPClient.h>
 #include "Constants.h" 
 
 class Plant {
@@ -13,8 +12,6 @@ class Plant {
 
     Plant();
     void begin();
-
-    bool getRegisteredUser();
 
     // ---- Getters para configurar la red desde setup() (.ino) ----
     // ¿Hay credenciales Wi-Fi guardadas en NVS? Decide AP puro vs AP+STA al
@@ -29,8 +26,25 @@ class Plant {
 
     requestStatus validateCropParameters(const String& body);
 
+    // ---- Cultivo nuevo (POST /newcrop) ----
+    // Cierra el cultivo actual y deja el equipo listo para empezar otro. Es una
+    // operación RUTINARIA (cada cosecha), así que EXIGE token de sesión, igual que
+    // editar parámetros. Borra nombre de planta, ancla de días y todos los
+    // parámetros; CONSERVA la cuenta de usuario y las credenciales Wi-Fi, que no
+    // tienen nada que ver con qué se está cultivando.
+    // No confundir con hardReset(): ese es el reset de FÁBRICA, excepcional, sin
+    // credenciales (vía de recuperación si se olvida la contraseña) y restringido a
+    // la interfaz del AP.
+    requestStatus startNewCrop(const String& body);
+
     // Valida credenciales (sin guardar nada) para desbloquear la edición.
-    requestStatus authUserCredentials(const String& body);
+    // `fromAP` indica si la petición entró por la interfaz del AP; lo calcula el
+    // .ino (que es quien conoce el objeto server) comparando la IP local del
+    // socket con WiFi.softAPIP(). Solo se usa para el comando de reset: el reset
+    // no pide credenciales —es la vía de recuperación si se olvida la contraseña—
+    // así que su barrera es la cercanía física, y con el STA activo el endpoint
+    // también responde desde la red del usuario.
+    requestStatus authUserCredentials(const String& body, bool fromAP);
 
     void manageDevice(int devicePin, int intervalHours, int durationMinutes, uint32_t epochHours);
 
@@ -78,33 +92,32 @@ class Plant {
     // ¿La última lectura del RTC dio una hora fiable? False si el DS3231 no
     // respondió, devolvió valores fuera de rango o su bit OSF indica que el
     // oscilador se detuvo (hora perdida). turnOnDevices() no acciona nada
-    // mientras sea false, y el portal lo reporta para avisar al usuario.
+    // mientras sea false, y se reporta en /getparams como "rtcValid".
     bool isRtcValid();
 
     void hardReset();
 
 
     void printSystemData();
-    //void readSystemStatus(byte* systemStatus, size_t length);
 
     // Edad del cultivo en días (>=1) DERIVADA del RTC y del ancla _cropStartDay.
     // NO se incrementa en medianoche: se calcula del calendario real, así que es
     // correcta tras reboots/cortes de luz. Devuelve 0 si el cultivo no se ha
     // anclado todavía (primer /newparams) o si el RTC retrocedió.
     int cropDayFromRtc();
-    
-
-    /*String mainHTML();
-    String updateHTML();
-    String registerUserHTML();
-    String wellcomeHTML();
-    String exitHTML();*/
-
-    bool getToken();
-    void downloadOTA();
-    //bool testCredentials(String SSID, String pass);
 
   private:
+
+    // ---- Límite de intentos de login (RAM, ver Constants.h) ----
+    // ¿El login está bloqueado ahora mismo? Comparación a prueba del wrap de
+    // millis(), igual que la expiración de la sesión.
+    bool loginLocked();
+    // Registra un fallo y, pasado el umbral, fija el bloqueo con espera creciente.
+    void registerLoginFailure();
+    // Fallos consecutivos y momento hasta el que se rechaza (0 = sin bloqueo).
+    // Viven en RAM: un reinicio los borra, que es el trade-off aceptado.
+    uint8_t  _failedLogins = 0;
+    uint32_t _lockoutUntil = 0;
 
     // Apaga TODOS los actuadores (luces, bomba y ventilador). Existe como punto
     // ÚNICO para que los dos caminos que exigen "todo apagado" —sistema
@@ -120,8 +133,14 @@ class Plant {
     // vuelvan a considerarse fiables.
     void rtcClearLostPower();
 
-    uint8_t _systemStatus[15] = {0};  
-    uint8_t _currentTime[10];
+    // Dimensionados por los centinelas de los enums (Constants.h) en vez de por
+    // un número fijo: si se añade un campo, el arreglo crece solo y no queda un
+    // desfase silencioso entre el enum y el tamaño reservado.
+    // OJO: _systemStatus se persiste en NVS con putBytes, así que cambiar
+    // systemStatusCount cambia el tamaño del blob y hay que borrar la flash antes
+    // de cargar el firmware nuevo (ver la nota en Constants.h).
+    uint8_t _systemStatus[systemStatusCount] = {0};
+    uint8_t _currentTime[currentTimeCount] = {0};
 
     // true si la última lectura del RTC (getCurrentTime) fue correcta Y contiene
     // una fecha/hora plausible. Si el DS3231 no responde o devuelve basura, se
@@ -134,7 +153,12 @@ class Plant {
     // valor válido del formulario nunca se trunque al guardarse.
     char _plantName[maxPlantNameChars * utf8MaxBytesPerChar + 1];   // 41
     char _username[maxUsernameChars  * utf8MaxBytesPerChar + 1];    // 65
-    char _userpass[maxUserpassChars  * utf8MaxBytesPerChar + 1];    // 129
+
+    // La contraseña NO se guarda ni se conserva en RAM: solo su salt y la clave
+    // derivada con PBKDF2-HMAC-SHA256. En el login se deriva de nuevo con este
+    // salt y se compara contra _pwHash en tiempo constante.
+    uint8_t _pwSalt[pwSaltBytes];
+    uint8_t _pwHash[pwHashBytes];
 
     char _SSID[maxWifiSsidChars + 1];        // 33: SSID (32) + nul
     char _SSIDpass[maxWifiPassChars + 1];    // 64: passphrase (63) + nul
@@ -152,16 +176,19 @@ class Plant {
     // Fecha de inicio del cultivo como nº de día continuo (daysSinceEpoch). Se
     // ancla una sola vez en el primer /newparams con fecha válida y se persiste
     // en NVS (namespace "system", clave "cropStart"). 0 = sin anclar. De aquí se
-    // derivan cropDay/cropWeek sin contadores ni lógica de medianoche.
+    // derivan el día y la semana del cultivo sin contadores ni lógica de medianoche.
     uint32_t _cropStartDay = 0;
 
     // La versión del firmware NO es un miembro: es la constante de compilación
     // firmwareVersion (Constants.h). Un miembro con ese nombre la sombrearía
     // dentro de los métodos de la clase y /getparams reportaría una cadena vacía.
-    String jwtToken;
-    
+
+    // Nota para la integración con el backend: aquí vivía un miembro
+    // `HTTPClient http;` que nunca se usó. Se quitó a propósito para arrancar
+    // limpio; cuando se implementen las peticiones, conviene instanciar el
+    // cliente LOCAL a la función que hace la llamada (no mantenerlo vivo en RAM
+    // entre peticiones esporádicas) y añadir el include correspondiente.
     Preferences p;
-    HTTPClient http;
 
 };
 
