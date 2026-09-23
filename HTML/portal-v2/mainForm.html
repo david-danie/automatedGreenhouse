@@ -401,6 +401,49 @@
         }
         .actions button { flex: 1 1 140px; }
 
+        /* ---------- 8b. NAV DE ÍCONOS (dashboard) ------------------------
+           Los cuatro destinos hub→spoke en UNA fila. Cada botón es ícono +
+           etiqueta corta. Solo variables de la paleta: ningún color literal. */
+        .dash-nav {
+            display: flex;
+            gap: var(--gap-sm);
+            margin-top: var(--gap);
+        }
+        .nav-item {
+            flex: 1 1 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 6px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-size: .8rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+        .nav-item:hover { border-color: var(--primary); color: var(--accent); }
+        .nav-ico { width: 26px; height: 26px; }
+        .nav-label { white-space: nowrap; }
+        /* Wi-Fi: punto de estado sobre el ícono (gris = sin conectar). */
+        .nav-ico-wrap { position: relative; display: inline-flex; }
+        .nav-dot {
+            position: absolute;
+            right: -2px; top: -2px;
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            border: 2px solid var(--surface);
+        }
+        .nav-dot.is-on { background: var(--primary); }
+        /* OTA: acción de riesgo. Ya no se aparta por posición (pasa por login),
+           pero se matiza con el tono de acento cálido para que no se pulse por
+           inercia. */
+        .nav-item-ota { color: var(--secondary); }
+        .nav-item-ota:hover { border-color: var(--secondary); color: var(--secondary); }
+
         button {
             padding: 13px 18px;
             border: 1px solid var(--border);
@@ -600,19 +643,52 @@
                 </p>
             </div>
 
-            <div class="actions">
-                <button type="button" class="primary" id="btnEdit">Editar parámetros</button>
-                <button type="button" class="secondary" id="btnWifi">
-                    Conexión a Internet (<span id="wifiState">sin conectar</span>)
+            <!-- NAVEGACIÓN hub→spoke: los cuatro destinos como íconos en UNA fila.
+                 Todos pasan por la compuerta de login (auth), así que la barrera
+                 contra un flasheo accidental es la sesión + la confirmación, no
+                 esconder OTA. Cada botón conserva su id (los engancha el JS) y
+                 lleva aria-label para el lector de pantalla; la etiqueta visible va
+                 debajo del ícono. #wifiState se mantiene para reportar el estado
+                 (lo actualiza actualizarDashboard()). Los SVG heredan el color con
+                 currentColor y no pesan (trazos, sin relleno). -->
+            <nav class="dash-nav" aria-label="Acciones del cultivo">
+                <button type="button" class="nav-item" id="btnEdit" aria-label="Editar parámetros">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                    </svg>
+                    <span class="nav-label">Editar</span>
                 </button>
-                <button type="button" class="secondary" id="btnExit">Salir</button>
-            </div>
-
-            <!-- OTA: acción rara y de consecuencias serias → entrada discreta.
-                 La prominencia sigue la frecuencia de uso. -->
-            <footer>
-                <button type="button" class="discreet" id="btnOta">Actualizar firmware</button>
-            </footer>
+                <button type="button" class="nav-item" id="btnWifi" aria-label="Conexión a Internet: sin conectar">
+                    <span class="nav-ico-wrap">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 12.55a11 11 0 0 1 14 0"></path>
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                        </svg>
+                        <span class="nav-dot" id="wifiDot" aria-hidden="true"></span>
+                    </span>
+                    <span class="nav-label">Wi-Fi</span>
+                    <span id="wifiState" hidden>sin conectar</span>
+                </button>
+                <button type="button" class="nav-item nav-item-ota" id="btnOta" aria-label="Actualizar firmware">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span class="nav-label">Firmware</span>
+                </button>
+                <button type="button" class="nav-item" id="btnExit" aria-label="Salir">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span class="nav-label">Salir</span>
+                </button>
+            </nav>
         </section>
 
         <!-- ============================= EDICIÓN =========================== -->
@@ -1097,9 +1173,19 @@
             const conSesion = !!getToken() && p.sessionValid === true;
             $("dashAuthHint").hidden = conSesion;
 
-            $("wifiState").textContent = p.wifiConnected
+            const conectado = p.wifiConnected === true;
+            $("wifiState").textContent = conectado
                 ? ("conectado a " + (p.wifiSsid || "tu red"))
                 : "sin conectar";
+            // Refleja el estado en el ícono (punto) y en el aria-label del botón,
+            // ya que la etiqueta visible solo dice "Wi-Fi".
+            const wifiDot = $("wifiDot");
+            if (wifiDot) wifiDot.classList.toggle("is-on", conectado);
+            const btnWifi = $("btnWifi");
+            if (btnWifi) btnWifi.setAttribute("aria-label",
+                conectado
+                    ? ("Conexión a Internet: conectado a " + (p.wifiSsid || "tu red"))
+                    : "Conexión a Internet: sin conectar");
         }
 
         function llenarFormulario() {

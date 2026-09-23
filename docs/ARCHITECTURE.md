@@ -324,8 +324,29 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   flujos protegidos —`edit`, `wifi`, `ota` y `/newcrop`— pasan por la misma compuerta.
 - **Estados:** `welcome · register · auth · view · edit · wifi · ota · flashing · exit`
   (la V1 no tenía `ota`, `flashing` ni `exit` como vista propia).
+- **Navegación del dashboard como fila de íconos.** Los cuatro destinos hub→spoke
+  (`edit`, `wifi`, `ota`, `exit`) pasaron de botones de texto de ancho completo —que en
+  móvil envolvían a dos filas— a una sola fila de **íconos SVG con etiqueta corta**
+  (`Editar · Wi-Fi · Firmware · Salir`), en el contenedor `.dash-nav`. Los SVG son inline,
+  de solo trazo (`stroke="currentColor"`, sin relleno), así que pesan poco y heredan el
+  color de la paleta activa.
+
+  - **OTA vuelve a la fila principal.** En la V1 el acceso a OTA se apartaba en un
+    `footer` discreto ("la prominencia sigue la frecuencia de uso"), para que no se pulsara
+    por inercia. En la V2 se decidió lo contrario: como los cuatro destinos pasan por la
+    **misma compuerta de login** (`requireAuth`) y OTA además pide confirmación antes de
+    flashear, la barrera real ya no es esconderlo. Se deja en la fila con un matiz cálido
+    (`--secondary`) que lo distingue como acción de riesgo sin sacarlo de sitio.
+  - **El estado del Wi-Fi no se pierde.** La etiqueta visible solo dice "Wi-Fi", así que el
+    estado (conectado/sin conectar) se refleja en un **punto indicador** sobre el ícono
+    (`#wifiDot`, verde/gris) y en el `aria-label` del botón. Se conserva el `<span id="wifiState" hidden>`
+    para no romper el JS que ya lo actualizaba (`actualizarDashboard`); los ids de los cuatro
+    botones (`btnEdit/btnWifi/btnOta/btnExit`) se mantuvieron intactos, así que la migración
+    fue solo de markup + CSS, sin tocar los handlers.
+  - **Accesibilidad:** cada botón lleva `aria-label`, los SVG van `aria-hidden`, y la etiqueta
+    de texto queda visible bajo el ícono (no se depende solo de la forma).
 - **CSS con paletas intercambiables.** El markup se construyó primero con hooks
-  (`.view`, `.field`, `.dash-section`, `.dash-item`, `.help`, `.actions`, `.msg`,
+  (`.view`, `.field`, `.dash-section`, `.dash-item`, `.help`, `.actions`, `.dash-nav`, `.msg`,
   `.net-list`, `.crop-reset`) y la hoja se añadió encima **sin tocar el JS**. Está
   organizada en dos capas: los colores viven aislados como **variables CSS** en cuatro
   bloques de paleta, y los ~59 selectores de componente referencian **solo variables**

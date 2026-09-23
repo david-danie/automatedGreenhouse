@@ -353,6 +353,7 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
 - [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos. Ya está en pie la base — la infraestructura corre en Docker (Postgres/Timescale, MinIO y Mosquitto), Alembic crea el esquema completo (5 tablas + hypertable), el registro/login/refresh funciona con JWT y los dispositivos se vinculan a una cuenta recibiendo su propio token revocable. En curso: recibir configuración y telemetría por REST (escrito, pendiente de probar). Falta exponer las lecturas para la app, servir OTA y la ingesta por MQTT ([ver estado](pythonServer/README.md))
 - [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
 - [ ] Medición de temperatura y humedad (DS18B20 contemplado en el diseño original)
+- [ ] **Migración del firmware a ESP-IDF**: profesionalizar el firmware (tooling, control de RAM/flash, OTA de doble slot y TLS) migrando de Arduino-ESP32 a ESP-IDF por fases entregables. El plan completo —motivación, clasificación del código, mapeo de APIs Arduino → ESP-IDF y criterios de verificación por fase— está en [`docs/ROADMAP.md`](docs/ROADMAP.md)
 
 ---
 
@@ -366,6 +367,7 @@ Toda la documentación técnica vive en **[`docs/`](docs/README.md)**:
 - **[docs/API.md](docs/API.md)** — referencia completa de la API HTTP: rutas, payloads, validaciones, catálogo de errores y ejemplos con `curl`.
 - **[docs/HARDWARE.md](docs/HARDWARE.md)** — mapa de pines, PWM, RTC, SSR, conectividad e instalación eléctrica.
 - **[docs/BACKEND.md](docs/BACKEND.md)** — diseño del backend (FastAPI + Postgres/Timescale + MQTT + S3): decisiones, modelo de datos y contratos de API. Es la referencia para implementarlo.
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — plan de migración del firmware a ESP-IDF por fases: motivación, clasificación del código actual, mapeo de APIs Arduino → ESP-IDF y criterios de verificación.
 - **[pythonServer/README.md](pythonServer/README.md)** — cómo levantar el backend local (FastAPI + Postgres/Timescale, MinIO, Mosquitto).
 
 </div>
