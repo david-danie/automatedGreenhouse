@@ -18,7 +18,7 @@ Rutas que expone el **ESP32-C3** desde el portal captivo (AP `SmartPlant`, servi
 
 ## Autenticación
 
-`/newparams` y `/wificredentials` exigen un **token de sesión** vigente. El flujo es:
+`/newparams`, `/newcrop` y `/wificredentials` exigen un **token de sesión** vigente. El flujo es:
 
 1. `POST /usercredentials` (primer arranque) o `POST /authusercredentials` (login) devuelven un `token`.
 2. El token es una cadena de **32 caracteres hex** (128 bits de `esp_random()`).
@@ -32,7 +32,8 @@ Hay **un único** validador, `Plant::isSessionValid(const String& token)` (`Plan
 comprueba cuatro cosas en orden: que haya una sesión activa, que el token mida 32 caracteres,
 que coincida con el vigente, y que no haya expirado (comparación de `millis()` a prueba de
 wrap-around). Las rutas que **bloquean** con `401 INVALID_SESSION` si falla son
-`POST /newparams` (`validateCropParameters`) y `POST /wificredentials` (`saveWifiCredentials`),
+`POST /newparams` (`validateCropParameters`), `POST /newcrop` (`startNewCrop`) y
+`POST /wificredentials` (`saveWifiCredentials`),
 que esperan el token en la clave `token` del body JSON. `GET /getparams` (`buildParamsJson`)
 usa el validador pero **no bloquea**: solo reporta `sessionValid` para que el front sepa si
 puede saltarse el login. No hay ningún otro mecanismo de autorización (ni middleware, ni
@@ -198,7 +199,12 @@ Guarda los parámetros del cultivo y sincroniza el RTC. **Requiere token.** Los 
 |---|---|
 | Handler | `handleNewParameters` → `Plant::validateCropParameters` |
 
-Todas las claves son obligatorias; su ausencia devuelve `MISSING_FIELDS` (o `INVALID_SESSION` si falta `token`).
+Todas las claves son obligatorias. La ausencia de una de las **11 claves de cultivo**
+(`planta`, `enable`, `fpOn`, `fpOff`, `ledAzul`, `ledRojo`, `ledBlanco`, `irrH`, `irrM`,
+`ventH`, `ventM`) devuelve `MISSING_FIELDS`; la ausencia de `token` devuelve
+`INVALID_SESSION`. Las **7 claves de fecha/hora** (`seg`, `min`, `hr`, `diaSem`, `dia`,
+`mes`, `anio`) no se comprueban por presencia: si faltan, fallan la validación de tipo y
+devuelven el `INVALID_*_FORMAT` correspondiente.
 
 **Parámetros del cultivo:**
 
@@ -324,7 +330,7 @@ El escaneo es **asíncrono**: la primera petición lo arranca y responde al inst
 
 Ante dos APs con el mismo SSID (repetidores) conserva el de mayor RSSI, y omite las redes ocultas (SSID vacío).
 
-> **Caveat de radio:** el ESP32-C3 tiene una sola antena, así que durante el escaneo salta de canal y el AP puede perder algún paquete. El portal ya **no se congela** (antes el request bloqueaba ~2 s), pero una petición que caiga justo en ese momento puede tardar más de lo normal.
+> **Caveat de radio:** el ESP32-C3 tiene una sola antena, así que durante el escaneo salta de canal y el AP puede perder algún paquete. El escaneo es asíncrono y el portal no se congela, pero una petición que caiga justo en ese momento puede tardar más de lo normal.
 
 ---
 
@@ -428,7 +434,7 @@ El LED blanco está en **GPIO 0 como salida digital**, no como canal PWM: solo t
 
 Los canales azul (`ledAzul`) y rojo (`ledRojo`) sí son PWM y usan el rango 0–100 % completo, escalado internamente a 0–255.
 
-> **Cambio de contrato:** antes estas claves se llamaban `ledA`, `ledR` y `ledB`. Se renombraron porque `ledB` significaba "Blanco" pero se leía como "blue". Además, `ledB` aceptaba `0–100` y lo normalizaba, así que un `47` pasaba como "encendida" aunque el contrato dijera `0/1`. Un cliente que use los nombres viejos recibirá `MISSING_FIELDS`.
+> **Nombres y contrato:** las claves son `ledAzul`, `ledRojo` (`0–100`, PWM) y `ledBlanco` (`0/1` estricto, salida digital). `ledBlanco` distinto de `0/1` devuelve `INVALID_WHITE_LED_VALUE`. Cualquier otro nombre de clave produce `MISSING_FIELDS` (falta una obligatoria).
 
 ---
 
@@ -480,7 +486,7 @@ Definido en `buildHttpResponse()` (`Plant.cpp`).
 
 | Estado | HTTP | Mensaje |
 |---|---|---|
-| `MISSING_PLANTNAME_FIELD` | 400 | El campo planta es obligatorio. |
+| `MISSING_PLANTNAME_FIELD` | 400 | El campo planta es obligatorio. *(Definido pero no emitido: la ausencia de `planta` cae en `MISSING_FIELDS`.)* |
 | `INVALID_PLANTNAME_LENGTH` | 400 | Longitud de planta inválida (3-20 caracteres). |
 | `INVALID_PLANTNAME_CHARS` | 400 | El nombre de la planta solo permite los caracteres (_-.@!#$%&*?+=). |
 | `PLANTNAME_REPEATED_CHARS` | 400 | El nombre de la planta tiene un caracter repetido más de 3 veces. |

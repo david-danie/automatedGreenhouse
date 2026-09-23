@@ -7,25 +7,25 @@
 > futuro)"* y *"TLS en el ESP32-C3"* de [`ARCHITECTURE.md`](ARCHITECTURE.md), que
 > siguen siendo la referencia del lado del firmware.
 
-> **Estado: esqueleto funcional con auth y provisión operativos.** La infraestructura local
-> corre con `docker compose up -d --build`. Alembic administra el esquema (migración `001`
-> aplicada: extensión, 5 tablas, hypertable, índices). Los endpoints de autenticación
-> (`register`, `login`, `refresh`) están operativos con JWT + bcrypt, y la provisión de
-> dispositivos (`POST /devices/provision`) emite el token de dispositivo y persiste solo su
-> hash — ambos verificados end-to-end contra el stack real.
+> **Estado: auth, provisión, config/telemetría y lecturas app-facing implementados y
+> verificados end-to-end.** La infraestructura local corre con `docker compose up -d --build`.
+> Alembic administra el esquema (migración `001` aplicada: extensión, 5 tablas, hypertable,
+> índices). Verificado contra el stack real:
+> - **Auth** (`register`, `login`, `refresh`) con JWT + bcrypt.
+> - **Provisión** (`POST /devices/provision`): emite el token de dispositivo y persiste solo su hash.
+> - **Config y telemetría** (`POST /devices/{id}/config`, `POST /devices/{id}/telemetry`),
+>   autenticadas por token de dispositivo (`app/deps.py`): config inserta histórico, telemetría
+>   fija `ts` en servidor y refresca `last_seen_at`/`firmware_version`, y los casos negativos
+>   401/400 responden.
+> - **Lecturas app-facing** (`GET /me/devices`, `GET /devices/{id}/state`, `GET /devices/{id}/telemetry`)
+>   con aislamiento por cuenta.
 >
-> **Config y telemetría por REST: código escrito, pendiente de verificar en ejecución.**
-> Se implementaron `POST /devices/{id}/config` y `POST /devices/{id}/telemetry` junto con la
-> dependencia de autenticación por token de dispositivo (`app/deps.py`). La sintaxis está
-> validada, pero **no se pudieron probar en ejecución**: el disco de la máquina de desarrollo
-> se llenó (100 %, ~150 MB libres), lo que impide construir la imagen de Docker (errores de
-> I/O en buildkit/containerd) e instalar dependencias en un venv local. **Lo primero de la
-> próxima sesión es liberar espacio y correr esas pruebas** (ver §8, "Estado de verificación").
+> **Pendiente:** OTA (`/firmware/latest`, admin de releases), rutas de admin, e ingesta por MQTT.
 >
-> Decisiones que estaban abiertas y ya se cerraron:
+> Decisiones cerradas:
 > - **Broker: Mosquitto** (no EMQX). Ver el [caveat de autenticación MQTT](#caveat-mosquitto-no-autentica-contra-la-base-de-datos).
-> - **Identificador de usuario: `email`**, como ya lo define el esquema (`UNIQUE NOT NULL`).
-> - **Dueño del esquema: Alembic.** El compose ya **no** aplica `schema.sql`; la primera
+> - **Identificador de usuario: `email`** (`UNIQUE NOT NULL`).
+> - **Dueño del esquema: Alembic.** El compose **no** aplica `schema.sql`; la primera
 >   migración crea extensión, tablas e hypertable.
 
 ---
@@ -456,8 +456,7 @@ migrar para no llevarse la sorpresa.
 
 ## 8. Cómo arrancar
 
-**Estado:** diseño cerrado y sin ambigüedades. El prototipo previo se eliminó; se parte de
-cero sobre la infraestructura del compose. Nada queda por decidir.
+**Estado:** diseño cerrado y sin ambigüedades. Nada queda por decidir.
 
 Lo que **ya está resuelto** y no hay que rehacer:
 
@@ -540,33 +539,10 @@ Qué está probado contra el stack real y qué no, para no dar por bueno lo que 
 | `GET /devices/{id}/state` | ✅ | ✅ `200` con última config + telemetría; `crop.dia/semana` derivados de `crop_start_day` (33 días → día 34, semana 5); `404` si el device es de otra cuenta o no existe |
 | `GET /devices/{id}/telemetry?from&to&bucket` | ✅ | ✅ agregación con `time_bucket` (`1h`→3 buckets, `1d`→1 bucket/5 samples); `400` bucket no soportado o `from>to`; `404` si no es del dueño |
 
-**Por qué está bloqueado.** El disco de la máquina de desarrollo llegó al 100 % (~150 MB
-libres de 228 GB). Eso produce errores de I/O en el almacenamiento de Docker
-(`buildkit/metadata_v2.db`, `io.containerd.metadata.v1.bolt/meta.db`, `overlay2/…`: todos
-`input/output error`), así que no se puede reconstruir la imagen del backend ni hacer pull de
-imágenes; y `pip install` en un venv local falla con `No space left on device`. **No es un
-problema del código:** `python -m py_compile` pasa en `app/deps.py`, `app/routers/devices.py`
-y `app/main.py`.
-
-**Cómo desbloquear.** Liberar espacio en disco (con Docker, `docker system prune` suele ser el
-de mayor impacto, pero conviene revisar antes qué contenedores/volúmenes están en uso). Nota
-de entorno: el puerto **5432 del host está ocupado** por otra instancia de Postgres, así que
-para levantar este stack hay que remapear puertos con un override temporal
-(`ports: !override` — ojo: en Compose las listas de `ports` se **concatenan**, no se
-reemplazan, sin esa directiva).
-
-**Pruebas a correr (plan concreto).**
-
-1. `docker compose up -d --build` y `alembic upgrade head`.
-2. `POST /auth/register` → crear una cuenta.
-3. `POST /devices/provision` con `{email, pass, mac}` → guardar el `token` y el `device_id`.
-4. `POST /devices/{id}/config` con `Authorization: Bearer <token>` y el payload del §4.1 →
-   esperar `201` y `{config_id, applied_at}`. Repetir y confirmar que **inserta otra fila**
-   (histórico), no que actualiza.
-5. `POST /devices/{id}/telemetry` con Bearer → esperar `202` y `{accepted:1}`; comprobar en BD
-   que `ts` lo puso el servidor y que `devices.last_seen_at`/`firmware_version` se refrescaron.
-6. Casos negativos: **sin** cabecera `Authorization` → `401`; con token de **otro** dispositivo
-   → `401`; telemetría con **body vacío** `{}` → `400`.
+**Nota de entorno.** El puerto **5432 del host puede estar ocupado** por otra instancia de
+Postgres; para levantar este stack en ese caso hay que remapear puertos con un override
+(`ports: !override` — en Compose las listas de `ports` se **concatenan**, no se reemplazan,
+sin esa directiva).
 
 ---
 

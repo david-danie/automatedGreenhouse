@@ -2,35 +2,19 @@
 
 Tarjeta de control, mapa de pines, periféricos y instalación eléctrica.
 
-El proyecto pasó por dos generaciones de hardware. La **actual** usa un ESP32-C3; la **original** un ATmega328P. Este documento cubre ambas, porque parte del diseño eléctrico (SSR, contactores, gabinete) se conserva.
+El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo, que sirve el portal captivo desde su propia flash. El diseño eléctrico de potencia (SSR, contactores, gabinete) conmuta las cargas en CA.
 
 ---
 
 ## Contenido
 
-- [Generaciones](#generaciones)
 - [Mapa de pines (ESP32-C3)](#mapa-de-pines-esp32-c3)
 - [Control de potencia PWM](#control-de-potencia-pwm)
 - [Temporización con RTC](#temporización-con-rtc)
 - [Salidas digitales SSR](#salidas-digitales-ssr)
 - [Conectividad](#conectividad)
 - [Instalación eléctrica](#instalación-eléctrica)
-- [Tarjeta original (ATmega328P)](#tarjeta-original-atmega328p)
-
----
-
-## Generaciones
-
-| | Original | Actual |
-|---|---|---|
-| MCU | ATmega328P (8 bits, 32 KB flash, 1 KB EEPROM) | ESP32-C3 (RISC-V, 1 núcleo @160 MHz) |
-| Conectividad | BLE por UART | Wi-Fi nativo (AP + STA) |
-| RTC | DS1307 | DS3231 (compensado por temperatura) |
-| Interfaz de usuario | LCD 20×4 previsto + app BLE | Portal captivo servido desde flash |
-| Actuadores | 3 salidas digitales → SSR AQH2213 → contactores | 2 canales PWM + 3 salidas digitales |
-| Persistencia | EEPROM | NVS (Preferences) |
-
-El salto a ESP32-C3 se hizo para servir un portal web completo desde el propio microcontrolador: elimina la app intermedia y la dependencia de un dispositivo con BLE.
+- [Medición de temperatura (DS18B20)](#medición-de-temperatura-ds18b20)
 
 ---
 
@@ -43,12 +27,12 @@ Definido en `ESP32_controller/Constants.h`.
 | LED blanco | 0 | Digital | Lógica directa (`HIGH` = encendido) |
 | LED azul | 1 | PWM canal 1 | 0–100 % desde el portal |
 | LED rojo | 2 | PWM canal 2 | 0–100 % desde el portal |
-| Buzzer | 3 | Digital | Señalización sonora (actualmente comentado en el firmware) |
+| Buzzer | 3 | Digital | Señalización sonora (cableado; control aún no implementado) |
 | Ventilador / extractor | 7 | Relé | Lógica directa |
 | Bomba de agua | 10 | Relé | Lógica directa |
 | RTC DS3231 | I²C `0x68` | — | Bus `Wire`, para el scheduling |
 
-**Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `HIGH`/`LOW` (lógica directa). Si se cambia a módulos de relé activos en bajo, basta intercambiar esas dos líneas y todo el firmware queda coherente. Antes la polaridad estaba repartida como literales `HIGH`/`LOW` en cinco puntos del código, con el riesgo de dejar alguno al revés — y en la bomba eso significa regar cuando debería estar apagada.
+**Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `HIGH`/`LOW` (lógica directa). Si se cambia a módulos de relé activos en bajo, basta intercambiar esas dos líneas y todo el firmware queda coherente.
 
 **Estado inicial seguro:** `Plant::begin()` llama a `allDevicesOff()` antes de leer cualquier configuración, para que ningún actuador arranque energizado.
 
@@ -74,7 +58,7 @@ Los valores viajan del portal al firmware como **porcentaje 0–100** y se escal
 
 ## Temporización con RTC
 
-Para temporizar el encendido y apagado de los equipos se usa un RTC por I²C. La versión original usó un [DS1307](https://datasheets.maximintegrated.com/en/ds/DS1307.pdf); la actual un **DS3231**, que integra compensación por temperatura y deriva mucho menos.
+Para temporizar el encendido y apagado de los equipos se usa un **DS3231** por I²C (dirección `0x68`), compensado por temperatura y de baja deriva.
 
 El firmware lee el RTC una vez por segundo desde `loop()` (único punto de I²C periódico, para no compartir el bus `Wire` con otras tareas) y con esa lectura decide qué salidas deben estar activas.
 
@@ -86,8 +70,8 @@ La hora **no** se configura con botones: se sincroniza desde el navegador del us
     <th>Diagrama de conexión final.</th>
   </tr>
   <tr>
-    <th><a href="https://datasheets.maximintegrated.com/en/ds/DS1307.pdf"><img src="./img/ds1307_wiri.png" alt="Diagrama típico RTC"/></a></th>
-    <th><img src="./img/ds1307_sch.png" alt="Diagrama esquemático RTC"/></th>
+    <th><img src="./img/ds3231_wiri.png" alt="Diagrama típico RTC"/></th>
+    <th><img src="./img/ds3231_sch.png" alt="Diagrama esquemático RTC"/></th>
   </tr>
 </table>
 
@@ -95,7 +79,7 @@ La hora **no** se configura con botones: se sincroniza desde el navegador del us
 
 ## Salidas digitales SSR
 
-En la versión original se ocuparon 3 salidas digitales para la activación de los dispositivos (lámpara, bomba de agua y ventilador/extractor). Las salidas del MCU estaban conectadas individualmente a un SSR [AQH2213](https://b2b-api.panasonic.eu/file_stream/pids/fileversion/2787) con el circuito de protección que sugiere el fabricante para cargas inductivas, como la bobina de los contactores.
+Tres salidas digitales accionan los dispositivos (lámpara, bomba de agua y ventilador/extractor). Cada salida del MCU va a un SSR [AQH2213](https://b2b-api.panasonic.eu/file_stream/pids/fileversion/2787) con el circuito de protección que sugiere el fabricante para cargas inductivas, como la bobina de los contactores.
 
 <table align="center">
   <tr>
@@ -112,9 +96,7 @@ En la versión original se ocuparon 3 salidas digitales para la activación de l
 
 ## Conectividad
 
-La versión original usaba la interfaz USART para comunicación BLE, con la que se actualizaban las variables del cultivo de forma inalámbrica.
-
-La actual aprovecha el Wi-Fi integrado del ESP32-C3 en **modo AP+STA**:
+El ESP32-C3 aprovecha su Wi-Fi integrado en **modo AP+STA**:
 
 - **AP** (`SmartPlant`, WPA2-PSK): sirve el portal captivo. Siempre arriba.
 - **STA**: se conecta a la red del usuario, solo si hay credenciales guardadas. Habilita telemetría y OTA a futuro.
@@ -134,35 +116,12 @@ Instalación propuesta para la conexión de los actuadores al gabinete de contro
 
 <div align="center"><img src="./img/gabinete1.jpg" alt="Gabinete eléctrico" width="425" height="516"/></div>
 
-La selección de contactores, los diagramas eléctricos y la conexión final se documentarán conforme avance la implementación en hardware de la versión actual.
+La selección de contactores, los diagramas eléctricos y la conexión final se documentarán conforme avance la implementación en hardware.
 
 ---
 
-## Tarjeta original (ATmega328P)
+## Medición de temperatura (DS18B20)
 
-El proyecto arrancó actualizando un circuito previamente construido con un [PIC16F1827](https://www.microchip.com/en-us/product/PIC16F1827). El mayor número de pines del [ATmega328P](https://ww1.microchip.com/downloads/en/DeviceDoc/ATmega48A-PA-88A-PA-168A-PA-328-P-DS-DS40002061B.pdf) permitió agregar funcionalidad, como desplegar información en un LCD de 20×4.
+**Planeada, aún no implementada** en el firmware. Medir la temperatura del área de cultivo es una labor preventiva: conocer su comportamiento dentro de ciertos rangos ayuda a anticipar problemas. Queda para una futura actualización que además pueda ejecutar acciones correctivas.
 
-Se usó el bootloader de Arduino UNO. Características del MCU aprovechadas: I²C para el RTC, UART para el módulo BLE, salidas PWM y un bloque de salidas digitales para los actuadores.
-
-<table align="center">
-  <tr>
-    <th>&emsp;&emsp;Vista superior.&emsp;&emsp;</th>
-    <th>&emsp;&emsp;Vista inferior.&emsp;&emsp;</th>
-    <th>&emsp;&emsp;Tarjeta electrónica.&emsp;&emsp;</th>
-  </tr>
-</table>
-<div align="center">
-  <img src="./img/picTop.png" alt="Vista superior del PCB" width="180" height="300"/>&emsp;
-  <img src="./img/picBottom.png" alt="Vista inferior del PCB" width="180" height="300"/>&emsp;
-  <img src="./img/picBoard.jpg" alt="Tarjeta electrónica" width="180" height="300"/>
-</div>
-
-Esquemático de la tarjeta, con el bus I²C del RTC, la UART para el módulo inalámbrico, la interfaz one-wire para el DS18B20 y los relés de bomba, lámpara y ventilación:
-
-<div align="center"><img src="./img/R9-46W.png" alt="Esquemático ATmega328P" width="700"/></div>
-
-### Medición de temperatura (DS18B20)
-
-Contemplada en el diseño original y visible en el esquemático, pero **no implementada** en el firmware actual. Medir la temperatura del área de cultivo es una labor preventiva: conocer su comportamiento dentro de ciertos rangos ayuda a anticipar problemas. Queda para una futura actualización de hardware que además pueda ejecutar acciones correctivas.
-
-Los archivos de diseño de la tarjeta actual están en [`ESP32_Board/`](../ESP32_Board) (KiCad).
+Los archivos de diseño de la tarjeta están en [`ESP32_Board/`](../ESP32_Board) (KiCad).

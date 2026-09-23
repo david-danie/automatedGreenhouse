@@ -34,8 +34,7 @@ HTML/
 - Quitar los comentarios del `.h` **ya casi no ahorra nada**: medido hoy, el fuente son
   75,353 bytes y el artefacto 74,879 (~73 KB), es decir **474 bytes (0.6 %)**. El
   generador solo elimina comentarios de **línea completa**, y al crecer el portal la
-  proporción de esas líneas se volvió marginal. La cifra "~57 KB → ~49 KB" que aparecía
-  aquí correspondía a un estado muy anterior del archivo. El ahorro real está en
+  proporción de esas líneas es marginal. El ahorro real está en
   **gzip** (~12–18 KB estimados), todavía pendiente.
 - Generar el `.h` desde el `.html`: strip de comentarios HTML (`<!-- -->`), CSS (`/* */`)
   y JS (`//`) + colapso de líneas en blanco + wrapper `static const char mainForm[] = R"===(` … `)===";`.
@@ -54,7 +53,7 @@ HTML/
 - LED blanco → GPIO 0 (salida digital, lógica directa: nivel alto enciende), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
 - Buzzer → GPIO 3, ventilador → GPIO 7, bomba de agua → GPIO 10
 - PWM: 1 kHz, 8 bits (duty 0–255) en azul y rojo; se envían como 0–100 % y se escalan internamente. El blanco es digital: el portal manda `0`/`1` y el firmware evalúa `> 0`.
-- **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara, la blanca**; los espectros azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Luz Blanca** es una tarjeta destacada al frente (la "lámpara principal") y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"** dentro de la misma sección *Iluminación*. Se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledAzul`/`ledRojo` sliders 0–100, `ledBlanco` toggle 0/1) conservan su contrato con el firmware.
+- **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara, la blanca**; los espectros azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Luz Blanca** va destacada al frente (la "lámpara principal") y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"**, ambos **dentro de un mismo recuadro** (la sección *Iluminación*). La jerarquía la da la **tipografía** (tamaño/peso/color), no recuadros distintos por bloque. El colapsable se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledAzul`/`ledRojo` sliders 0–100, `ledBlanco` toggle 0/1) conservan su contrato con el firmware.
 - RTC externo **DS3231** por I²C (dirección `0x68`); la hora se sincroniza desde el navegador en `/newparams`.
 
 ---
@@ -179,10 +178,9 @@ cualquiera en la red podría capturar el token (viaja sin TLS dentro del enlace 
 
 ### Cultivo nuevo vs reset de fábrica
 
-Son **dos operaciones distintas**, y separarlas fue una decisión de diseño: antes el
-`**reset**` cargaba con los dos propósitos y por eso resultaba contradictorio —una acción
-que se hace cada cosecha no puede exigir las mismas garantías que una escotilla de
-emergencia, ni borrar las mismas cosas.
+Son **dos operaciones distintas** a propósito: una acción que se hace cada cosecha no
+puede exigir las mismas garantías que una escotilla de emergencia, ni borrar las mismas
+cosas.
 
 | | `POST /newcrop` | `**reset**` en `/authusercredentials` |
 |---|---|---|
@@ -268,8 +266,8 @@ la flash antes de cargar el firmware.
 
 1. La config validada se vuelca en `_systemStatus[]` (RAM) — la **fuente de verdad** que
    usa el dispositivo en marcha — y el nombre de planta en `_plantName`.
-2. Se persiste a NVS (namespaces `system` y `plantData`) para sobrevivir cortes de luz.
-3. Se fija la hora del navegador en el RTC (`setCurrentTime()`).
+2. Se fija la hora del navegador en el RTC (`setCurrentTime()`).
+3. Se persiste a NVS (namespaces `system` y `plantData`) para sobrevivir cortes de luz.
 4. `turnOnDevices()` aplica la config **al instante** (PWM de LEDs según fotoperiodo + duty,
    relés de bomba/ventilador según frecuencia/duración).
 
@@ -284,22 +282,16 @@ la flash antes de cargar el firmware.
 
 Ambas comparten `allDevicesOff()` para que no puedan divergir si se añade un actuador
 nuevo. Como `/newparams` llama a `turnOnDevices()` al final, desmarcar la casilla apaga
-todo **de inmediato**, sin reiniciar.
-
-> Hasta esta versión `systemEnable` se guardaba, se reportaba en `/getparams` y se
-> imprimía como `ACTIVO/INACTIVO`, pero **nunca se consultaba**: el cultivo seguía
-> operando aunque la UI dijera "INACTIVO". La edad del cultivo (`dia`/`semana`) **sí**
-> sigue avanzando con el sistema desactivado, porque se deriva del calendario.
+todo **de inmediato**, sin reiniciar. La edad del cultivo (`dia`/`semana`) **sí** sigue
+avanzando con el sistema desactivado, porque se deriva del calendario.
 
 Luego el `loop()`, cada `deviceUpdateInterval`, refresca `_currentTime` desde el RTC
 (`getCurrentTime()`) y re-aplica `turnOnDevices()`. **Todo corre en un único task
-(`loopTask`)** — I²C, handlers HTTP y el log del estado cada `systemLogInterval`. Antes el
-log vivía en un `printTask` aparte que leía `_currentTime`/`_systemStatus` mientras este
-loop los reescribía: sin sincronización podía imprimir un arreglo a medio actualizar. Se
-eliminó esa tarea en lugar de añadir un mutex, así la carrera desaparece por construcción
-y se liberan sus 2 KB de stack. Tras un corte de luz, `begin()` recarga `_systemStatus`
-desde NVS y el loop lo re-aplica en segundos. El reboot anterior era **redundante** para
-aplicar la config; solo `**reset**` reinicia ahora.
+(`loopTask`)** — I²C, handlers HTTP y el log del estado cada `systemLogInterval`. Un solo
+task tocando `_currentTime`/`_systemStatus` evita por construcción la carrera de leer un
+arreglo a medio actualizar, sin necesidad de mutex ni de una tarea de log aparte. Tras un
+corte de luz, `begin()` recarga `_systemStatus` desde NVS y el loop lo re-aplica en
+segundos; la config se aplica en vivo, así que solo `**reset**` reinicia el equipo.
 
 ---
 
@@ -463,17 +455,12 @@ frecuente hasta espaciado.
 `manageDevice()` (`Plant.cpp`) decide el encendido con un **contador continuo de horas**
 derivado del RTC (`epochHours = daysSinceEpoch(...) * 24 + hora`): como no se reinicia a
 medianoche, el mismo módulo sirve para intervalos sub-diarios y multi-día, y es
-**stateless** (todo se recalcula del reloj, sobrevive cortes de luz sin derivar). Por eso
-los valores **ya no tienen que dividir 24**.
+**stateless** (todo se recalcula del reloj, sobrevive cortes de luz sin derivar). Los
+valores son el intervalo directo en horas.
 
 El front se alinea al firmware: la constante JS `VALID_FREQUENCIES` en `HTML/mainForm.html`
 debe mantenerse igual a `validFrequencies` si esta cambia. **Tope 255** (`uint8_t`): un
 intervalo > ~10 días exigiría ampliar `validFrequencies` y `_systemStatus` a `uint16_t`.
-
-> **Compatibilidad NVS:** el significado de `irrH`/`ventH` cambió (antes "veces/día", ahora
-> "horas de intervalo"). Un dispositivo ya configurado con la versión anterior reinterpreta
-> su valor guardado con la nueva semántica (p. ej. `8` pasa de "8 veces/día" a "cada 8 h");
-> basta re-seleccionar la frecuencia una vez en el formulario para corregirlo.
 
 ## Edad del cultivo (`dia` / `semana`)
 El dashboard muestra la **edad del cultivo** en días y semanas (`dia` / `semana` en
@@ -490,13 +477,13 @@ perdería esos días y, además, escribiría NVS cada noche).
 - **Cálculo** (`Plant::cropDayFromRtc`): `dia = daysSinceEpoch(hoy) − cropStart + 1` (el día
   del ancla es el día 1); `semana = (dia − 1) / 7 + 1`. Antes de anclar (o si el RTC va hacia
   atrás) ambos valen `0`.
-- Reusa `daysSinceEpoch()` del control de riego. Los enumeradores `cropDay`/`cropWeek`
-  **se eliminaron** de `SystemStatus`: eran los dos últimos índices y ya no se leían ni
-  escribían. `_systemStatus` pasó de 15 a 13 bytes, dimensionado por el centinela
+- Reusa `daysSinceEpoch()` del control de riego. El día/semana se derivan del RTC, no de
+  `SystemStatus`. `_systemStatus` mide 13 bytes, dimensionado por el centinela
   `systemStatusCount` para que el arreglo siga al enum automáticamente. Como el blob de
-  NVS cambia de tamaño, al cargar este firmware hay que **borrar la flash** (es el
-  procedimiento habitual del proyecto): `Preferences::getBytes` no copia nada si lo
-  guardado es más grande que el buffer, así que un blob viejo se leería en ceros.
+  NVS cambia de tamaño si el enum cambia, al cargar un firmware con distinto layout hay que
+  **borrar la flash** (es el procedimiento habitual del proyecto): `Preferences::getBytes`
+  no copia nada si lo guardado es más grande que el buffer, así que un blob viejo se leería
+  en ceros.
 
 ## Validez del RTC y modo seguro (implementado)
 
@@ -520,8 +507,9 @@ reinició y esto es un default". El chip lo levanta cuando el oscilador se detuv
 `setCurrentTime()`, al escribir la hora que manda el navegador.
 
 **Enmascarado de bits de control:** al convertir de BCD se limpian los bits que no son
-parte del número — `0x00` segundos (bit 7), `0x02` horas (bits 6–5, modo 12/24 h) y
-`0x05` mes (bit 7, *century*) — para que un bit alto no corrompa la conversión.
+parte del número — segundos `& 0x7F` (bit 7 = CH), horas `& 0x3F` (bit 6 = modo 12/24 h,
+bit 5 = AM/PM) y mes `& 0x1F` (bit 7 = *century*) — para que un bit alto no corrompa la
+conversión.
 
 **Comportamiento con `_rtcValid == false`:**
 
@@ -647,24 +635,15 @@ evitando depender del RTC DS3231 y su caso borde de "hora no seteada".
   una passphrase compartida y conocida, alguien en la misma red podría capturar el token
   (de ahí la recomendación de contraseña por dispositivo en `sensible.h`).
 - **El portal se sirve SOLO por el AP.** `WebServer server(apGatewayIp, 80)` liga el socket
-  a la IP del SoftAP (`192.168.4.1`) en vez de al wildcard, así que **ningún endpoint
-  responde por la interfaz STA**. Es la decisión de fondo: el portal es el plano de control
-  *local*, y el enlace con el backend será **saliente**, iniciado por el dispositivo.
-
-  Antes, con `WebServer server(80)`, el socket se ligaba a `0.0.0.0` —el propio comentario de
-  `NetworkServer::begin()` lo dice: *"leave it all-zero so the socket binds to the wildcard
-  (listen on every interface)"*— y en cuanto el equipo se unía a la red del usuario, **todo**
-  el portal quedaba alcanzable desde esa LAN: login, edición de parámetros, configuración de
-  red y el comando de reset, sin necesidad de la passphrase del AP. Un escaneo del `/24`
-  buscando el puerto 80 lo encontraba.
-
-  | | Antes | Ahora |
-  |---|---|---|
-  | Vía AP (`192.168.4.1`) | Sí | Sí |
-  | Vía red del usuario (STA) | **Sí** | **No** |
+  a la IP del SoftAP (`192.168.4.1`) en vez de al wildcard `0.0.0.0`, así que **ningún
+  endpoint responde por la interfaz STA** (la red del usuario). Sin esto, con AP+STA activo
+  todo el portal —login, edición, configuración de red y el comando de reset— quedaría
+  alcanzable desde esa LAN con solo escanear el puerto 80, sin la passphrase del AP. Es la
+  decisión de fondo: el portal es el plano de control *local*, y el enlace con el backend
+  será **saliente**, iniciado por el dispositivo.
 
   **Precio aceptado:** no se puede abrir el dashboard desde el celular estando en la Wi-Fi de
-  casa; hay que cambiarse a la red `SmartPlant`. A cambio, el modelo de amenaza vuelve a ser
+  casa; hay que cambiarse a la red `SmartPlant`. A cambio, el modelo de amenaza es
   únicamente **cercanía física + passphrase del AP**.
 
   `setup()` comprueba en runtime que `WiFi.softAPIP()` coincide con `apGatewayIp` y avisa por
@@ -689,8 +668,8 @@ reset, y por eso se hicieron en ese orden.
 
 La contraseña ya **no se guarda ni se conserva en RAM**: en su lugar viven un salt aleatorio
 y la clave derivada con **PBKDF2-HMAC-SHA256** (`config/pwSalt` y `config/pwHash`, en hex).
-El buffer `_userpass` desapareció, igual que `maskPassword()`, y el log serie ya no imprime
-nada de la contraseña.
+La contraseña no vive en RAM: solo se conservan el salt y el hash, y el log serie no
+imprime nada de la contraseña.
 
 **Decisiones de implementación:**
 
@@ -717,9 +696,8 @@ login. La constante vive en `Constants.h`.
 
 #### 2. Reset de fábrica sin autenticación (resuelto por interfaz, no por token)
 
-Se resolvió **sin exigir autenticación**, que era la vía planteada originalmente y resultó
-ser la equivocada: el reset existe para cuando no se puede iniciar sesión, así que pedirle
-token lo habría inutilizado.
+El reset **no exige autenticación** a propósito: existe para cuando no se puede iniciar
+sesión, así que pedirle token lo inutilizaría.
 
 En su lugar se hicieron tres cosas:
 
@@ -828,50 +806,22 @@ bucle de reintentos fallidos tras reiniciar).
   polling se reanuda; por eso el polling tolera fallos de transporte intermedios.
 - **El escaneo es asíncrono:** `/wifiscan` arranca `WiFi.scanNetworks(true)` y responde
   `scanning: true` al instante; el front consulta el mismo endpoint hasta recibir la
-  lista. Antes bloqueaba ~2 s dentro del request y congelaba el portal. Queda el límite
-  físico de una sola antena: durante el escaneo el AP puede perder algún paquete.
+  lista, sin bloquear `handleClient()`. Queda el límite físico de una sola antena: durante
+  el escaneo el AP puede perder algún paquete.
 - **Sin tráfico saliente todavía:** el firmware no abre ninguna conexión a un
   backend. Por construcción, un dispositivo **no hace peticiones inútiles**.
 
 ---
 
 ## Modelado de la base de datos (backend futuro)
+El modelo de datos completo —tablas, columnas, payloads y flujos— vive en
+[`BACKEND.md`](BACKEND.md), que es la **referencia única**. Aquí solo queda lo específico
+del *lado firmware*: qué manda el dispositivo y por qué.
 
-> **Esta sección es el origen histórico del diseño; la referencia vigente es
-> [`BACKEND.md`](BACKEND.md).** Se conserva porque explica el *lado firmware* (qué manda el
-> dispositivo y por qué). Para nombres de tabla, columnas y payloads exactos, usa
-> `BACKEND.md`: ahí `accounts` se llama **`users`** y se identifica por **`email`**.
-
-Diseño de referencia para cuando se agregue el backend Python. Persiste la
-configuración/estado de cada dispositivo para que **otros dispositivos o apps de
-la misma cuenta** puedan consultarlos. Modelo **por cuenta**: una cuenta posee sus
-dispositivos y sus datos.
-
-### Identidad y autenticación (resumen)
-- El dispositivo se autentica **una vez** con `email + pass + mac` sobre **TLS**.
-- "Pro" **no es un nivel almacenado**: significa simplemente *"el dispositivo está
-  vinculado a una cuenta válida"*. La presencia de un **token de dispositivo**
-  (emitido por el backend, revocable, guardado en NVS) ES el "soy pro".
-- La **MAC vincula** (identifica), el **user/pass autentica**, el **token** se usa
-  en todo lo demás (no se reenvía la contraseña). Ver detalles de TLS abajo.
-
-### Entidades
-
-```
-accounts ───1:N─── devices ───1:N─── device_configs   (config actual + histórico)
-                      │
-                      └──────1:N─── device_telemetry   (serie temporal de estado)
-
-firmware_releases    (catálogo de binarios para OTA, independiente)
-```
-
-| Tabla | Campos clave | Notas |
-|-------|--------------|-------|
-| `users` (aquí `accounts`) | `id`, `email` (UNIQUE), `password_hash`, `is_admin`, `created_at` | Cuenta dueña de los dispositivos. Hash con bcrypt/argon2 |
-| `devices` | `id`, `mac` (UNIQUE), `account_id` (FK), `name`, `token_hash`, `firmware_version`, `last_seen_at`, `created_at` | La MAC identifica; `token_hash` = token de dispositivo hasheado (revocable) |
-| `device_configs` | `id`, `device_id` (FK), `planta`, `enable`, `fp_on`, `fp_off`, `led_a/r/b`, `irr_h/m`, `vent_h/m`, `crop_start_day`, `applied_at` | **Una fila por cambio** (histórico). La última = config vigente. Espeja los campos de `/newparams` en **snake_case**; ojo: los LED se llaman `led_a`/`led_r`/`led_b` aquí, mientras el portal usa `ledAzul`/`ledRojo`/`ledBlanco` (ver [nota](#desfase-de-nombres-entre-portal-y-backend)) |
-| `device_telemetry` | `id`, `device_id` (FK), `ts`, `wifi_rssi`, `uptime`, *(sensores futuros: temp, humedad…)* | **Serie temporal**: candidato a hypertable de **TimescaleDB** |
-| `firmware_releases` | `version`, `url`, `sha256`, `signature`, `min_version`, `published_at` | Catálogo para OTA (ver sección TLS / OTA) |
+**Identidad (resumen):** el dispositivo se aprovisiona **una vez** con `email + pass + mac`
+sobre TLS y recibe un **token de dispositivo** (revocable, guardado en NVS). La MAC
+identifica, el user/pass autentica y el token se usa en todo lo demás — la contraseña solo
+viaja en el aprovisionamiento.
 
 #### Desfase de nombres entre portal y backend
 
@@ -883,29 +833,17 @@ Los campos de LED **no se llaman igual** en los dos contratos:
 | `ledRojo` (0–100) | `led_r` |
 | `ledBlanco` (0/1) | `led_b` |
 
-El backend ya define `led_a/led_r/led_b` en `models.py`, `schema.sql`, la migración `001_initial_schema.py` y los routers (`devices.py` ya valida `led_b` como `ge=0, le=1`, igual que el firmware). Las claves del portal se renombraron después, así que **cuando se implemente el envío de configuración al backend habrá que mapear explícitamente** `ledAzul→led_a`, `ledRojo→led_r`, `ledBlanco→led_b`, o bien renombrar las columnas con una migración nueva.
+El backend define `led_a/led_r/led_b` en `models.py`, `schema.sql`, la migración
+`001_initial_schema.py` y los routers (`devices.py` valida `led_b` como `ge=0, le=1`, igual
+que el firmware). **Cuando se implemente el envío de configuración al backend habrá que
+mapear explícitamente** `ledAzul→led_a`, `ledRojo→led_r`, `ledBlanco→led_b`, o renombrar las
+columnas con una migración. Hoy no hay incompatibilidad activa: el firmware todavía no envía
+configuración al backend.
 
-Hoy no hay incompatibilidad activa: el firmware todavía no envía configuración al backend (`downloadOTA()`/`getToken()` siguen sin implementar). Es una decisión pendiente, no un bug.
-
-### Flujos de información
-
-1. **Aprovisionamiento** (acción del usuario): device → `POST /devices/provision
-   {email,pass,mac}` → el backend valida la cuenta, crea/vincula la fila en
-   `devices` y **emite el token**. Es el único momento en que viaja la contraseña.
-2. **Reporte de config**: al cambiar parámetros, device → `POST
-   /devices/{id}/config {token, …}` → inserta en `device_configs`.
-3. **Telemetría**: device → `POST /devices/{id}/telemetry {token, …}` → inserta en
-   `device_telemetry`. Cadencia por evento o intervalo (no polling de "¿soy pro?").
-4. **Consulta por otros dispositivos/app**: `GET /devices/{id}/state` (última
-   config + telemetría reciente), `GET /accounts/me/devices`. Todo gateado por el
-   token y restringido a la cuenta dueña.
-5. **OTA**: device → `GET /firmware/latest?current=X` → metadatos del release →
-   descarga del binario firmado (ver sección TLS).
-
-### Cómo NO se hacen peticiones inútiles
+### Cómo el firmware NO hace peticiones inútiles
 - **Sin Wi-Fi → cero tráfico** (ni puede alcanzar el backend).
-- **Sin token y sin acción del usuario → silencio total.** No hay polling de
-  entitlement en background; el vínculo se decide al aprovisionar (acción humana).
+- **Sin token y sin acción del usuario → silencio total.** No hay polling de entitlement en
+  background; el vínculo se decide al aprovisionar (acción humana).
 - **Token revocado (`401/403`) → el dispositivo borra el token y vuelve a "básico"**
   (negative caching): deja de llamar hasta que el usuario re-aprovisione.
 
