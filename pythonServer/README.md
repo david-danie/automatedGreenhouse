@@ -110,11 +110,11 @@ Detalle de por qué Alembic no autogenera la extensión ni `create_hypertable()`
 registra el release; `GET /firmware/latest?current=…` resuelve aplicabilidad y devuelve una
 URL prefirmada. Después vienen MQTT (entregable 8) y TLS/Caddy (entregable 9).
 
-Nota de entorno para levantar el stack en esta máquina: los puertos **5432 y 8000 del host
-están ocupados** por otro proyecto (`dbjaguar`, `jaguar`). El `docker-compose.override.yml`
-los remapea a **5433** y **8001** con `ports: !override` (sin esa directiva, Compose
-**concatena** las listas de puertos en vez de reemplazarlas). El backend queda en
-`http://localhost:8001`.
+Nota de entorno: por defecto el stack usa los puertos **5432** (Postgres) y **8000**
+(backend). Si en tu máquina esos puertos están ocupados por otro proyecto, crea un
+`docker-compose.override.yml` local que los remapee (p. ej. a **5433**/**8001**) con
+`ports: !override` — sin esa directiva, Compose **concatena** las listas de puertos en vez
+de reemplazarlas. Ese override es local de cada máquina y no forma parte del proyecto.
 
 ---
 
