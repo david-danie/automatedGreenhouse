@@ -71,7 +71,8 @@ class Plant {
     // operaciones en runtime (escaneo, guardado y observación del intento).
     // Escanea redes y devuelve JSON {"networks":[{ssid,rssi,secure}]} con las 5
     // más fuertes SIN nombres repetidos (descarta duplicados de repetidores,
-    // quedándose con la señal más fuerte). Bloquea ~2 s: corre dentro del request.
+    // quedándose con la señal más fuerte). ASÍNCRONO: arranca el escaneo y
+    // responde scanning=true; el front consulta hasta recibir la lista.
     String scanNetworks();
     // Valida (token de sesión + ssid/pass) y ARRANCA la conexión, sin bloquear ni
     // persistir todavía: devuelve STATUS_OK = "intento iniciado". El front confirma

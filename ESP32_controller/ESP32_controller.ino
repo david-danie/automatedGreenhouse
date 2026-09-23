@@ -174,7 +174,8 @@ void handleUserCredentials() {
 void handleGetParameters() {
   // Devuelve el estado del dispositivo en JSON (incluye hasRegisteredUser y, si
   // se manda ?token=, sessionValid). El token viene en la query porque /getparams
-  // es GET; buildParamsJson lo valida y, si sigue vigente, renueva la sesión.
+  // es GET; buildParamsJson lo valida para reportar sessionValid, pero NO renueva
+  // la sesión: la ventana es FIJA desde el login.
   server.send(200, "application/json", planta.buildParamsJson(server.arg("token")));
   Serial.println("*****  " + server.uri() + "  *****");
 }
@@ -254,7 +255,8 @@ void handleExit() {
 void handleWifiScan() {
   // Escaneo on-demand: el dispositivo busca redes y devuelve las 5 más fuertes
   // sin nombres repetidos. No usa el sobre {status,message}: entrega la lista
-  // directa (igual que /getparams). Bloquea ~2 s mientras escanea.
+  // directa (igual que /getparams). Asíncrono: arranca el escaneo y responde
+  // scanning=true; el front consulta hasta recibir la lista.
   server.send(200, "application/json", planta.scanNetworks());
   Serial.println("*****  " + server.uri() + "  *****");
 }

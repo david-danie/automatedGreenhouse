@@ -699,18 +699,17 @@ bool Plant::isWifiConnected() {
 }
 
 // Escanea redes y devuelve las 5 más fuertes SIN nombres repetidos. El escaneo
-// es BLOQUEANTE (~2 s) y corre dentro del request /wifiscan: aceptable para una
-// acción puntual del usuario. Dedup: ante dos APs con el mismo SSID (repetidores)
+// es ASÍNCRONO: la primera petición lo arranca y responde al instante con
+// scanning=true, y el front vuelve a preguntar hasta recibir la lista, para no
+// bloquear handleClient(). Dedup: ante dos APs con el mismo SSID (repetidores)
 // se conserva el de mayor RSSI. Oculta SSIDs vacíos (redes ocultas).
 String Plant::scanNetworks() {
   // Top-5 por RSSI, deduplicado por SSID. Arreglos fijos (sin heap): el ESP32-C3
   // tiene RAM limitada y 5 entradas sobran para una lista legible.
   // ---- Escaneo ASÍNCRONO (no bloquea handleClient) ----
-  // Antes esto llamaba a WiFi.scanNetworks() bloqueante: ~2 s dentro del request,
-  // durante los cuales el loop no atendía a nadie y el portal se congelaba. Ahora
-  // se usa el mismo patrón de "arranca y consulta" que la conexión STA: la primera
-  // petición lanza el escaneo y responde al instante con scanning=true; el front
-  // vuelve a preguntar hasta recibir la lista.
+  // Patrón "arranca y consulta", igual que la conexión STA: la primera petición
+  // lanza el escaneo y responde al instante con scanning=true; el front vuelve a
+  // preguntar hasta recibir la lista.
   int16_t estado = WiFi.scanComplete();
 
   // WIFI_SCAN_FAILED (-2) = no hay escaneo en curso ni resultados pendientes.
