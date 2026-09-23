@@ -81,470 +81,38 @@
 
     <style>
         /* =====================================================================
-           HOJA DE ESTILOS DE LA V2
+           HTML BASE (SIN ESTILOS) DE LA V2
 
-           Organizada para PROBAR PALETAS sin tocar los componentes:
-             1. Las paletas viven arriba, como variables CSS.
-             2. Todo lo demás referencia SOLO variables — ningún color literal.
+           Este archivo es la BASE ESTRUCTURAL: markup semántico + máquina de
+           estados en JS + los íconos SVG de navegación. El diseño visual (colores,
+           layout, tipografía) se añade encima SIN tocar el JS, apoyándose en los
+           hooks de clase/id del markup.
 
-           Para cambiar de paleta se edita data-theme en <html>:
-                 <html lang="es" data-theme="verde">
-           Valores: verde (por defecto) · oscuro · tierra · limpio
+           Aquí solo vive el CSS estructural imprescindible para que el portal
+           FUNCIONE; nada de presentación.
 
-           INVARIANTE QUE NO SE PUEDE ROMPER
-           El cambio de vista usa el atributo `hidden`, no clases. La regla
-           [hidden]{display:none!important} de abajo es lo que lo sostiene: si una
-           regla de .view ganara especificidad, TODAS las pantallas se verían a la vez.
+           Paletas para probar estilos: HTML/portal-v2/paletas-guardadas.css
 
-           Hooks del markup:
+           Hooks del markup (para el CSS que se añada después):
              .view          cada pantalla        .field       etiqueta + control
              .dash-section  panel con título     .dash-item   par etiqueta/valor
-             .actions       fila de botones      .help        <details> explicativo
-             .primary       acción principal     .secondary   volver/cancelar
-             .discreet      acción de riesgo     .crop-reset  zona destructiva
-             .msg           resultado ([data-ok] = éxito)
-             .net-list      redes Wi-Fi encontradas
+             .actions / .dash-nav  navegación    .help        <details> explicativo
+             .primary · .secondary · .discreet · .crop-reset
+             .msg (resultado, [data-ok] = éxito) · .net-list (redes Wi-Fi)
+             .nav-item / .nav-ico / .nav-label / .nav-dot (botones SVG)
            ===================================================================== */
 
-        /* ---------- 1. PALETAS ---------------------------------------------- */
-
-        /* Verde: identidad SmartPlant, coherente con la V1. */
-        :root,
-        [data-theme="verde"] {
-            --bg:            #eef4ea;
-            --surface:       #ffffff;
-            --surface-2:     #f4f8f1;
-            --border:        #d7e3d1;
-            --text:          #23301f;
-            --text-dim:      #6b7a66;
-            --primary:       #4caf50;
-            --primary-2:     #66bb6a;
-            --on-primary:    #ffffff;
-            --secondary:     #ff7043;
-            --secondary-2:   #ff8a65;
-            --on-secondary:  #ffffff;
-            --accent:        #2e7d32;
-            --ok-bg:         #e8f5e9;
-            --ok-text:       #2e7d32;
-            --err-bg:        #ffebee;
-            --err-text:      #c62828;
-            --shadow:        0 6px 20px rgba(35, 48, 31, .10);
-        }
-
-        /* Oscuro: para revisar contraste y uso nocturno en el invernadero. */
-        [data-theme="oscuro"] {
-            --bg:            #14181a;
-            --surface:       #1e2427;
-            --surface-2:     #262d31;
-            --border:        #333c41;
-            --text:          #e6ecea;
-            --text-dim:      #9aa7a2;
-            --primary:       #4caf50;
-            --primary-2:     #5cc860;
-            --on-primary:    #10140f;
-            --secondary:     #ff7043;
-            --secondary-2:   #ff8a65;
-            --on-secondary:  #1a0f0a;
-            --accent:        #7fd483;
-            --ok-bg:         #1b3320;
-            --ok-text:       #8fe095;
-            --err-bg:        #3a1f22;
-            --err-text:      #ff9c9c;
-            --shadow:        0 6px 20px rgba(0, 0, 0, .45);
-        }
-
-        /* Tierra: barro y hoja seca, menos saturado. */
-        [data-theme="tierra"] {
-            --bg:            #f3ece3;
-            --surface:       #fffdf9;
-            --surface-2:     #f7f1e8;
-            --border:        #e0d3c2;
-            --text:          #33291f;
-            --text-dim:      #7d6f5f;
-            --primary:       #7d9a5b;
-            --primary-2:     #8fae6a;
-            --on-primary:    #ffffff;
-            --secondary:     #c1683f;
-            --secondary-2:   #d3794f;
-            --on-secondary:  #ffffff;
-            --accent:        #5d7742;
-            --ok-bg:         #eaf0e0;
-            --ok-text:       #4f6b33;
-            --err-bg:        #f8e7e0;
-            --err-text:      #a5482a;
-            --shadow:        0 6px 20px rgba(51, 41, 31, .12);
-        }
-
-        /* Limpio: neutro, para juzgar la jerarquía sin que el color ayude. */
-        [data-theme="limpio"] {
-            --bg:            #f5f6f8;
-            --surface:       #ffffff;
-            --surface-2:     #f7f8fa;
-            --border:        #dfe3e8;
-            --text:          #1d2126;
-            --text-dim:      #6b7280;
-            --primary:       #2563eb;
-            --primary-2:     #3b76f0;
-            --on-primary:    #ffffff;
-            --secondary:     #64748b;
-            --secondary-2:   #77869b;
-            --on-secondary:  #ffffff;
-            --accent:        #1d4ed8;
-            --ok-bg:         #e8f2ff;
-            --ok-text:       #1d4ed8;
-            --err-bg:        #fdecec;
-            --err-text:      #b3261e;
-            --shadow:        0 6px 20px rgba(29, 33, 38, .08);
-        }
-
-        /* Forma y ritmo: comunes a todas las paletas. */
-        :root {
-            --radius:    12px;
-            --radius-sm: 8px;
-            --gap:       16px;
-            --gap-sm:    10px;
-            --font:      system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        }
-
-        /* ---------- 2. INVARIANTE DE VISTAS -------------------------------- */
-        /* No mover ni debilitar: es lo que hace funcionar la navegación. */
+        /* INVARIANTE DE VISTAS — NO ELIMINAR.
+           El cambio de vista usa el atributo `hidden`. Esta regla es lo que lo
+           sostiene: sin ella (o si una regla de .view ganara especificidad sobre
+           el atributo) TODAS las pantallas se verían a la vez. */
         [hidden] { display: none !important; }
 
-        /* ---------- 3. BASE ------------------------------------------------ */
-        * { box-sizing: border-box; }
-
-        body {
-            margin: 0;
-            padding: var(--gap);
-            background: var(--bg);
-            color: var(--text);
-            font-family: var(--font);
-            font-size: 16px;               /* 16px evita el zoom automático en iOS */
-            line-height: 1.5;
-            -webkit-text-size-adjust: 100%;
-        }
-
-        /* ---------- 4. TARJETA -------------------------------------------- */
-        #card {
-            max-width: 560px;
-            margin: 0 auto;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: var(--gap);
-        }
-
-        #title {
-            margin: 0 0 var(--gap);
-            padding-bottom: var(--gap-sm);
-            border-bottom: 1px solid var(--border);
-            font-size: 1.25rem;
-            color: var(--accent);
-        }
-
-        .view > p { margin: 0 0 var(--gap-sm); }
-        .view > p:last-child { margin-bottom: 0; }
-
-        /* ---------- 5. PANELES -------------------------------------------- */
-        /* .dash-section agrupa tanto lecturas del dashboard como campos del
-           formulario: mismo tratamiento visual a propósito, para que el usuario
-           reconozca "Riego" como el mismo bloque en ambas vistas. */
-        .dash-section {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: var(--gap-sm) var(--gap);
-            margin-bottom: var(--gap-sm);
-        }
-
-        .dash-section h3 {
-            margin: 0 0 var(--gap-sm);
-            font-size: .8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: .06em;
-            color: var(--text-dim);
-        }
-
-        .dash-section p { margin: 0; }
-
-        #dashHero { background: var(--surface); border-color: var(--primary); }
-        #dashPlanta { margin: 0; font-size: 1.4rem; color: var(--accent); }
-
-        /* Par etiqueta/valor: la etiqueta se atenúa y el valor resalta. */
-        .dash-item {
-            display: inline-block;
-            margin-right: var(--gap);
-            color: var(--text-dim);
-            font-size: .9rem;
-        }
-        .dash-item strong {
-            display: inline-block;
-            color: var(--text);
-            font-size: 1.05rem;
-        }
-
-        .dash-auth-hint {
-            background: var(--surface-2);
-            border-left: 3px solid var(--secondary);
-            border-radius: var(--radius-sm);
-            padding: var(--gap-sm);
-            color: var(--text-dim);
-            font-size: .9rem;
-        }
-
-        /* ---------- 6. FORMULARIOS ---------------------------------------- */
-        .field { margin-bottom: var(--gap-sm); }
-        .field:last-child { margin-bottom: 0; }
-
-        .field label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: .85rem;
-            font-weight: 600;
-            color: var(--text-dim);
-        }
-
-        input[type="text"],
-        input[type="password"],
-        input[type="number"],
-        input[type="file"],
-        select {
-            width: 100%;
-            padding: 11px 12px;
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 1rem;
-        }
-
-        input:focus-visible,
-        select:focus-visible,
-        button:focus-visible,
-        summary:focus-visible {
-            outline: 2px solid var(--primary);
-            outline-offset: 2px;
-        }
-
-        /* Casilla: toma el color de la paleta sin CSS extra. */
-        input[type="checkbox"] {
-            width: 20px; height: 20px;
-            accent-color: var(--primary);
-            vertical-align: middle;
-        }
-
-        /* Deslizadores de espectro. Se estiliza pista y pulgar en ambos motores;
-           sin los prefijos el control queda con el aspecto del sistema. */
-        input[type="range"] {
-            width: 100%;
-            margin: 6px 0;
-            background: transparent;
-            -webkit-appearance: none;
-            appearance: none;
-        }
-        input[type="range"]::-webkit-slider-runnable-track {
-            height: 6px;
-            background: var(--border);
-            border-radius: 999px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 22px; height: 22px;
-            margin-top: -8px;
-            background: var(--primary);
-            border: 2px solid var(--surface);
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        input[type="range"]::-moz-range-track {
-            height: 6px;
-            background: var(--border);
-            border-radius: 999px;
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 18px; height: 18px;
-            background: var(--primary);
-            border: 2px solid var(--surface);
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        output {
-            font-variant-numeric: tabular-nums;
-            font-weight: 700;
-            color: var(--accent);
-        }
-
-        /* ---------- 7. AYUDA --------------------------------------------- */
-        .help {
-            margin: var(--gap-sm) 0 0;
-            font-size: .85rem;
-            color: var(--text-dim);
-        }
-        details.help summary {
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--accent);
-        }
-        details.help[open] summary { margin-bottom: 6px; }
-
-        /* ---------- 8. BOTONES ------------------------------------------- */
-        .actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: var(--gap-sm);
-            margin-top: var(--gap);
-        }
-        .actions button { flex: 1 1 140px; }
-
-        /* ---------- 8b. NAV DE ÍCONOS (dashboard) ------------------------
-           Los cuatro destinos hub→spoke en UNA fila. Cada botón es ícono +
-           etiqueta corta. Solo variables de la paleta: ningún color literal. */
-        .dash-nav {
-            display: flex;
-            gap: var(--gap-sm);
-            margin-top: var(--gap);
-        }
-        .nav-item {
-            flex: 1 1 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            padding: 12px 6px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            font-size: .8rem;
-            font-weight: 600;
-            line-height: 1;
-        }
-        .nav-item:hover { border-color: var(--primary); color: var(--accent); }
-        .nav-ico { width: 26px; height: 26px; }
-        .nav-label { white-space: nowrap; }
-        /* Wi-Fi: punto de estado sobre el ícono (gris = sin conectar). */
+        /* Tamaño base de los íconos SVG de navegación: un <svg> sin dimensiones
+           puede renderizar a un tamaño arbitrario. Es estructural, no estético. */
+        .nav-ico { width: 24px; height: 24px; }
         .nav-ico-wrap { position: relative; display: inline-flex; }
-        .nav-dot {
-            position: absolute;
-            right: -2px; top: -2px;
-            width: 9px; height: 9px;
-            border-radius: 50%;
-            background: var(--text-dim);
-            border: 2px solid var(--surface);
-        }
-        .nav-dot.is-on { background: var(--primary); }
-        /* OTA: acción de riesgo. Ya no se aparta por posición (pasa por login),
-           pero se matiza con el tono de acento cálido para que no se pulse por
-           inercia. */
-        .nav-item-ota { color: var(--secondary); }
-        .nav-item-ota:hover { border-color: var(--secondary); color: var(--secondary); }
-
-        button {
-            padding: 13px 18px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-family: inherit;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            background: var(--surface-2);
-            color: var(--text);
-        }
-        button:disabled { opacity: .55; cursor: default; }
-
-        .primary {
-            background: linear-gradient(135deg, var(--primary), var(--primary-2));
-            color: var(--on-primary);
-            border-color: transparent;
-        }
-        .secondary {
-            background: linear-gradient(135deg, var(--secondary), var(--secondary-2));
-            color: var(--on-secondary);
-            border-color: transparent;
-        }
-        /* Acción rara y de riesgo (OTA): visible pero sin invitar a pulsarla. */
-        .discreet {
-            background: transparent;
-            color: var(--text-dim);
-            border-color: var(--border);
-            font-weight: 500;
-        }
-
-        /* Zona destructiva: separada para que no se pulse por inercia. */
-        .crop-reset {
-            margin-top: var(--gap);
-            padding-top: var(--gap-sm);
-            border-top: 1px solid var(--border);
-        }
-        .crop-reset button {
-            width: 100%;
-            background: transparent;
-            color: var(--secondary);
-            border-color: var(--secondary);
-            font-weight: 500;
-        }
-        .crop-reset .help { text-align: center; }
-
-        /* Mostrar/ocultar contraseña: pertenece al campo, no es acción de vista. */
-        #btnTogglePass {
-            margin-top: 6px;
-            padding: 6px 10px;
-            font-size: .8rem;
-            font-weight: 500;
-        }
-
-        /* ---------- 9. MENSAJES ------------------------------------------ */
-        /* Error por defecto; el JS añade [data-ok] en caso de éxito. */
-        .msg {
-            margin: 0 0 var(--gap);
-            padding: 12px var(--gap);
-            border-radius: var(--radius-sm);
-            border: 1px solid currentColor;
-            background: var(--err-bg);
-            color: var(--err-text);
-            font-size: .95rem;
-        }
-        .msg[data-ok] {
-            background: var(--ok-bg);
-            color: var(--ok-text);
-        }
-
-        /* ---------- 10. REDES WI-FI ------------------------------------- */
-        .net-list {
-            list-style: none;
-            margin: 0 0 var(--gap-sm);
-            padding: 0;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            overflow: hidden;
-        }
-        .net-list li + li { border-top: 1px solid var(--border); }
-        .net-list button {
-            width: 100%;
-            border: 0;
-            border-radius: 0;
-            background: var(--surface);
-            text-align: left;
-            font-weight: 500;
-        }
-        .net-list button:hover { background: var(--surface-2); }
-
-        /* ---------- 11. PANTALLAS DE PROCESO --------------------------- */
-        #view-flashing, #view-exit { text-align: center; }
-        #otaStage { color: var(--text-dim); font-size: .9rem; }
-        #view-flashing h2, #view-exit h2 { color: var(--accent); }
-
-        /* ---------- 12. PANTALLAS ANCHAS ------------------------------- */
-        @media (min-width: 520px) {
-            body { padding: calc(var(--gap) * 2) var(--gap); }
-            #card { padding: calc(var(--gap) * 1.5); }
-            .dash-item { margin-right: calc(var(--gap) * 1.5); }
-        }
+        .toggle-password svg { width: 20px; height: 20px; }
     </style>
 </head>
 
@@ -575,7 +143,7 @@
                 <div class="field">
                     <label for="pass">Contraseña</label>
                     <input type="password" id="pass" name="pass" autocomplete="current-password" maxlength="64" required>
-                    <button type="button" id="btnTogglePass" aria-label="Mostrar contraseña">Ver</button>
+                    <button type="button" class="toggle-password" id="btnTogglePass" aria-label="Mostrar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
                 </div>
                 <div class="actions">
                     <button type="submit" class="primary" id="btnCredentials">Continuar</button>
@@ -855,6 +423,7 @@
                 <div class="field">
                     <label for="wifiPass">Contraseña</label>
                     <input type="password" id="wifiPass" name="pass" maxlength="63" autocomplete="off">
+                    <button type="button" class="toggle-password" id="btnToggleWifiPass" aria-label="Mostrar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
                     <small>Déjala vacía si la red es abierta.</small>
                 </div>
                 <div class="actions">
@@ -1306,6 +875,24 @@
            ===================================================================== */
         $("btnGoRegister").addEventListener("click", () => setEstado("register"));
         $("btnWelcomeExit").addEventListener("click", () => salir());
+
+        /* Mostrar/ocultar contraseña: alterna type y el ícono (ojo / ojo tachado).
+           Un solo handler para los dos campos (#pass y #wifiPass). */
+        const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+        const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+        function conectarTogglePassword(btnId, inputId) {
+            const btn = $(btnId), input = $(inputId);
+            if (!btn || !input) return;
+            btn.addEventListener("click", () => {
+                const visible = input.type === "text";
+                input.type = visible ? "password" : "text";
+                btn.innerHTML = visible ? EYE_ICON : EYE_OFF_ICON;
+                btn.setAttribute("aria-label", visible ? "Mostrar contraseña" : "Ocultar contraseña");
+            });
+        }
+        conectarTogglePassword("btnTogglePass", "pass");
+        conectarTogglePassword("btnToggleWifiPass", "wifiPass");
+
         $("btnEdit").addEventListener("click", () => requireAuth("edit"));
         $("btnWifi").addEventListener("click", () => requireAuth("wifi"));
         $("btnOta").addEventListener("click", () => requireAuth("ota"));

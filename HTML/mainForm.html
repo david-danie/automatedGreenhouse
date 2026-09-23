@@ -191,11 +191,24 @@
             box-shadow: 0 0 0 2px rgba(76, 175, 80, .4);
         }
         /* Luz Blanca = control principal: tarjeta destacada al frente. */
-        .light-primary {
-            margin-bottom: 12px;
-            background: #f1f8e9;
-            border: 1px solid #c5e1a5;
-            border-radius: 8px;
+        /* Contenedor común de Iluminación: usa el mismo lenguaje visual que los
+           inputs del formulario (fondo blanco, borde verde claro) para que no
+           desentone. Un solo recuadro, sin separadores internos: la jerarquía la
+           da la tipografía (tamaño/peso/color), no bloques distintos. */
+        .light-section {
+            margin-bottom: 16px;
+            border: 1px solid #c8e6c9;
+            border-radius: 6px;
+            background: white;
+            overflow: hidden;
+        }
+        /* Los hijos se funden en el contenedor: sin fondo, borde ni separador. */
+        .light-primary,
+        .light-advanced {
+            margin-bottom: 0;
+            background: transparent;
+            border: 0;
+            border-radius: 0;
         }
         .light-primary-toggle {
             display: flex;
@@ -219,13 +232,8 @@
             font-size: 12px;
             color: #689f38;
         }
-        /* Azul/Rojo = espectros avanzados y opcionales: subordinados y colapsables. */
-        .light-advanced {
-            margin-bottom: 16px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background: #fafafa;
-        }
+        /* Azul/Rojo = espectros avanzados y opcionales: subordinados y colapsables
+           (apariencia unificada en .light-section, arriba). */
         .light-advanced > summary {
             display: flex;
             align-items: center;
@@ -926,37 +934,39 @@
                 <div class="section-header">
                     <span>Iluminación</span>
                 </div>
-                <div class="light-primary">
-                    <label class="light-primary-toggle" for="ledBlanco">
-                        <span class="light-primary-text">
-                            <span class="light-primary-name">Luz Blanca</span>
-                            <span class="light-primary-hint">Lámpara principal</span>
-                        </span>
-                        <span class="switch">
-                            <input type="checkbox" id="ledBlanco" name="ledBlanco">
-                            <span class="switch-slider"></span>
-                        </span>
-                    </label>
-                </div>
-                <details class="light-advanced">
-                    <summary>Espectros avanzados <span class="light-advanced-tag">opcional</span></summary>
-                    <div class="light-advanced-body">
-                        <div class="form-group">
-                            <label for="ledAzul">Espectro Azul: <span id="luzAzulValue">50%</span></label>
-                            <div class="slider-container">
-                                <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
-                                <div class="slider-progress" id="progressA"></div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="ledRojo">Espectro Rojo: <span id="luzRojaValue">50%</span></label>
-                            <div class="slider-container">
-                                <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
-                                <div class="slider-progress" id="progressR"></div>
-                            </div>
-                        </div>
+                <div class="light-section">
+                    <div class="light-primary">
+                        <label class="light-primary-toggle" for="ledBlanco">
+                            <span class="light-primary-text">
+                                <span class="light-primary-name">Luz Blanca</span>
+                                <span class="light-primary-hint">Lámpara principal</span>
+                            </span>
+                            <span class="switch">
+                                <input type="checkbox" id="ledBlanco" name="ledBlanco">
+                                <span class="switch-slider"></span>
+                            </span>
+                        </label>
                     </div>
-                </details>
+                    <details class="light-advanced">
+                        <summary>Espectros avanzados <span class="light-advanced-tag">opcional</span></summary>
+                        <div class="light-advanced-body">
+                            <div class="form-group">
+                                <label for="ledAzul">Espectro Azul: <span id="luzAzulValue">50%</span></label>
+                                <div class="slider-container">
+                                    <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
+                                    <div class="slider-progress" id="progressA"></div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="ledRojo">Espectro Rojo: <span id="luzRojaValue">50%</span></label>
+                                <div class="slider-container">
+                                    <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
+                                    <div class="slider-progress" id="progressR"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
                 <div class="section-header">
                     <span>Riego</span>
                 </div>
