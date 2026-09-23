@@ -71,16 +71,6 @@ recrearlos a mano en cada máquina:
   crea un pythonServer/docker-compose.override.yml LOCAL que los remapee. Ese
   override es local de cada máquina y NO forma parte del proyecto.
     -> En una máquina limpia usa 5432/8000 por defecto (sin override).
-    -> Si 5432 u 8000 ya están ocupados, crea un override así (el "!override" es
-       obligatorio; sin él Compose CONCATENA los puertos en vez de reemplazarlos):
-
-         services:
-           db:
-             ports: !override
-               - "5433:5432"
-           backend:
-             ports: !override
-               - "8001:8000"
 
 --- Nota de arranque -----------------------------------------------------
   app/settings.py debe tener  extra = "ignore"  en su clase Config. El .env es
