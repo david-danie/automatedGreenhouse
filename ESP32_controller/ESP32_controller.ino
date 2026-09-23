@@ -126,7 +126,7 @@ void loop() {
   if (now - lastLog >= systemLogInterval) {
     lastLog = now;
     planta.printSystemData();
-    Serial.printf("Stack libre minimo (loop): %u bytes\n", uxTaskGetStackHighWaterMark(NULL));
+    //Serial.printf("Stack libre minimo (loop): %u bytes\n", uxTaskGetStackHighWaterMark(NULL));
   }
 
   delay(2);  // cede CPU al IDLE task (alimenta el watchdog) sin la latencia del delay(250) previo

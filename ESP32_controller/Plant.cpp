@@ -1028,12 +1028,12 @@ void Plant::printSystemData() {
                 _systemStatus[hasWifiCredentials] ? "conectado" : "sin conexion");*/
 
   // -- Cultivo --
-  Serial.printf("\n Cultivo  ·  %s - Sem %d, Dia %d\n",
+  Serial.printf(" Cultivo  ·  %s - Sem %d, Dia %d\n",
                 _plantName[0] ? _plantName : "(sin definir)",
                 cropWeekAge, cropDayAge);
 
   // -- Actuadores --
-  Serial.printf("\n Luz      ·  %02dh-%02dh  Blanca %s   Azul %d%%  Roja %d%%\n",
+  Serial.printf(" Luz      ·  %02dh-%02dh  Blanca %s   Azul %d%%  Roja %d%%\n",
                 _systemStatus[photoperiodOn],
                 _systemStatus[photoperiodOff],
                 _systemStatus[whiteLedOn] > 0 ? "ON" : "OFF",
