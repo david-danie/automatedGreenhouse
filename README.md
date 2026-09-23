@@ -14,7 +14,7 @@ SmartPlant es un sistema embebido que controla iluminación por espectro, riego 
 
 <div align="justify">
 
-El proyecto nació como una tarjeta de control basada en un ATmega328P con comunicación BLE y SSR para activar contactores. Desde entonces ha evolucionado a un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con portal captivo, frontend embebido y una arquitectura pensada para escalar hacia un backend con telemetría y OTA segura.
+SmartPlant está construido sobre un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con portal captivo, frontend embebido y una arquitectura pensada para escalar hacia un backend con telemetría y OTA segura.
 
 </div>
 
@@ -224,7 +224,7 @@ La calidad del aire de los espacios de cultivo influye en la temperatura y por l
 
 <div align="justify">
 
-El proyecto inició con un **ATmega328P** de Microchip/Atmel (8 bits, 32 KB flash, I²C, UART, PWM), usando el bootloader de Arduino UNO y comunicación BLE vía UART para actualizar variables del cultivo. La versión actual migró a un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) que integra Wi-Fi nativo, más memoria y permite servir un portal web completo directamente desde el microcontrolador.
+El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) que integra Wi-Fi nativo y sirve el portal web completo directamente desde el microcontrolador.
 
 </div>
 
@@ -242,24 +242,9 @@ El proyecto inició con un **ATmega328P** de Microchip/Atmel (8 bits, 32 KB flas
 
 PWM configurado a 1 kHz con resolución de 8 bits (0–255). Los valores de espectro se envían desde el portal como porcentaje (0–100 %) y se escalan internamente en el firmware.
 
-El detalle completo —esquemáticos, salidas SSR, RTC, instalación eléctrica y la tarjeta original— está en **[`docs/HARDWARE.md`](docs/HARDWARE.md)**.
+El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica— está en **[`docs/HARDWARE.md`](docs/HARDWARE.md)**.
 
 </div>
-
-<br>
-<table align="center">
-  <tr>
-    <th>&emsp;&emsp;Vista superior.&emsp;&emsp;</th>
-    <th>&emsp;&emsp;Vista inferior.&emsp;&emsp;</th>
-    <th>&emsp;&emsp;Tarjeta electrónica.&emsp;&emsp;</th>
-  </tr>
-</table>
-<div align="center">
-  <img src="./docs/img/picTop.png" alt="Vista superior del PCB" width="180" height="300"/>&emsp;
-  <img src="./docs/img/picBottom.png" alt="Vista inferior del PCB" width="180" height="300"/>&emsp;
-  <img src="./docs/img/picBoard.jpg" alt="Tarjeta electrónica" width="180" height="300"/>
-</div>
-<br>
 
 ---
 

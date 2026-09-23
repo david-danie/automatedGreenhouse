@@ -74,12 +74,6 @@ The dashboard shows crop state read-only; editing requires authentication, which
 issues a session token valid for 30 minutes. The network view scans available
 signals and connects the device to the user's Wi-Fi without losing portal access.
 
-<div align="center">
-
-![Control board](docs/img/picBoard.jpg)
-
-</div>
-
 ---
 
 ## 🏗️ Architecture

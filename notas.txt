@@ -66,14 +66,13 @@ recrearlos a mano en cada máquina:
     docker compose down -v                 # apagar y BORRAR datos (¡destructivo!)
 
 --- OJO: puertos ---------------------------------------------------------
-  En la Mac de desarrollo existe un archivo pythonServer/docker-compose.override.yml
-  que remapea los puertos a 5433/8001 porque ahí 5432/8000 están ocupados por
-  OTRO proyecto (contenedores 'dbjaguar'/'jaguar'). Ese override es LOCAL de esa
-  Mac y NO forma parte del proyecto.
-    -> En Ubuntu limpio NO lo copies (o bórralo): usa 5432/8000 por defecto.
-    -> Si por lo que sea 5432 u 8000 ya están ocupados en la Ubuntu, entonces sí
-       crea un override así (el "!override" es obligatorio; sin él Compose
-       CONCATENA los puertos en vez de reemplazarlos):
+  Por defecto el stack usa 5432 (Postgres) y 8000 (backend). Si esos puertos
+  están ocupados por OTRO proyecto (p. ej. contenedores 'dbjaguar'/'jaguar'),
+  crea un pythonServer/docker-compose.override.yml LOCAL que los remapee. Ese
+  override es local de cada máquina y NO forma parte del proyecto.
+    -> En una máquina limpia usa 5432/8000 por defecto (sin override).
+    -> Si 5432 u 8000 ya están ocupados, crea un override así (el "!override" es
+       obligatorio; sin él Compose CONCATENA los puertos en vez de reemplazarlos):
 
          services:
            db:
