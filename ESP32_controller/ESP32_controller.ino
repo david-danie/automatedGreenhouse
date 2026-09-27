@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <WebServer.h>
+#include <Update.h>
 #include "Constants.h"
 #include "sensible.h"
 #include "Plant.h"
@@ -31,6 +32,8 @@ void handleAuthUserCredentials();
 void handleExit();
 void handleWifiScan();
 void handleWifiCredentials();
+void handleOtaUpdate();
+void handleOtaUpload();
 
 void setup() {
   
@@ -93,6 +96,14 @@ void setup() {
   server.on("/authusercredentials", HTTP_POST, handleAuthUserCredentials);
   server.on("/wifiscan", HTTP_GET, handleWifiScan);
   server.on("/wificredentials", HTTP_POST, handleWifiCredentials);
+  // OTA local: subida del .bin por multipart. Dos callbacks: el segundo recibe el
+  // archivo por trozos (handleOtaUpload) y el primero responde al terminar
+  // (handleOtaUpdate). El token va en el header Authorization: Bearer (el cuerpo
+  // es multipart), y por eso hay que registrar esa cabecera con collectHeaders()
+  // para que WebServer la conserve.
+  const char* otaHeaders[] = { "Authorization" };
+  server.collectHeaders(otaHeaders, 1);
+  server.on("/otaupdate", HTTP_POST, handleOtaUpdate, handleOtaUpload);
   server.on("/exit", handleExit);
   server.onNotFound(handleNotFound);
   server.begin();
@@ -271,4 +282,113 @@ void handleWifiCredentials() {
   requestStatus status = planta.saveWifiCredentials(body);
   response = buildHttpResponse(status);
   server.send(response.code, response.contentType, response.body);
+}
+
+// ===== OTA local (POST /otaupdate) =====
+// Recibe el .bin por multipart y lo escribe en el slot OTA inactivo con la
+// librería Update; al terminar OK, el bootloader arrancará el firmware nuevo.
+// Requiere doble slot OTA (ver partitions.csv): sin él, Update.begin() falla.
+//
+// Seguridad (fail-closed): se exige token de sesión vigente Y que la petición
+// entre por la interfaz del AP, igual que el resto del plano de control. La
+// decisión se toma en UPLOAD_FILE_START —antes de escribir un solo byte— y se
+// recuerda en estas variables para que los trozos siguientes y la respuesta
+// final actúen en consecuencia.
+static bool     otaAuthorized = false;   // token + AP validados en START
+static uint16_t otaHttpError  = 0;        // 0 = sin error de autorización
+
+void handleOtaUpload() {
+  HTTPUpload& upload = server.upload();
+
+  if (upload.status == UPLOAD_FILE_START) {
+    otaAuthorized = false;
+    otaHttpError  = 0;
+
+    // ¿Entró por el AP? Igual que en el reset: la IP local del socket es la
+    // interfaz que aceptó la conexión (no la puede falsificar el cliente).
+    IPAddress apIp = WiFi.softAPIP();
+    bool fromAP = (apIp != IPAddress((uint32_t)0)) && (server.client().localIP() == apIp);
+
+    // Token en el header Authorization: Bearer <token>. Se lee de las cabeceras
+    // (no del cuerpo, que es multipart), así que llega ANTES del binario y permite
+    // autorizar en START, antes de escribir un solo byte en flash.
+    // Requiere que "Authorization" se haya registrado con server.collectHeaders()
+    // en setup(); si no, WebServer no lo conserva.
+    String auth = server.header("Authorization");
+    String token = "";
+    if (auth.startsWith("Bearer ")) token = auth.substring(7);
+    token.trim();
+
+    if (!planta.isSessionValid(token)) {
+      otaHttpError = 401;  // sesión inválida/expirada
+      return;              // NO se llama a Update.begin(): no se escribe nada
+    }
+    if (!fromAP) {
+      otaHttpError = 403;  // solo por la interfaz del AP
+      return;
+    }
+
+    Serial.printf("[OTA] Inicio: %s\n", upload.filename.c_str());
+    // UPDATE_SIZE_UNKNOWN: el tamaño real se conoce al terminar; Update usa el
+    // slot OTA inactivo y valida al final.
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+      Update.printError(Serial);
+      otaHttpError = 500;  // no se pudo iniciar (¿sin doble slot OTA?)
+      return;
+    }
+    otaAuthorized = true;
+
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (!otaAuthorized) return;  // subida no autorizada: se ignoran los datos
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+      Update.printError(Serial);
+      otaHttpError = 500;
+      otaAuthorized = false;
+      Update.abort();
+    }
+
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (!otaAuthorized) return;
+    if (!Update.end(true)) {   // true = fija el tamaño final y valida la imagen
+      Update.printError(Serial);
+      otaHttpError = 500;
+      otaAuthorized = false;
+    } else {
+      Serial.printf("[OTA] Completado: %u bytes\n", upload.totalSize);
+    }
+
+  } else if (upload.status == UPLOAD_FILE_ABORTED) {
+    Update.abort();
+    otaAuthorized = false;
+    Serial.println("[OTA] Abortado por el cliente");
+  }
+}
+
+void handleOtaUpdate() {
+  // Respuesta final: corre cuando la subida terminó (o falló en autorización).
+  Serial.println("*****  /otaupdate  *****");
+
+  if (otaHttpError == 401) {
+    server.send(401, "application/json",
+                "{\"status\":false,\"message\":\"Tu sesión expiró. Inicia sesión y reintenta.\"}");
+    return;
+  }
+  if (otaHttpError == 403) {
+    server.send(403, "application/json",
+                "{\"status\":false,\"message\":\"La actualización solo se permite desde la red del equipo (AP).\"}");
+    return;
+  }
+  if (otaHttpError != 0 || !Update.isFinished()) {
+    server.send(500, "application/json",
+                "{\"status\":false,\"message\":\"No se pudo instalar el firmware. El equipo conserva el anterior.\"}");
+    return;
+  }
+
+  // Éxito: la imagen quedó escrita y validada en el slot inactivo. Respondemos y
+  // reiniciamos; el bootloader arrancará el firmware nuevo.
+  server.send(200, "application/json",
+              "{\"status\":true,\"message\":\"Firmware instalado. El equipo se reinicia.\"}");
+  Serial.println("[OTA] Reiniciando al firmware nuevo…");
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  ESP.restart();
 }

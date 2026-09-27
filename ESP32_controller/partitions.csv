@@ -1,0 +1,24 @@
+# Tabla de particiones — SmartPlant (ESP32-C3, flash 4 MB)
+# ---------------------------------------------------------------------------
+# Doble slot OTA: el firmware corre desde un slot (app0/app1) y una actualización
+# se escribe en el OTRO slot; al validar, el bootloader conmuta el arranque. Esto
+# es lo que hace posible el OTA local (POST /otaupdate) y el rollback: si la
+# imagen nueva no arranca, se vuelve a la anterior.
+#
+# Sin filesystem (SPIFFS/LittleFS): el portal se sirve embebido en el binario
+# (mainForm.h), no desde una partición de datos.
+#
+# OJO: fijar/instalar esta tabla reescribe el layout de flash y BORRA la NVS
+# (usuario, Wi-Fi, systemStatus, cropStart). Es el "borra la flash" del proyecto.
+#
+# nvs   24 KB : config del proyecto + margen para el token de dispositivo del
+#               backend y crecimiento futuro (uso actual ~0.9 KB).
+# otadata 8 KB: registra qué slot arranca (requerido por OTA; 2 sectores).
+# app0/app1   : ~1.81 MB por slot, idénticos (OTA alterna entre ambos).
+#
+# Name,   Type, SubType,  Offset,   Size,    Flags
+nvs,      data, nvs,      0x9000,   0x6000,
+otadata,  data, ota,      0xF000,   0x2000,
+phy_init, data, phy,      0x11000,  0x1000,
+app0,     app,  ota_0,    0x20000,  0x1D0000,
+app1,     app,  ota_1,    0x1F0000, 0x1D0000,

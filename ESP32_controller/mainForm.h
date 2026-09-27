@@ -720,13 +720,18 @@ static const char mainForm[] = R"===(
         .wifi-entry {
             text-align: center;
         }
+        .dash-chips {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
         .wifi-chip {
-            flex: none;
-            width: auto;
+            flex: 1;
+            min-width: 0;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
-            margin-top: 16px;
             padding: 8px 14px;
             background: #f1f8e9;
             border: 1px solid #c8e6c9;
@@ -739,15 +744,13 @@ static const char mainForm[] = R"===(
         .wifi-chip:hover {
             background: #e8f5e9;
         }
-        .wifi-dot {
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            background: #bdbdbd;
+        .chip-ico {
+            width: 16px;
+            height: 16px;
             flex-shrink: 0;
         }
-        .wifi-dot.is-on {
-            background: #4caf50;
+        #wifiIco.is-on {
+            color: #4caf50;
         }
         .wifi-scanning {
             text-align: center;
@@ -783,6 +786,80 @@ static const char mainForm[] = R"===(
             color: #2e7d32;
             font-size: 13px;
             text-decoration: underline;
+        }
+        .ota-intro {
+            text-align: left;
+            margin-bottom: 12px;
+        }
+        .ota-intro code,
+        .ota-warn code {
+            background: #f1f8e9;
+            border: 1px solid #c8e6c9;
+            border-radius: 4px;
+            padding: 0 4px;
+            font-size: 0.9em;
+            color: #2e7d32;
+        }
+        .ota-version {
+            font-size: 13px;
+            color: #4b6b4d;
+            margin-bottom: 16px;
+        }
+        .form-group input[type="file"] {
+            padding: 10px 12px;
+            font-size: 13px;
+            border-radius: 6px;
+            border: 1px dashed #c8e6c9;
+            background: #f1f8e9;
+            color: #383838;
+            cursor: pointer;
+        }
+        .ota-warn {
+            margin-top: 14px;
+            font-size: 12.5px;
+            line-height: 1.5;
+            color: #8d6e63;
+            background: #fff8f2;
+            border: 1px solid #ffe0b2;
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+        .ota-progress-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0 4px;
+        }
+        .ota-progress {
+            flex: 1;
+            width: 100%;
+            height: 10px;
+            border: none;
+            border-radius: 999px;
+            overflow: hidden;
+            appearance: none;
+            -webkit-appearance: none;
+            background: #e0e0e0;
+        }
+        .ota-progress::-webkit-progress-bar {
+            background: #e0e0e0;
+            border-radius: 999px;
+        }
+        .ota-progress::-webkit-progress-value {
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            border-radius: 999px;
+            transition: width 0.2s ease;
+        }
+        .ota-progress::-moz-progress-bar {
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            border-radius: 999px;
+        }
+        .ota-percent {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2e7d32;
+            min-width: 42px;
+            text-align: right;
         }
     </style>
 </head>
@@ -882,15 +959,28 @@ static const char mainForm[] = R"===(
                         </div>
                     </div>
                 </div>
+                <div class="dash-chips">
+                    <button type="button" class="wifi-chip" id="btnWifi">
+                        <svg class="chip-ico" id="wifiIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 12.55a11 11 0 0 1 14 0"></path>
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                        </svg>
+                        <span id="wifiChipText">Conexión a Internet</span>
+                    </button>
+                    <button type="button" class="wifi-chip" id="btnOta">
+                        <svg class="chip-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path>
+                            <polyline points="8 17 12 21 16 17"></polyline>
+                            <line x1="12" y1="12" x2="12" y2="21"></line>
+                        </svg>
+                        <span>Actualizar firmware</span>
+                    </button>
+                </div>
                 <div class="buttons">
                     <button type="button" class="btn-primary" id="btnEdit">Editar parámetros</button>
                     <button type="button" class="btn-secondary" id="btnExit">Salir</button>
-                </div>
-                <div class="wifi-entry">
-                    <button type="button" class="wifi-chip" id="btnWifi">
-                        <span class="wifi-dot" id="wifiDot"></span>
-                        <span id="wifiChipText">Conexión a Internet</span>
-                    </button>
                 </div>
             </div>
             <div id="stepParams" style="display:none;">
@@ -1094,6 +1184,37 @@ static const char mainForm[] = R"===(
                     <button type="button" class="btn-secondary" id="btnWifiBack">Volver</button>
                 </div>
             </div>
+            <div id="stepOta" style="display:none;">
+                <p class="welcome-text ota-intro">
+                    Actualiza el firmware del equipo desde este dispositivo, sin internet.
+                    Sube únicamente un archivo <code>.bin</code> compilado para este equipo.
+                </p>
+                <p class="ota-version">Versión instalada: <strong id="otaCurrent">—</strong></p>
+                <div class="form-group">
+                    <label for="otaFile">Archivo de firmware (.bin)</label>
+                    <input type="file" id="otaFile" name="firmware" accept=".bin">
+                </div>
+                <p class="ota-warn">
+                    Durante la instalación el equipo se reiniciará y la red «SmartPlant»
+                    se caerá unos segundos: tendrás que volver a conectarte. No cierres
+                    esta ventana ni apagues el equipo mientras la barra avanza.
+                </p>
+                <div class="buttons">
+                    <button type="button" class="btn-primary" id="btnOtaUpload">Subir e instalar</button>
+                    <button type="button" class="btn-secondary" id="btnOtaBack">Volver</button>
+                </div>
+            </div>
+            <div id="stepFlashing" style="display:none;">
+                <div class="welcome">
+                    <div class="welcome-emoji">⏳</div>
+                    <p class="welcome-text" id="otaStage">Subiendo…</p>
+                </div>
+                <div class="ota-progress-wrap">
+                    <progress id="otaProgress" class="ota-progress" value="0" max="100"></progress>
+                    <span class="ota-percent"><span id="otaPercent">0</span>%</span>
+                </div>
+                <p class="crop-reset-hint">No cierres esta ventana ni apagues el equipo.</p>
+            </div>
         </form>
         <div class="footer">
             <p>© <span id="year">2026</span> Smartplant • Versión 1.0</p>
@@ -1102,6 +1223,7 @@ static const char mainForm[] = R"===(
     <script>
         const PARAMS_ENDPOINT = "/getparams";
         const NEW_CROP_ENDPOINT = "/newcrop";
+        const OTA_ENDPOINT = "/otaupdate";
         const TOKEN_KEY = "spToken";
         function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
         function setToken(t) { if (t) localStorage.setItem(TOKEN_KEY, t); }
@@ -1209,7 +1331,7 @@ static const char mainForm[] = R"===(
         }
         function actualizarWifiChip() {
             const conectado = params.wifiConnected === true;
-            wifiDot.classList.toggle("is-on", conectado);
+            wifiIco.classList.toggle("is-on", conectado);
             wifiChipText.textContent = conectado
                 ? ("Conectado a " + (params.wifiSsid || "Wi-Fi"))
                 : "Conexión a Internet";
@@ -1245,7 +1367,7 @@ static const char mainForm[] = R"===(
         const exitButtons = document.getElementById("exitButtons");
         const stepWifi = document.getElementById("stepWifi");
         const btnWifi = document.getElementById("btnWifi");
-        const wifiDot = document.getElementById("wifiDot");
+        const wifiIco = document.getElementById("wifiIco");
         const wifiChipText = document.getElementById("wifiChipText");
         const wifiScanning = document.getElementById("wifiScanning");
         const wifiScanError = document.getElementById("wifiScanError");
@@ -1257,6 +1379,16 @@ static const char mainForm[] = R"===(
         const btnWifiRescan = document.getElementById("btnWifiRescan");
         const btnWifiConnect = document.getElementById("btnWifiConnect");
         const btnWifiBack = document.getElementById("btnWifiBack");
+        const stepOta = document.getElementById("stepOta");
+        const stepFlashing = document.getElementById("stepFlashing");
+        const btnOta = document.getElementById("btnOta");
+        const btnOtaUpload = document.getElementById("btnOtaUpload");
+        const btnOtaBack = document.getElementById("btnOtaBack");
+        const otaFile = document.getElementById("otaFile");
+        const otaCurrent = document.getElementById("otaCurrent");
+        const otaProgress = document.getElementById("otaProgress");
+        const otaPercent = document.getElementById("otaPercent");
+        const otaStage = document.getElementById("otaStage");
         let estado = "view";
         let exitVolverA = "view";
         let authIntent = "edit";
@@ -1361,6 +1493,12 @@ static const char mainForm[] = R"===(
             } else if (nuevo === "wifi") {
                 stepper.style.display = "none";
                 cardTitle.textContent = "Conexión a Internet";
+            } else if (nuevo === "ota") {
+                stepper.style.display = "none";
+                cardTitle.textContent = "Actualizar firmware";
+            } else if (nuevo === "flashing") {
+                stepper.style.display = "none";
+                cardTitle.textContent = "Instalando…";
             } else if (nuevo === "exit") {
                 stepper.style.display = "none";
             }
@@ -1370,6 +1508,8 @@ static const char mainForm[] = R"===(
             if (estado === "register" || estado === "auth") return stepAuth;
             if (estado === "edit") return stepParams;
             if (estado === "wifi") return stepWifi;
+            if (estado === "ota") return stepOta;
+            if (estado === "flashing") return stepFlashing;
             if (estado === "exit") return stepExit;
             return dashboard;
         }
@@ -1496,6 +1636,9 @@ static const char mainForm[] = R"===(
                 setEstado("wifi");
                 cambiarPaso(stepAuth, stepWifi, "forward");
                 escanearRedes();
+            } else if (authIntent === "ota") {
+                abrirOta();
+                cambiarPaso(stepAuth, stepOta, "forward");
             } else {
                 if (!authKeepForm) actualizarFormulario();
                 authKeepForm = false;
@@ -1779,6 +1922,93 @@ static const char mainForm[] = R"===(
             btnWifiRescan.style.display = "";
             mostrarToast(false, "No se pudo conectar a " + ssid + ". Verifica la contraseña e intenta de nuevo.");
         }
+        btnOta.addEventListener("click", async () => {
+            await obtenerValoresDispositivo();
+            if (params.sessionValid) {
+                abrirOta();
+                cambiarPaso(dashboard, stepOta, "forward");
+            } else {
+                clearToken();
+                authIntent = "ota";
+                setEstado("auth");
+                cambiarPaso(dashboard, stepAuth, "forward");
+            }
+        });
+        function abrirOta() {
+            setEstado("ota");
+            otaCurrent.textContent = params.firmwareVersion || "—";
+            otaFile.value = "";
+        }
+        btnOtaBack.addEventListener("click", () => {
+            setEstado("view");
+            cambiarPaso(stepOta, dashboard, "back");
+        });
+        btnOtaUpload.addEventListener("click", () => {
+            const archivo = otaFile.files[0];
+            if (!archivo) { mostrarToast(false, "Elige un archivo .bin."); return; }
+            if (!archivo.name.toLowerCase().endsWith(".bin")) {
+                mostrarToast(false, "El archivo debe tener extensión .bin.");
+                return;
+            }
+            const cuerpo = new FormData();
+            cuerpo.append("firmware", archivo, archivo.name);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", OTA_ENDPOINT);
+            xhr.setRequestHeader("Authorization", "Bearer " + getToken());
+
+            setEstado("flashing");
+            cambiarPaso(stepOta, stepFlashing, "forward");
+            otaProgress.value = 0;
+            otaPercent.textContent = "0";
+            otaStage.textContent = "Subiendo…";
+
+            xhr.upload.addEventListener("progress", (e) => {
+                if (!e.lengthComputable) return;
+                const pct = Math.round((e.loaded / e.total) * 100);
+                otaProgress.value = pct;
+                otaPercent.textContent = String(pct);
+                if (pct >= 100) otaStage.textContent = "Escribiendo en el equipo…";
+            });
+
+            xhr.addEventListener("load", () => {
+                if (xhr.status === 401) {
+                    clearToken();
+                    authIntent = "ota";
+                    mostrarToast(false, "Tu sesión expiró antes de instalar. Inicia sesión y reintenta.");
+                    setEstado("auth");
+                    cambiarPaso(stepFlashing, stepAuth, "forward");
+                    return;
+                }
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    clearToken();
+                    irAExit({
+                        titulo: "Actualización instalada",
+                        emoji: "✅",
+                        texto: "El equipo se reinicia con el firmware nuevo. La red «SmartPlant» " +
+                            "se caerá unos segundos: vuelve a conectarte y recarga el portal.",
+                        volver: false
+                    });
+                    return;
+                }
+                let mensaje = "No se pudo instalar el firmware. El equipo conserva el anterior.";
+                try {
+                    const json = JSON.parse(xhr.responseText);
+                    if (json && json.message) mensaje = json.message;
+                } catch (e) { /* respuesta no-JSON: se deja el mensaje genérico */ }
+                mostrarToast(false, mensaje);
+                setEstado("ota");
+                cambiarPaso(stepFlashing, stepOta, "back");
+            });
+
+            xhr.addEventListener("error", () => {
+                mostrarToast(false, "Se perdió la comunicación durante la subida. El equipo conserva el firmware anterior.");
+                setEstado("ota");
+                cambiarPaso(stepFlashing, stepOta, "back");
+            });
+
+            xhr.send(cuerpo);
+        });
         function validarParametros() {
             const errores = [];
             const planta = document.getElementById("planta").value.trim();
