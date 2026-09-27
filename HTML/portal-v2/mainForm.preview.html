@@ -102,6 +102,44 @@
              .nav-item / .nav-ico / .nav-label / .nav-dot (botones SVG)
            ===================================================================== */
 
+        /* Tipografía: se usa la fuente de UI del sistema (SF en iOS/macOS,
+           Roboto en Android, Segoe UI en Windows) — 0 bytes de flash, óptima
+           en móvil y sin FOUT. Se expone como variable para encajar con el
+           patrón de paletas intercambiables de la V2. Coincide con la V1. */
+        :root { --font-ui: system-ui, -apple-system, sans-serif; }
+        body { font-family: var(--font-ui); }
+
+        /* CONTENEDOR — base estructural (no diseño fuerte).
+           Centra la tarjeta en el viewport y le da forma. Los colores se toman
+           de las variables de paleta de la V2 (18 vars, ver paletas-guardadas.css)
+           CON fallback, para que se vea correcto aunque aún no haya paleta activa.
+           El diseño fino (acentos, gradientes, animaciones) se añade al final. */
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            box-sizing: border-box;
+            background: var(--bg, #eef2f0);
+            color: var(--text, #1a1a1a);
+        }
+        #card {
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+            padding: 28px;
+            background: var(--surface, #ffffff);
+            border: 1px solid var(--border, #e2e8e5);
+            border-radius: 16px;
+            box-shadow: var(--shadow, 0 8px 32px rgba(0, 0, 0, .12));
+        }
+        /* En pantallas chicas la tarjeta ocupa el ancho con menos padding. */
+        @media (max-width: 480px) {
+            #card { padding: 20px; border-radius: 12px; }
+        }
+
         /* INVARIANTE DE VISTAS — NO ELIMINAR.
            El cambio de vista usa el atributo `hidden`. Esta regla es lo que lo
            sostiene: sin ella (o si una regla de .view ganara especificidad sobre
@@ -395,9 +433,9 @@
                 </button>
                 <button type="button" class="nav-item nav-item-ota" id="btnOta" aria-label="Actualizar firmware">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="17 8 12 3 7 8"></polyline>
-                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                        <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path>
+                        <polyline points="8 17 12 21 16 17"></polyline>
+                        <line x1="12" y1="12" x2="12" y2="21"></line>
                     </svg>
                     <span class="nav-label">Firmware</span>
                 </button>
@@ -415,20 +453,20 @@
         <!-- ============================= EDICIÓN =========================== -->
         <section id="view-edit" class="view" hidden>
             <form id="formEdit">
-                <div class="dash-section">
-                    <h3>General</h3>
+                <div class="dash-section" id="edit-power">
+                    <h3>Estado del sistema</h3>
+                    <!-- Interruptor MAESTRO: inhibe todos los actuadores (luz, riego,
+                         ventilación) sin perder la configuración. Se separa del resto
+                         por su alto impacto: es lo primero que ve el usuario y no debe
+                         confundirse con los metadatos del cultivo. -->
                     <div class="field">
                         <label for="enable">Sistema activo</label>
                         <input type="checkbox" id="enable" name="enable">
                     </div>
-                    <details class="help">
-                        <summary>¿Para qué sirve?</summary>
-                        <p>
-                            Es el interruptor general. Si lo apagas, el equipo conserva tu
-                            configuración pero deja de encender luces, riego y ventilación.
-                            Útil si necesitas detener todo un momento sin perder los ajustes.
-                        </p>
-                    </details>
+                </div>
+
+                <div class="dash-section">
+                    <h3>General</h3>
                     <div class="field">
                         <label for="planta">Nombre de la planta</label>
                         <input type="text" id="planta" name="planta" maxlength="20" autocomplete="off" required>
@@ -445,54 +483,30 @@
                         <label for="fpOff">Hora de apagado (0–23)</label>
                         <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
                     </div>
-                    <details class="help">
-                        <summary>¿Para qué sirve?</summary>
-                        <p>
-                            El fotoperiodo son las horas de luz que recibe tu cultivo cada día.
-                            Es lo que más influye en cómo crece: muchas plantas de hoja se
-                            desarrollan bien con jornadas largas (alrededor de 16–18 h de luz),
-                            mientras que otras necesitan días más cortos (cerca de 12 h) para
-                            empezar a florecer.
-                        </p>
-                        <p>
-                            Se indica la hora en que se prende y la hora en que se apaga. El
-                            ciclo puede cruzar la medianoche (por ejemplo, prender a las 18 y
-                            apagar a las 6). Lo único que no se permite es que ambas horas sean
-                            iguales, porque no se sabría si quieres 0 o 24 horas de luz.
-                        </p>
-                    </details>
                 </div>
 
                 <div class="dash-section">
                     <h3>Espectros de luz</h3>
-                    <div class="field">
-                        <label for="ledAzul">Azul: <output id="ledAzulOut">0</output>%</label>
-                        <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
-                    </div>
-                    <div class="field">
-                        <label for="ledRojo">Rojo: <output id="ledRojoOut">0</output>%</label>
-                        <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
-                    </div>
+                    <!-- Jerarquía: la luz blanca es el control PRINCIPAL (ON/OFF,
+                         salida digital en el firmware). El azul y el rojo son PWM
+                         avanzados y opcionales; van agrupados en un desplegable
+                         para no abrumar al usuario común, que solo prende el blanco. -->
                     <div class="field">
                         <!-- El blanco es una salida ON/OFF en el firmware (no PWM):
                              por eso es un interruptor y no un deslizador. -->
                         <label for="ledBlanco">Luz blanca</label>
                         <input type="checkbox" id="ledBlanco" name="ledBlanco">
                     </div>
-                    <details class="help">
-                        <summary>¿Para qué sirve?</summary>
-                        <p>
-                            Las plantas no aprovechan todos los colores de luz igual. El
-                            <strong>azul</strong> favorece el follaje y un crecimiento compacto;
-                            el <strong>rojo</strong> impulsa el estiramiento y la floración.
-                            Ajustando la intensidad de cada uno orientas el desarrollo del
-                            cultivo según la etapa en que esté.
-                        </p>
-                        <p>
-                            La <strong>luz blanca</strong> solo se prende o se apaga. Sirve
-                            sobre todo para ver bien la planta y para complementar el resto del
-                            espectro; no tiene niveles intermedios.
-                        </p>
+                    <details class="spectrum-advanced">
+                        <summary>Espectro avanzado (opcional)</summary>
+                        <div class="field">
+                            <label for="ledAzul">Azul: <output id="ledAzulOut">0</output>%</label>
+                            <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
+                        </div>
+                        <div class="field">
+                            <label for="ledRojo">Rojo: <output id="ledRojoOut">0</output>%</label>
+                            <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
+                        </div>
                     </details>
                 </div>
 
@@ -506,20 +520,6 @@
                         <label for="irrM">Duración (minutos)</label>
                         <input type="number" id="irrM" name="irrM" min="0" max="59" step="1" required>
                     </div>
-                    <details class="help">
-                        <summary>¿Para qué sirve?</summary>
-                        <p>
-                            Define cada cuánto se activa la bomba y por cuántos minutos. La
-                            frecuencia va desde varias veces al día hasta una vez por semana,
-                            según lo que necesite tu planta y cuánta agua retenga el sustrato.
-                        </p>
-                        <p>
-                            Como referencia: riegos cortos y frecuentes funcionan bien en
-                            macetas pequeñas o sustratos que se secan rápido; riegos más largos
-                            y espaciados sirven cuando el sustrato retiene humedad. Si eliges
-                            «Apagado», la bomba no se activa.
-                        </p>
-                    </details>
                 </div>
 
                 <div class="dash-section">
@@ -532,19 +532,6 @@
                         <label for="ventM">Duración (minutos)</label>
                         <input type="number" id="ventM" name="ventM" min="0" max="59" step="1" required>
                     </div>
-                    <details class="help">
-                        <summary>¿Para qué sirve?</summary>
-                        <p>
-                            Renovar el aire baja la temperatura y la humedad acumuladas, y
-                            reduce el riesgo de hongos. También mueve el aire alrededor de las
-                            hojas, lo que ayuda a la planta a respirar y a fortalecer el tallo.
-                        </p>
-                        <p>
-                            En espacios cerrados o cálidos conviene ventilar más seguido. Se
-                            configura igual que el riego: cada cuánto se enciende y por cuántos
-                            minutos.
-                        </p>
-                    </details>
                 </div>
 
                 <div class="actions">
@@ -659,8 +646,9 @@
            local debe: (1) aceptar multipart/form-data, (2) validar el token AL
            INICIO de la subida (abortar en el primer trozo si no es válido, para
            no desperdiciar ~1 MB antes de rechazar) y (3) escribir la partición
-           con la librería `Update`. El token va por query string porque el
-           cuerpo es multipart y no un JSON donde quepa la clave `token`. */
+           con la librería `Update`. El token va en el header
+           `Authorization: Bearer` porque el cuerpo es multipart y no un JSON
+           donde quepa la clave `token`. */
         const OTA_ENDPOINT = "/otaupdate";
 
         /* =====================================================================
@@ -1372,8 +1360,8 @@
            OTA local
            Se usa XMLHttpRequest (y no fetch) porque fetch NO reporta progreso de
            SUBIDA, y aquí importa: el binario pesa ~1 MB y el usuario necesita
-           ver que avanza. El token va por query string: el cuerpo es multipart,
-           no un JSON donde quepa la clave `token`.
+           ver que avanza. El token va en el header Authorization: Bearer (el
+           cuerpo es multipart, no un JSON donde quepa la clave `token`).
            ===================================================================== */
         $("formOta").addEventListener("submit", (ev) => {
             ev.preventDefault();
@@ -1390,7 +1378,10 @@
             cuerpo.append("firmware", archivo, archivo.name);
 
             const xhr = new XMLHttpRequest();
-            xhr.open("POST", OTA_ENDPOINT + "?token=" + encodeURIComponent(getToken()));
+            xhr.open("POST", OTA_ENDPOINT);
+            // Token en el header (no en la query ni en el body): el cuerpo es
+            // multipart, y así el firmware lo valida antes de escribir flash.
+            xhr.setRequestHeader("Authorization", "Bearer " + getToken());
 
             // Estado bloqueante: sin botones de salida mientras se escribe flash.
             setEstado("flashing");
