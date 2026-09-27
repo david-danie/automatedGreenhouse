@@ -24,7 +24,7 @@ Rutas que expone el **ESP32-C3** desde el portal captivo (AP `SmartPlant`, servi
 2. El token es una cadena de **32 caracteres hex** (128 bits de `esp_random()`).
 3. **En el dispositivo** vive **solo en RAM** (`_sessionToken`): un reinicio lo invalida. TTL **fijo de 30 min** desde su emisión — la actividad **no** lo renueva. **En el cliente**, el portal guarda su copia en `localStorage` (`spToken`) para reenviarla; si el dispositivo se reinició, esa copia deja de ser válida y el cliente la descarta al recibir un `401` (ver más abajo).
 4. Solo existe **una sesión activa**: un login nuevo invalida el token anterior.
-5. Se envía en el **body** para los `POST` y como **query param** `?token=` en `GET /getparams`.
+5. Se envía en el **body** para los `POST` con JSON, como **query param** `?token=` en `GET /getparams`, y en el header **`Authorization: Bearer`** en `POST /otaupdate` (cuyo cuerpo es `multipart`).
 
 ### Validación en el firmware
 
@@ -358,6 +358,40 @@ Configura la red del usuario (modo STA). **Requiere token.** Arranca el intento 
 **Importante:** `STATUS_OK` significa *"intento iniciado"*, no *"conectado"*. La respuesta es inmediata para no bloquear `handleClient()` varios segundos; el front confirma el resultado haciendo **polling a `/getparams`** y leyendo `wifiConnected`.
 
 Las credenciales **no se persisten aquí**. `updateWifi()` (llamado desde `loop()`) las escribe en NVS solo cuando la conexión alcanza `WL_CONNECTED`, para no dejar guardada una contraseña que no sirve.
+
+---
+
+## `POST /otaupdate`
+
+OTA local: sube un binario de firmware (`.bin`) y lo instala en el slot OTA inactivo con la
+librería `Update`. Al terminar con éxito, el equipo se reinicia con el firmware nuevo.
+
+**Requiere** una tabla de particiones con dos slots OTA (ver `ESP32_controller/partitions.csv`);
+sin ella `Update.begin()` falla y responde `500`.
+
+- **Autenticación:** header `Authorization: Bearer <token>` (no en el body: el cuerpo es
+  `multipart`). El token se valida al **inicio** de la subida, antes de escribir en flash.
+- **Solo por el AP:** se rechaza (`403`) si la petición no entra por la interfaz del SoftAP,
+  igual que el reset de fábrica.
+- **Cuerpo:** `multipart/form-data` con un campo **`firmware`** que contiene el `.bin`.
+
+| Situación | HTTP | Cuerpo |
+|---|---|---|
+| Instalación correcta | 200 | `{"status":true,"message":"Firmware instalado. El equipo se reinicia."}` (y reinicia) |
+| Token ausente/expirado | 401 | `{"status":false,"message":"Tu sesión expiró. Inicia sesión y reintenta."}` |
+| No entró por el AP | 403 | `{"status":false,"message":"La actualización solo se permite desde la red del equipo (AP)."}` |
+| Fallo de escritura / sin doble slot / `.bin` inválido | 500 | `{"status":false,"message":"No se pudo instalar el firmware. El equipo conserva el anterior."}` |
+
+```bash
+# El token se obtiene del login (POST /authusercredentials).
+curl -F "firmware=@firmware.bin" \
+     -H "Authorization: Bearer <token>" \
+     http://192.168.4.1/otaupdate
+```
+
+> Ambos portales (V1 y V2) suben el archivo con `XMLHttpRequest` para mostrar barra de
+> progreso; en la V1 el acceso es un chip "Actualizar firmware" en el dashboard. El `curl`
+> de arriba sirve para probar el endpoint sin portal.
 
 ---
 

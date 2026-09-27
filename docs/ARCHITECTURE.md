@@ -115,10 +115,11 @@ pinta un `mensaje-error` rojo y se reintenta recargando. La respuesta incluye
   directo a `edit`. Al guardar, el dispositivo **aplica los parámetros en vivo, sin
   reiniciar** (ver "Cómo se aplican los parámetros").
 
-Estados del front: `welcome` · `register` · `view` · `auth` · `edit` · `wifi`.
-El estado **`wifi`** (config de red) se entra desde un **chip discreto en el
-dashboard** y está gateado por sesión igual que `edit` (ver "Conexión Wi-Fi del
-usuario").
+Estados del front: `welcome` · `register` · `view` · `auth` · `edit` · `wifi` · `ota` · `flashing`.
+Los estados **`wifi`** (config de red) y **`ota`** (subida de firmware) se entran desde una
+**fila de dos chips** en el dashboard (Wi-Fi y "Actualizar firmware"), encima de los botones
+Editar/Salir, y están gateados por sesión igual que `edit` (ver "Conexión Wi-Fi del
+usuario" y "OTA local").
 
 ### Los estados, en pantalla
 
@@ -152,6 +153,16 @@ usuario").
     <td>Login para desbloquear la edición. Se salta si el token sigue vigente.</td>
     <td>Formulario editable; aplica en vivo sin reiniciar.</td>
     <td>Escaneo de redes y conexión del dispositivo a la Wi-Fi del usuario.</td>
+  </tr>
+  <tr>
+    <th><code>ota</code></th>
+    <th><code>flashing</code></th>
+    <th></th>
+  </tr>
+  <tr>
+    <td>Subida del firmware <code>.bin</code> desde el dispositivo por el AP, sin internet. Pasa por la compuerta de login como <code>edit</code>/<code>wifi</code>.</td>
+    <td>Estado <strong>bloqueante</strong> (sin botones de salida) mientras se escribe la flash: barra de progreso de la subida; al terminar el equipo se reinicia y cae a <code>exit</code>.</td>
+    <td></td>
   </tr>
 </table>
 
@@ -356,16 +367,18 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   > `[hidden] { display: none !important; }`. Si una regla de `.view` ganara especificidad
   > sobre el atributo, **las ocho pantallas se verían a la vez**. Ninguna regla de `.view`
   > debe tocar `display`.
-- **Textos de ayuda** con `<details>/<summary>` nativos en la vista de edición.
 - **Banner de solo lectura** (`#dashAuthHint`): el dashboard no exige sesión (leer es
   libre); el banner recuerda que para *editar* hay que iniciar sesión. Solo se
   muestra cuando no hay sesión vigente (`getToken() && sessionValid`).
 
 **Qué le falta para homologarse:**
-1. ~~**CSS**~~ — **ya implementado** (ver arriba): hoja con paletas intercambiables por
-   `data-theme`. Queda elegir la definitiva y, si se quiere, recortar las no usadas.
-2. **Endpoint OTA en el firmware** (`POST /otaupdate`, ver abajo): la vista `ota`
-   sube el `.bin` por `multipart`, pero el firmware aún no expone la ruta.
+1. **CSS / estilos.** La V2 es hoy una **base sin estilos**: markup + JS + íconos SVG, con
+   solo el CSS estructural imprescindible (invariante `[hidden]`, tamaño de los SVG). Falta
+   montar la hoja de estilos definitiva. Hay paletas guardadas para probar en
+   `HTML/portal-v2/paletas-guardadas.css`.
+2. ~~**Endpoint OTA en el firmware**~~ — **ya implementado**: `POST /otaupdate` existe en
+   `ESP32_controller.ino` (librería `Update`, doble slot vía `partitions.csv`). El cliente
+   de la V2 sube el `.bin` por `multipart` con el token en el header `Authorization: Bearer`.
 3. ~~**`firmwareVersion` en `/getparams`**~~ — **ya implementado**: el firmware lo
    expone desde la constante de compilación `firmwareVersion` (`Constants.h`).
 4. **Promover** `portal-v2/mainForm.html` → `HTML/mainForm.html`, regenerar
@@ -902,55 +915,59 @@ segura".
 
 ---
 
-## OTA local (subir el `.bin` desde el teléfono) — pendiente en firmware
+## OTA local (subir el `.bin` desde el teléfono)
 
 Caso de uso: el usuario tiene el binario en su teléfono y lo **sube al dispositivo
 por la red del AP**, sin internet ni nube. Útil cuando el equipo está en un lugar
 de difícil acceso. **No confundir con la "OTA segura" sobre TLS/Internet** (sección
 anterior): esta es local, por HTTP dentro del enlace WPA2, y sin firma.
 
-**Estado:** el **lado cliente ya está** en la V2 (vistas `ota`/`flashing`: input de
-archivo, subida `multipart` por `XMLHttpRequest` con barra de progreso). **Falta el
-endpoint en el firmware:** `POST /otaupdate` **no existe todavía**.
+**Estado:** implementado de punta a punta a nivel de firmware y cliente. El **cliente**
+está en **ambos portales**: la V1 (portal embebido hoy) y la V2. En los dos hay vistas
+`ota`/`flashing` (input de archivo, subida `multipart` por `XMLHttpRequest` con barra de
+progreso); en la V1 el acceso es un chip "Actualizar firmware" en el dashboard, junto al de
+Wi-Fi, y pasa por la misma compuerta de login. El **endpoint** `POST /otaupdate` existe en
+el firmware (`ESP32_controller.ino`) usando la librería `Update`. Pendiente: probar el flujo
+completo en hardware real (hasta ahora el endpoint se ha ejercitado con `curl` y el cliente
+con el mock del preview).
 
 ### Requisito CRÍTICO: tabla de particiones con dos slots OTA
-La librería `Update` (y `ArduinoOTA`/`httpUpdate`) escribe el binario nuevo en el
-slot **inactivo** mientras el firmware corre desde el activo, y al validar cambia el
-arranque en `otadata`. **Esto exige una tabla de particiones con `ota_0` + `ota_1` +
-`otadata`.** No es opcional: sin dos slots, `Update` de la app falla. Escribir sobre
-el slot en ejecución dejaría el equipo **inservible** ante un corte a media escritura.
+La librería `Update` escribe el binario nuevo en el slot **inactivo** mientras el firmware
+corre desde el activo, y al validar cambia el arranque en `otadata`. **Esto exige una tabla
+de particiones con `ota_0` + `ota_1` + `otadata`.** Sin dos slots, `Update.begin()` falla.
 
-- Esquemas que **SÍ** sirven: *Default 4MB with spiffs* (~1.2 MB/slot),
-  *Minimal SPIFFS (1.9MB APP with OTA)* (~1.9 MB/slot).
-- Esquemas que **NO** sirven: *Huge APP (3MB No OTA)*, *Minimal (No OTA)* — un solo
-  slot de app, sin OTA.
+El proyecto **fija su propia tabla** en `ESP32_controller/partitions.csv` (versionada, no
+depende del menú *Tools → Partition Scheme* del IDE): flash 4 MB, `nvs` 24 KB, `otadata`
+8 KB, `phy_init` 4 KB y **dos slots de app de 1.81 MB** (`ota_0`/`ota_1`), sin SPIFFS. Con
+la app actual (~1.1 MB) cada slot queda al ~61 %, con margen para el cliente del backend y
+TLS futuros.
 
-> **Reproducibilidad:** hoy el proyecto **no** declara esquema de particiones (ni un
-> `.csv` en el sketch, ni `build.partitions` en `ci.json`): depende del menú
-> *Tools → Partition Scheme* del Arduino IDE, ajuste manual que no queda versionado.
-> Antes de implementar la OTA conviene **fijar un `partitions.csv`** en el sketch y
-> declararlo, para que el slot OTA no dependa de recordar un ajuste del IDE (en otra
-> máquina/Ubuntu la OTA fallaría de forma silenciosa). Verificar además que el `.bin`
-> (AP+STA + WebServer + portal + `Update`) cabe en el slot elegido.
+> **Instalar esta tabla reescribe el layout de flash y BORRA la NVS** (usuario, Wi-Fi,
+> `systemStatus`, `cropStart`): hay que re-registrar tras el primer flasheo. Es el "borra la
+> flash" habitual del proyecto. En Arduino IDE hay que seleccionar el esquema de partición
+> personalizado para que tome `partitions.csv`.
 
-### Diseño previsto del endpoint `POST /otaupdate`
-1. **Auth por token en la query** (`?token=`): el cuerpo es `multipart`, no JSON.
-   Validar el token **al inicio** de la subida y abortar en el primer trozo si es
-   inválido, para no recibir ~1 MB antes de rechazar (`401`).
-2. **Escritura en streaming** con `Update.begin(UPDATE_SIZE_UNKNOWN)` → `Update.write()`
-   por trozos → `Update.end(true)`. No requiere el binario completo en RAM.
-3. **Integridad:** `Update` valida el *magic byte* del firmware ESP32 (rechaza un
-   archivo que no sea firmware). Opcional: que el cliente mande tamaño/MD5 para
-   detectar corrupción de transporte.
-4. **Reinicio** al terminar; el AP parpadea (radio única) y el cliente reconecta —
-   la V2 ya avisa "no cierres la ventana" y maneja el post-reinicio.
-5. **Sin firma criptográfica:** acepta cualquier `.bin` válido de quien tenga sesión
-   y esté en el AP. Aceptable para subir el propio binario; la firma es cosa de la
-   OTA segura por Internet, no de esta local.
+### Endpoint `POST /otaupdate`
+1. **Auth por header** `Authorization: Bearer <token>`: el cuerpo es `multipart` (ocupado
+   por el `.bin`), y el header llega **antes** que el binario, así que el token se valida en
+   `UPLOAD_FILE_START` —antes de escribir un solo byte en flash— y se rechaza con `401` sin
+   recibir el archivo completo. Requiere `server.collectHeaders({"Authorization"})` en
+   `setup()` para que `WebServer` conserve la cabecera.
+2. **Solo por el AP** (`403` si no): misma barrera fail-closed que el reset — se compara la
+   IP local del socket con `WiFi.softAPIP()`.
+3. **Escritura en streaming** con `Update.begin(UPDATE_SIZE_UNKNOWN)` → `Update.write()` por
+   trozos → `Update.end(true)`. No requiere el binario completo en RAM.
+4. **Integridad:** `Update` valida el *magic byte* del firmware ESP32 (rechaza un archivo
+   que no sea firmware). Responde `500` con JSON `{message}` ante cualquier fallo, dejando
+   intacto el firmware en ejecución.
+5. **Reinicio** al terminar OK (`ESP.restart()`); el AP parpadea (radio única) y el cliente
+   reconecta — el portal ya avisa "no cierres la ventana" y maneja el post-reinicio.
+6. **Sin firma criptográfica:** acepta cualquier `.bin` válido de quien tenga sesión y esté
+   en el AP. La firma es cosa de la OTA segura por Internet, no de esta local.
 
-`firmwareVersion` ya se expone en `/getparams` (constante de compilación en
-`Constants.h`), así que la vista OTA puede mostrar la versión instalada. **Hay que
-subir ese valor en cada release que se distribuya por OTA.**
+`firmwareVersion` se expone en `/getparams` (constante de compilación en `Constants.h`), así
+que la vista OTA puede mostrar la versión instalada. **Hay que subir ese valor en cada
+release que se distribuya por OTA.**
 
 ---
 
