@@ -338,30 +338,32 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
     `footer` discreto ("la prominencia sigue la frecuencia de uso"), para que no se pulsara
     por inercia. En la V2 se decidió lo contrario: como los cuatro destinos pasan por la
     **misma compuerta de login** (`requireAuth`) y OTA además pide confirmación antes de
-    flashear, la barrera real ya no es esconderlo. Se deja en la fila con un matiz cálido
-    (`--secondary`) que lo distingue como acción de riesgo sin sacarlo de sitio.
+    flashear, la barrera real ya no es esconderlo. Los cuatro íconos comparten el mismo
+    estilo (sin recuadro, color `--text-dim` que vira a `--primary` al pasar/enfocar).
   - **El estado del Wi-Fi no se pierde.** La etiqueta visible solo dice "Wi-Fi", así que el
-    estado (conectado/sin conectar) se refleja en un **punto indicador** sobre el ícono
-    (`#wifiDot`, verde/gris) y en el `aria-label` del botón. Se conserva el `<span id="wifiState" hidden>`
+    estado (conectado/sin conectar) se refleja en el **color del propio ícono SVG**
+    (`#wifiIco.is-on`, con el color primario de la paleta cuando hay conexión) y en el
+    `aria-label` del botón. Se conserva el `<span id="wifiState" hidden>`
     para no romper el JS que ya lo actualizaba (`actualizarDashboard`); los ids de los cuatro
     botones (`btnEdit/btnWifi/btnOta/btnExit`) se mantuvieron intactos, así que la migración
     fue solo de markup + CSS, sin tocar los handlers.
   - **Accesibilidad:** cada botón lleva `aria-label`, los SVG van `aria-hidden`, y la etiqueta
     de texto queda visible bajo el ícono (no se depende solo de la forma).
 - **CSS con paletas intercambiables.** El markup se construyó primero con hooks
-  (`.view`, `.field`, `.dash-section`, `.dash-item`, `.help`, `.actions`, `.dash-nav`, `.msg`,
-  `.net-list`, `.crop-reset`) y la hoja se añadió encima **sin tocar el JS**. Está
-  organizada en dos capas: los colores viven aislados como **variables CSS** en cuatro
-  bloques de paleta, y los ~59 selectores de componente referencian **solo variables**
-  — ningún color literal. Cambiar de paleta es editar un atributo:
+  (`.view`, `.field`, `.dash-section`, `.dash-grid`/`.dash-stat`, `.dash-spectrum`/`.dash-dot`,
+  `.help`, `.actions`, `.dash-nav`, `.msg`, `.toast`, `.net-list`, `.crop-reset`) y la hoja se
+  añadió encima **sin tocar el JS**. Está organizada en dos capas: los colores viven aislados
+  como **variables CSS** por paleta (18 variables cada una), y los selectores de componente
+  referencian **solo variables** — ningún color literal. Cambiar de paleta es editar un atributo:
 
   ```html
-  <html lang="es" data-theme="verde">   <!-- verde · oscuro · tierra · limpio -->
+  <html lang="es" data-theme="invernadero">   <!-- invernadero (claro, por defecto) · tierra · slate · neon -->
   ```
 
-  Las cuatro paletas definen el **mismo juego de 18 variables** de color, así que
-  ninguna queda a medias heredando un color de otra. La forma (`--radius`, `--gap`,
-  `--font`) va en un bloque aparte común a todas: la paleta cambia el color, no el ritmo.
+  Cada paleta define el **mismo juego de 18 variables** de color, así que
+  ninguna queda a medias heredando un color de otra. El tema por defecto es
+  **invernadero** (claro, verde natural); las demás candidatas viven en
+  `HTML/portal-v2/paletas-guardadas.css` y se activan cambiando el `data-theme`.
 
   > **Invariante:** el cambio de vista usa el atributo `hidden`, no clases, y lo sostiene
   > `[hidden] { display: none !important; }`. Si una regla de `.view` ganara especificidad
@@ -370,12 +372,26 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
 - **Banner de solo lectura** (`#dashAuthHint`): el dashboard no exige sesión (leer es
   libre); el banner recuerda que para *editar* hay que iniciar sesión. Solo se
   muestra cuando no hay sesión vigente (`getToken() && sessionValid`).
+- **Modelo de notificaciones (tres canales, por tipo de mensaje):**
+  - **Confirmaciones → toast efímero** (`mostrarToast`, flota abajo y se desvanece).
+  - **Errores/atención → banner persistente** (`showMsg`/`clearMsg`, `#msg` in-flow con
+    `[data-ok]`); `setEstado` llama `clearMsg()` al cambiar de vista para que un mensaje no
+    quede colgado en otra pantalla (quien deba mostrar un mensaje al entrar a una vista llama
+    `showMsg` *después* de `setEstado`).
+  - **Validación por campo → field-error**: los validadores devuelven errores etiquetados
+    `{f, m}`; `pintarErroresCampos` marca el input (`.input-invalid` + `aria-invalid`) y
+    cuelga un `<small class="field-error">` bajo el campo, que se limpia al editarlo. Los
+    `<form>` llevan `novalidate` para que valide el JS, no el navegador. No se usan `alert()`.
 
 **Qué le falta para homologarse:**
-1. **CSS / estilos.** La V2 es hoy una **base sin estilos**: markup + JS + íconos SVG, con
-   solo el CSS estructural imprescindible (invariante `[hidden]`, tamaño de los SVG). Falta
-   montar la hoja de estilos definitiva. Hay paletas guardadas para probar en
-   `HTML/portal-v2/paletas-guardadas.css`.
+1. ~~**CSS / estilos**~~ — **implementado**: la V2 ya tiene su hoja de estilos
+   completa sobre la paleta **invernadero** (tema claro por defecto). Están estilizados
+   contenedor, tipografía, campos (inputs/selects/sliders/toggles y el desplegable de
+   espectro avanzado), botones (`.primary`/`.secondary`/`.discreet`/`.crop-reset`),
+   dashboard (hero, secciones, ítems y la fila de íconos sin recuadro), notificaciones
+   (toast + banner + validación por campo) y los componentes de wifi/ota/flashing.
+   Todos los selectores referencian **solo variables** de paleta. Pendiente: repaso
+   visual fino/responsive. Más paletas para probar en `HTML/portal-v2/paletas-guardadas.css`.
 2. ~~**Endpoint OTA en el firmware**~~ — **ya implementado**: `POST /otaupdate` existe en
    `ESP32_controller.ino` (librería `Update`, doble slot vía `partitions.csv`). El cliente
    de la V2 sube el `.bin` por `multipart` con el token en el header `Authorization: Bearer`.
@@ -387,10 +403,11 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
 **Cómo probarla sin dispositivo:** hay una copia con firmware simulado en
 `HTML/portal-v2/mainForm.preview.html` (mock de `fetch`/`XHR`). Se abre directo en
 el navegador; arranca en el dashboard sin login y simula Wi-Fi, guardado y OTA.
-**No se sirve desde el ESP32 ni se regenera a `mainForm.h`** — es solo para revisar
-UI/UX. La fuente de verdad de la V2 es `mainForm.html` (sin mock). Editar
-`MOCK.params` dentro del `.preview.html` cambia el escenario (p. ej.
-`hasRegisteredUser:false` → arranca en `welcome`).
+**Es un artefacto generado**: se regenera desde el fuente con
+`python3 scripts/gen_preview_v2.py` (inyecta el mock antes de `</head>`), igual que
+`gen_preview.py` para la V1. **No se sirve desde el ESP32 ni se regenera a `mainForm.h`.**
+La fuente de verdad de la V2 es `mainForm.html` (sin mock). Editar `MOCK.params` dentro
+del generador cambia el escenario (p. ej. `hasRegisteredUser:false` → arranca en `welcome`).
 
 ---
 
