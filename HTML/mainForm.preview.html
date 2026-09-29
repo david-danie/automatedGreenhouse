@@ -334,6 +334,24 @@
             background: white;
             transition: all 0.3s ease;
         }
+        /* Validación por campo: el input culpable se marca con borde rojo y un
+           mensaje debajo. Reutiliza el rojo de error del sistema (mensajes/toast).
+           No se depende solo del color: también se pone aria-invalid en el JS. */
+        .input-invalid,
+        .input-invalid:focus {
+            border-color: #f44336 !important;
+            outline: none;
+        }
+        select.input-invalid {
+            border-color: #f44336 !important;
+        }
+        .field-error {
+            display: block;
+            margin-top: 4px;
+            color: #c62828;
+            font-size: 12px;
+            line-height: 1.4;
+        }
         .slider-container {
             position: relative;
             height: 8px;
@@ -1411,7 +1429,7 @@
             </div>
         </form>
         <div class="footer">
-            <p>© <span id="year">2026</span> Smartplant • Versión 1.0</p>
+            <p>© <span id="year">2026</span> Smartplant • Versión <span id="fwVersion">—</span></p>
         </div>
     </div>
     <script>
@@ -1533,6 +1551,10 @@
             document.getElementById('dashVentH').textContent = FREQ_LABELS[p.ventH] ?? "—";
             document.getElementById('dashVentM').textContent = p.ventM ?? "—";
             actualizarWifiChip();
+            // Versión del firmware en el footer: la reporta /getparams (constante
+            // de compilación del binario). Si el equipo no la manda, se deja "—".
+            const fw = document.getElementById("fwVersion");
+            if (fw) fw.textContent = params.firmwareVersion || "—";
         }
         function actualizarWifiChip() {
             const conectado = params.wifiConnected === true;
@@ -1782,9 +1804,11 @@
             }
         });
         btnAuthContinue.addEventListener("click", async () => {
+            limpiarErroresCampos(stepAuth);
             const errores = validarAuth();
             if (errores.length > 0) {
-                alert("Errores en el formulario:\n" + errores.join("\n"));
+                pintarErroresCampos(errores);
+                mostrarToast(false, "Revisa los campos marcados.");
                 return;
             }
             const credenciales = {
@@ -1806,13 +1830,17 @@
                 });
                 json = await res.json();
                 if (!res.ok || !json.status) {
-                    alert(json.message || (esRegistro
+                    // Errores que NO son de un campo puntual (credenciales
+                    // incorrectas, límite de intentos, reset fuera del AP…): van
+                    // en un toast, no bajo un input. Los errores de formato por
+                    // campo ya los atrapa validarAuth() antes de enviar.
+                    mostrarToast(false, json.message || (esRegistro
                         ? "No se pudo registrar el usuario."
                         : "Usuario o contraseña incorrectos."));
                     return;
                 }
             } catch (e) {
-                alert("Error de comunicación con el dispositivo");
+                mostrarToast(false, "Error de comunicación con el dispositivo.");
                 return;
             } finally {
                 btnAuthContinue.disabled = false;
@@ -1923,9 +1951,17 @@
                 return;
             }
             if (estado !== "edit") return;
+            limpiarErroresCampos(stepParams);
             const errores = validarParametros();
             if (errores.length > 0) {
-                alert("Errores en el formulario:\n" + errores.join("\n"));
+                // Si el error está en un espectro (azul/rojo), abre el panel avanzado
+                // para que el campo marcado quede a la vista.
+                if (errores.some((e) => e.f === "ledAzul" || e.f === "ledRojo")) {
+                    const adv = document.querySelector(".light-advanced");
+                    if (adv) adv.open = true;
+                }
+                pintarErroresCampos(errores);
+                mostrarToast(false, "Revisa los campos marcados.");
                 return;
             }
             const formData = new FormData(form);
@@ -2082,13 +2118,15 @@
             cambiarPaso(stepWifi, dashboard, "back");
         });
         btnWifiConnect.addEventListener("click", async () => {
+            limpiarErroresCampos(stepWifi);
             const opt = wifiSsidSelect.selectedOptions[0];
             if (!opt) { mostrarToast(false, "Selecciona una red."); return; }
             const segura = opt.dataset.secure === "1";
             const ssid = opt.value;
             const pass = wifiPass.value;
             if (segura && (pass.length < 8 || pass.length > 63)) {
-                mostrarToast(false, "La contraseña Wi-Fi debe tener entre 8 y 63 caracteres.");
+                pintarErroresCampos([{ f: "wifiPass", m: "La contraseña Wi-Fi debe tener entre 8 y 63 caracteres." }]);
+                mostrarToast(false, "Revisa los campos marcados.");
                 return;
             }
             const original = btnWifiConnect.textContent;
@@ -2261,59 +2299,63 @@
             const ventHInput = document.getElementById("ventH").value.trim();
             const ledAzulInput = document.getElementById("ledAzul").value.trim();
             const ledRojoInput = document.getElementById("ledRojo").value.trim();
+            // Cada error se etiqueta con el/los campo(s) culpable(s) (f) para poder
+            // marcarlos en pantalla, además del mensaje (m). Se conserva el orden
+            // y las reglas de validación originales.
             if (planta === "") {
-                errores.push("El nombre de la planta es obligatorio");
+                errores.push({ f: "planta", m: "El nombre de la planta es obligatorio" });
             } else {
                 if (planta.length < 3 || planta.length > 20)
-                    errores.push("La planta debe tener entre 3 y 20 caracteres");
+                    errores.push({ f: "planta", m: "La planta debe tener entre 3 y 20 caracteres" });
                 if (!isValidReadableString(planta, true))
-                    errores.push("La planta solo admite letras, números, espacios y (_-.@!#$%&*?+=)");
+                    errores.push({ f: "planta", m: "La planta solo admite letras, números, espacios y (_-.@!#$%&*?+=)" });
                 if (/\s{2,}/.test(planta))
-                    errores.push("No uses espacios repetidos");
+                    errores.push({ f: "planta", m: "No uses espacios repetidos" });
                 if (/^\d+$/.test(planta))
-                    errores.push("La planta no puede ser solo números");
+                    errores.push({ f: "planta", m: "La planta no puede ser solo números" });
                 if (hasTooManyRepeatedChars(planta))
-                    errores.push("La planta no puede contener más de 3 caracteres repetidos seguidos");
+                    errores.push({ f: "planta", m: "La planta no puede contener más de 3 caracteres repetidos seguidos" });
             }
             if (fpOnInput === "" || !isStrictInteger(fpOnInput)) {
-                errores.push("La hora de prendido es obligatoria, numérica y sin decimales");
+                errores.push({ f: "fpOn", m: "La hora de prendido es obligatoria, numérica y sin decimales" });
             } else if (Number(fpOnInput) < 0 || Number(fpOnInput) > 23) {
-                errores.push("La hora de prendido debe ser un valor entre 0 y 23 horas");
+                errores.push({ f: "fpOn", m: "La hora de prendido debe ser un valor entre 0 y 23 horas" });
             }
             if (fpOffInput === "" || !isStrictInteger(fpOffInput)) {
-                errores.push("La hora de apagado es obligatoria, numérica y sin decimales");
+                errores.push({ f: "fpOff", m: "La hora de apagado es obligatoria, numérica y sin decimales" });
             } else if (Number(fpOffInput) < 0 || Number(fpOffInput) > 23) {
-                errores.push("La hora de apagado debe ser un valor entre 0 y 23 horas");
+                errores.push({ f: "fpOff", m: "La hora de apagado debe ser un valor entre 0 y 23 horas" });
             }
             if (isStrictInteger(fpOnInput) && isStrictInteger(fpOffInput) &&
                 Number(fpOnInput) === Number(fpOffInput)) {
-                errores.push("La hora de prendido y apagado no pueden ser iguales");
+                errores.push({ f: "fpOn", m: "La hora de prendido y apagado no pueden ser iguales" });
+                errores.push({ f: "fpOff", m: "La hora de prendido y apagado no pueden ser iguales" });
             }
             if (irrMinInput === "" || !isStrictInteger(irrMinInput)) {
-                errores.push("El campo riego-minutos es obligatorio, numérico y sin decimales");
+                errores.push({ f: "irrM", m: "El campo riego-minutos es obligatorio, numérico y sin decimales" });
             } else if (Number(irrMinInput) < 0 || Number(irrMinInput) > 59) {
-                errores.push("El valor de riego debe ser un valor entre 0 y 59 minutos");
+                errores.push({ f: "irrM", m: "El valor de riego debe ser un valor entre 0 y 59 minutos" });
             }
             if (ventMinInput === "" || !isStrictInteger(ventMinInput)) {
-                errores.push("El campo ventilación-minutos es obligatorio, numérico y sin decimales");
+                errores.push({ f: "ventM", m: "El campo ventilación-minutos es obligatorio, numérico y sin decimales" });
             } else if (Number(ventMinInput) < 0 || Number(ventMinInput) > 59) {
-                errores.push("El valor de ventilación debe ser un valor entre 0 y 59 minutos");
+                errores.push({ f: "ventM", m: "El valor de ventilación debe ser un valor entre 0 y 59 minutos" });
             }
             if (!isStrictInteger(irrHInput) || !VALID_FREQUENCIES.includes(Number(irrHInput)))
-                errores.push("Selecciona una frecuencia de riego válida");
+                errores.push({ f: "irrH", m: "Selecciona una frecuencia de riego válida" });
             if (!isStrictInteger(ventHInput) || !VALID_FREQUENCIES.includes(Number(ventHInput)))
-                errores.push("Selecciona una frecuencia de ventilación válida");
+                errores.push({ f: "ventH", m: "Selecciona una frecuencia de ventilación válida" });
             // Coherencia frecuencia/duración: con frecuencia activa y duración 0 el
             // equipo nunca encendería (el firmware exige minuto < duración), pero se
             // vería "configurado". Para desactivar existe la frecuencia "Apagado".
             if (Number(irrHInput) > 0 && Number(irrMinInput) === 0)
-                errores.push("Con el riego activo la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)");
+                errores.push({ f: "irrM", m: "Con el riego activo la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)" });
             if (Number(ventHInput) > 0 && Number(ventMinInput) === 0)
-                errores.push("Con la ventilación activa la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)");
+                errores.push({ f: "ventM", m: "Con la ventilación activa la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)" });
             if (!isStrictInteger(ledAzulInput) || Number(ledAzulInput) < 0 || Number(ledAzulInput) > 100)
-                errores.push("El LED azul debe estar entre 0 y 100%");
+                errores.push({ f: "ledAzul", m: "El LED azul debe estar entre 0 y 100%" });
             if (!isStrictInteger(ledRojoInput) || Number(ledRojoInput) < 0 || Number(ledRojoInput) > 100)
-                errores.push("El LED rojo debe estar entre 0 y 100%");
+                errores.push({ f: "ledRojo", m: "El LED rojo debe estar entre 0 y 100%" });
             return errores;
         }
         function validarAuth() {
@@ -2321,18 +2363,65 @@
             const user = document.getElementById("user").value.trim();
             const pass = document.getElementById("password").value.trim();
             if (user.length < 4 || user.length > 32)
-                errores.push("El usuario debe tener entre 4 y 32 caracteres.");
+                errores.push({ f: "user", m: "El usuario debe tener entre 4 y 32 caracteres." });
             if (pass.length < 8 || pass.length > 64)
-                errores.push("La contraseña debe tener entre 8 y 64 caracteres.");
+                errores.push({ f: "password", m: "La contraseña debe tener entre 8 y 64 caracteres." });
             if (!isValidReadableString(user, false))
-                errores.push("El usuario solo admite letras, números y (_-.@!#$%&*?+=).");
+                errores.push({ f: "user", m: "El usuario solo admite letras, números y (_-.@!#$%&*?+=)." });
             if (!isValidReadableString(pass, false))
-                errores.push("La contraseña solo admite letras, números y (_-.@!#$%&*?+=).");
+                errores.push({ f: "password", m: "La contraseña solo admite letras, números y (_-.@!#$%&*?+=)." });
             if (hasTooManyRepeatedChars(user))
-                errores.push("El usuario no puede contener más de 3 caracteres repetidos seguidos.");
+                errores.push({ f: "user", m: "El usuario no puede contener más de 3 caracteres repetidos seguidos." });
             if (hasTooManyRepeatedChars(pass))
-                errores.push("La contraseña no puede contener más de 3 caracteres repetidos seguidos.");
+                errores.push({ f: "password", m: "La contraseña no puede contener más de 3 caracteres repetidos seguidos." });
             return errores;
+        }
+        // ===== Feedback visual de validación por campo =====
+        // Marca los inputs que fallan (borde rojo + aria-invalid) y coloca el
+        // mensaje concreto bajo cada uno, en lugar de un alert() bloqueante. La
+        // marca se limpia sola cuando el usuario edita el campo.
+        function limpiarErroresCampos(scope) {
+            const root = scope || document;
+            root.querySelectorAll(".input-invalid").forEach((el) => {
+                el.classList.remove("input-invalid");
+                el.removeAttribute("aria-invalid");
+            });
+            root.querySelectorAll(".field-error").forEach((el) => el.remove());
+        }
+        function pintarErroresCampos(errores) {
+            // Un solo mensaje por campo (el primero), para no apilar varios.
+            const vistos = new Set();
+            errores.forEach(({ f, m }) => {
+                const campo = document.getElementById(f);
+                if (!campo) return;
+                campo.classList.add("input-invalid");
+                campo.setAttribute("aria-invalid", "true");
+                if (vistos.has(f)) return;
+                vistos.add(f);
+                const small = document.createElement("small");
+                small.className = "field-error";
+                small.textContent = m;
+                // El input suele vivir en .form-group / .password-wrapper / .select-container;
+                // se cuelga el mensaje del contenedor .form-group más cercano.
+                const cont = campo.closest(".form-group") || campo.parentElement;
+                if (cont) cont.appendChild(small);
+                // Limpia la marca de ESE campo en cuanto el usuario lo edita.
+                const limpiar = () => {
+                    campo.classList.remove("input-invalid");
+                    campo.removeAttribute("aria-invalid");
+                    const msg = cont && cont.querySelector(".field-error");
+                    if (msg) msg.remove();
+                    campo.removeEventListener("input", limpiar);
+                    campo.removeEventListener("change", limpiar);
+                };
+                campo.addEventListener("input", limpiar);
+                campo.addEventListener("change", limpiar);
+            });
+            // Enfoca el primer campo con error para llevar al usuario ahí.
+            if (errores.length) {
+                const primero = document.getElementById(errores[0].f);
+                if (primero) primero.focus({ preventScroll: false });
+            }
         }
         function updateSliderProgress(sliderId, progressId) {
             const slider = document.getElementById(sliderId);

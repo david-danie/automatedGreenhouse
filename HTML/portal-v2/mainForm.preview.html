@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="verde">
+<html lang="es" data-theme="invernadero">
 
 <head>
     <meta charset="UTF-8">
@@ -13,12 +13,14 @@
 
      Qué es este archivo
      -------------------
-     Base SIN ESTILOS del portal rediseñado. Contiene el markup semántico, la
-     máquina de estados y toda la comunicación con el firmware. La idea es que
-     el diseño visual se añada encima sin tocar el JS: cada elemento relevante
-     lleva una clase o un id estable que sirve de "hook" para el CSS.
+     Portal rediseñado (V2): markup semántico, máquina de estados, comunicación
+     con el firmware Y su hoja de estilos completa sobre la paleta invernadero
+     (tema claro). El diseño se apoya en "hooks" de clase/id estables y todos los
+     colores salen de variables de paleta, así que el JS y el color están
+     desacoplados. Aún NO se sirve desde el ESP32 (eso es la V1); es el candidato
+     a homologar.
 
-     Sigue siendo UN SOLO archivo porque el ESP32 lo sirve completo desde flash
+     Sigue siendo UN SOLO archivo porque el ESP32 lo servirá completo desde flash
      (`send_P` sobre el artefacto `mainForm.h`). No hay build ni dependencias.
 
      Navegación: HUB-AND-SPOKE (no pasos)
@@ -81,26 +83,54 @@
 
     <style>
         /* =====================================================================
-           HTML BASE (SIN ESTILOS) DE LA V2
+           ESTILOS DE LA V2
 
-           Este archivo es la BASE ESTRUCTURAL: markup semántico + máquina de
-           estados en JS + los íconos SVG de navegación. El diseño visual (colores,
-           layout, tipografía) se añade encima SIN tocar el JS, apoyándose en los
-           hooks de clase/id del markup.
+           Organización: (1) PALETA — las 18 variables de color del tema activo
+           (invernadero por defecto); (2) tipografía y contenedor; (3) invariante
+           de vistas ([hidden]); (4) componentes (campos, botones, dashboard,
+           notificaciones, wifi/ota/flashing), todos referenciando SOLO variables
+           de paleta; (5) responsivo. El JS no se toca desde el CSS: se apoya en
+           los hooks de clase/id del markup.
 
-           Aquí solo vive el CSS estructural imprescindible para que el portal
-           FUNCIONE; nada de presentación.
+           Paletas alternativas para probar: HTML/portal-v2/paletas-guardadas.css
 
-           Paletas para probar estilos: HTML/portal-v2/paletas-guardadas.css
-
-           Hooks del markup (para el CSS que se añada después):
+           Hooks del markup (los consume la hoja de estilos de este archivo):
              .view          cada pantalla        .field       etiqueta + control
-             .dash-section  panel con título     .dash-item   par etiqueta/valor
+             .dash-section  panel con título
+             .dash-grid / .dash-stat   estadísticas del dashboard (rejilla)
+             .dash-spectrum / .dash-dot   espectros con punto de color por canal
              .actions / .dash-nav  navegación    .help        <details> explicativo
              .primary · .secondary · .discreet · .crop-reset
-             .msg (resultado, [data-ok] = éxito) · .net-list (redes Wi-Fi)
-             .nav-item / .nav-ico / .nav-label / .nav-dot (botones SVG)
+             .msg (banner persistente, [data-ok] = éxito) · .toast (efímero)
+             .net-list (redes Wi-Fi) · .input-invalid / .field-error (validación)
+             .nav-item / .nav-ico / .nav-label (botones SVG)
            ===================================================================== */
+
+        /* =====================================================================
+           1. PALETA — "invernadero" (tema claro por defecto de la V2)
+           Verde natural, evolución de la V1. Define las 18 variables del sistema.
+           Para probar otra paleta, ver HTML/portal-v2/paletas-guardadas.css y
+           cambiar el data-theme del <html>. =================================== */
+        [data-theme="invernadero"] {
+            --bg:            #eef3ec;
+            --surface:       #ffffff;
+            --surface-2:     #f4f8f2;
+            --border:        #d3e2cf;
+            --text:          #1f2d20;
+            --text-dim:      #5c6f5a;
+            --primary:       #2e7d32;
+            --primary-2:     #256628;
+            --on-primary:    #ffffff;
+            --secondary:     #e5533d;
+            --secondary-2:   #c8412e;
+            --on-secondary:  #ffffff;
+            --accent:        #2196f3;
+            --ok-bg:         #e6f4ea;
+            --ok-text:       #1b5e20;
+            --err-bg:        #fdecea;
+            --err-text:      #b3261e;
+            --shadow:        0 6px 24px rgba(46, 125, 50, .12);
+        }
 
         /* Tipografía: se usa la fuente de UI del sistema (SF en iOS/macOS,
            Roboto en Android, Segoe UI en Windows) — 0 bytes de flash, óptima
@@ -149,15 +179,560 @@
         /* Tamaño base de los íconos SVG de navegación: un <svg> sin dimensiones
            puede renderizar a un tamaño arbitrario. Es estructural, no estético. */
         .nav-ico { width: 24px; height: 24px; }
-        .nav-ico-wrap { position: relative; display: inline-flex; }
         .toggle-password svg { width: 20px; height: 20px; }
+        /* Estado de conexión Wi-Fi: el ícono se pinta con el color primario de la
+           paleta cuando hay conexión (antes era un punto indicador aparte). */
+        #wifiIco.is-on { color: var(--primary, #10b981); }
+        /* Validación por campo: el input culpable se marca con borde rojo (color
+           de error de la paleta) y un mensaje debajo. No depende solo del color:
+           el JS también pone aria-invalid. */
+        .input-invalid,
+        .input-invalid:focus {
+            border-color: var(--err-text, #b3261e) !important;
+            outline: none;
+        }
+        .field-error {
+            display: block;
+            margin-top: 4px;
+            color: var(--err-text, #b3261e);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        /* Banner PERSISTENTE (#msg) para errores/atención: en el flujo, arriba de
+           la tarjeta; se queda hasta clearMsg() o cambio de vista. [data-ok] lo
+           vuelve de confirmación, aunque el uso normal es de error. */
+        .msg {
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 14px;
+            background: var(--err-bg, #fdecea);
+            color: var(--err-text, #b3261e);
+            border: 1px solid var(--err-text, #b3261e);
+        }
+        .msg[data-ok] {
+            background: var(--ok-bg, #e6f4ea);
+            color: var(--ok-text, #1b5e20);
+            border-color: var(--ok-text, #1b5e20);
+        }
+        /* Toast EFÍMERO (confirmaciones): flotante, centrado abajo, se desvanece. */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%) translateY(8px);
+            width: calc(100% - 32px);
+            max-width: 360px;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: var(--shadow, 0 6px 20px rgba(0, 0, 0, .15));
+            opacity: 0;
+            transition: opacity .25s ease, transform .25s ease;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast-ok {
+            background: var(--ok-bg, #e6f4ea);
+            color: var(--ok-text, #1b5e20);
+            border: 1px solid var(--ok-text, #1b5e20);
+        }
+        .toast-error {
+            background: var(--err-bg, #fdecea);
+            color: var(--err-text, #b3261e);
+            border: 1px solid var(--err-text, #b3261e);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .toast { transition: opacity .25s ease; }
+            .toast.show { transform: translateX(-50%); }
+        }
+
+        /* =====================================================================
+           CAMPOS DE FORMULARIO
+           Lenguaje visual tomado del comparador de paletas: label arriba, control
+           debajo con fondo --surface-2, borde --border, radio 8px y foco --primary.
+           Todo con variables de paleta para que siga cualquier tema. =========== */
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        .field > label {
+            font-size: 13px;
+            color: var(--text, #1f2d20);
+            font-weight: 500;
+        }
+        .field input[type="text"],
+        .field input[type="number"],
+        .field input[type="password"],
+        .field select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            font-size: 14px;
+            font-family: inherit;
+            color: var(--text, #1f2d20);
+            background: var(--surface-2, #f4f8f2);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 8px;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .field input:focus,
+        .field select:focus {
+            outline: none;
+            border-color: var(--primary, #2e7d32);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2e7d32) 22%, transparent);
+        }
+        .field input::placeholder { color: var(--text-dim, #5c6f5a); }
+        .field select { cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none;
+            /* flecha del select dibujada con un gradiente, tintada con --text-dim */
+            background-image:
+                linear-gradient(45deg, transparent 50%, var(--text-dim, #5c6f5a) 50%),
+                linear-gradient(135deg, var(--text-dim, #5c6f5a) 50%, transparent 50%);
+            background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+            background-size: 5px 5px, 5px 5px;
+            background-repeat: no-repeat;
+            padding-right: 34px;
+        }
+
+        /* Campo de INTERRUPTOR (checkbox): label a la izquierda, control a la
+           derecha, en una fila. Aplica a enable y a la luz blanca. */
+        .field:has(input[type="checkbox"]) {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .field input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+            border-radius: 999px;
+            background: var(--border, #d3e2cf);
+            cursor: pointer;
+            transition: background .2s ease;
+        }
+        .field input[type="checkbox"]::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--surface, #fff);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+            transition: transform .2s ease;
+        }
+        .field input[type="checkbox"]:checked {
+            background: var(--primary, #2e7d32);
+        }
+        .field input[type="checkbox"]:checked::after {
+            transform: translateX(20px);
+        }
+        .field input[type="checkbox"]:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2e7d32) 22%, transparent);
+        }
+
+        /* Sliders de espectro: cada canal con SU color (no el primario), igual
+           que en la V1: azul -> --accent, rojo -> --secondary. El valor (<output>)
+           también se tinta con el color de su canal. */
+        .field input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--primary, #2e7d32);
+        }
+        #ledAzul { accent-color: var(--accent, #2196f3); }
+        #ledRojo { accent-color: var(--secondary, #e5533d); }
+        .field output { font-weight: 600; color: var(--primary, #2e7d32); }
+        #ledAzulOut { color: var(--accent, #2196f3); }
+        #ledRojoOut { color: var(--secondary, #e5533d); }
+
+        /* Campo con botón de ver/ocultar contraseña: el botón se superpone sobre
+           el borde derecho del input (que reserva espacio con padding-right). */
+        .field:has(.toggle-password) { position: relative; }
+        .field:has(.toggle-password) input { padding-right: 44px; }
+        .toggle-password {
+            position: absolute;
+            right: 6px;
+            bottom: 6px;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            color: var(--text-dim, #5c6f5a);
+            cursor: pointer;
+            padding: 0;
+        }
+        .toggle-password:hover { color: var(--primary, #2e7d32); }
+
+        /* Bloque "Espectro avanzado (opcional)": desplegable subordinado, con un
+           marco suave que lo separa como sección secundaria. */
+        .spectrum-advanced {
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 8px;
+            background: var(--surface-2, #f4f8f2);
+            padding: 4px 12px;
+            margin-bottom: 14px;
+        }
+        .spectrum-advanced > summary {
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-dim, #5c6f5a);
+            padding: 8px 0;
+            list-style: none;
+        }
+        .spectrum-advanced > summary::-webkit-details-marker { display: none; }
+        .spectrum-advanced > summary::before {
+            content: "▸";
+            display: inline-block;
+            margin-right: 8px;
+            color: var(--text-dim, #5c6f5a);
+            transition: transform .2s ease;
+        }
+        .spectrum-advanced[open] > summary::before { transform: rotate(90deg); }
+
+        /* =====================================================================
+           BOTONES Y ACCIONES
+           Primario/secundario rellenos (comparador de paletas); .discreet y el
+           reset de cultivo, de baja jerarquía. .actions los agrupa en fila. ==== */
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .actions button {
+            flex: 1 1 auto;
+            min-width: 120px;
+        }
+        button.primary,
+        button.secondary,
+        button.discreet {
+            padding: 12px 16px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 600;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: filter .15s ease, background .15s ease, border-color .15s ease;
+        }
+        button.primary {
+            background: var(--primary, #2e7d32);
+            color: var(--on-primary, #fff);
+        }
+        button.primary:hover { background: var(--primary-2, #256628); }
+        button.secondary {
+            background: var(--secondary, #e5533d);
+            color: var(--on-secondary, #fff);
+        }
+        button.secondary:hover { background: var(--secondary-2, #c8412e); }
+        /* Discreto: sin relleno, para acciones de baja jerarquía. */
+        button.discreet {
+            background: var(--surface-2, #f4f8f2);
+            color: var(--text, #1f2d20);
+            border-color: var(--border, #d3e2cf);
+        }
+        button.discreet:hover { border-color: var(--primary, #2e7d32); }
+        button.primary:focus-visible,
+        button.secondary:focus-visible,
+        button.discreet:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2e7d32) 30%, transparent);
+        }
+        button:disabled { opacity: .6; cursor: default; }
+
+        /* Reset de cultivo: acción aparte y de baja intensidad (no es alarma, es
+           rutina de cada cosecha), separada por una línea para no pulsarla por
+           inercia. El texto de ayuda va atenuado. */
+        .crop-reset {
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid var(--border, #d3e2cf);
+        }
+        .crop-reset button {
+            width: 100%;
+            padding: 11px 16px;
+            font-size: 14px;
+            font-family: inherit;
+            font-weight: 500;
+            color: var(--text-dim, #5c6f5a);
+            background: var(--surface, #fff);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background .15s ease, border-color .15s ease;
+        }
+        .crop-reset button:hover {
+            background: var(--surface-2, #f4f8f2);
+            border-color: var(--secondary, #e5533d);
+            color: var(--secondary, #e5533d);
+        }
+        .crop-reset .help {
+            margin-top: 8px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-dim, #5c6f5a);
+            text-align: center;
+        }
+
+        /* =====================================================================
+           DASHBOARD (vista de solo lectura)
+           Hero destacado + secciones suaves con pares etiqueta/valor, y una fila
+           de accesos por ícono SIN recuadro (solo ícono + etiqueta). ============ */
+        #dashHero {
+            background: var(--primary, #2e7d32);
+            color: var(--on-primary, #fff);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+        }
+        #dashHero h2 {
+            margin: 0 0 8px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        #dashHero p { margin: 4px 0; font-size: 14px; }
+        #dashHero .dash-item { color: color-mix(in srgb, var(--on-primary, #fff) 88%, transparent); }
+        #dashHero strong { color: var(--on-primary, #fff); font-weight: 700; }
+        #dashHero .dash-item + .dash-item { margin-left: 16px; }
+
+        .dash-section {
+            background: var(--surface-2, #f4f8f2);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+        }
+        .dash-section h3 {
+            margin: 0 0 10px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--text-dim, #5c6f5a);
+        }
+        /* Rejilla de estadísticas (fotoperiodo/riego/ventilación): 2 columnas de
+           celdas centradas, etiqueta arriba y valor grande debajo. Estilo V1. */
+        .dash-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .dash-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            text-align: center;
+        }
+        .dash-stat-label {
+            font-size: 11px;
+            color: var(--text-dim, #5c6f5a);
+        }
+        .dash-stat-value {
+            font-size: 16px;
+            color: var(--text, #1f2d20);
+        }
+        .dash-stat-value strong { font-weight: 700; }
+        /* Espectros: 3 columnas, cada una con un punto del color del canal. */
+        .dash-spectrum {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .dash-spectrum-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            text-align: center;
+        }
+        .dash-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .dash-dot.is-blue  { background: var(--accent, #2196f3); }
+        .dash-dot.is-red   { background: var(--secondary, #e5533d); }
+        .dash-dot.is-white { background: var(--surface, #fff); border: 1px solid var(--text-dim, #5c6f5a); }
+
+        /* Avisos discretos del dashboard (solo lectura / cultivo sin configurar). */
+        .dash-auth-hint,
+        #dashHint {
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-dim, #5c6f5a);
+            background: var(--surface-2, #f4f8f2);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
+
+        /* Navegación por íconos: fila de accesos SIN recuadro. Cada botón es solo
+           el ícono + su etiqueta, sin borde ni fondo; el hover/focus colorea. */
+        .dash-nav {
+            display: flex;
+            justify-content: space-around;
+            gap: 8px;
+            margin-top: 18px;
+        }
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 4px;
+            background: none;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-dim, #5c6f5a);
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            transition: color .15s ease, background .15s ease;
+        }
+        .nav-item:hover { color: var(--primary, #2e7d32); }
+        .nav-item:focus-visible {
+            outline: none;
+            color: var(--primary, #2e7d32);
+            background: color-mix(in srgb, var(--primary, #2e7d32) 10%, transparent);
+        }
+        .nav-label { line-height: 1; }
+
+        /* =====================================================================
+           COMPONENTES DE VISTAS (wifi, ota, flashing, welcome, exit)
+           ===================================================================== */
+        /* Texto introductorio de las vistas y encabezados. */
+        .view > p { font-size: 14px; line-height: 1.5; color: var(--text, #1f2d20); margin: 0 0 12px; }
+        .view > h2 { font-size: 20px; font-weight: 600; color: var(--text, #1f2d20); margin: 0 0 8px; }
+        .field small { font-size: 12px; color: var(--text-dim, #5c6f5a); }
+
+        /* Lista de redes Wi-Fi: cada red es un botón de ancho completo, plano,
+           que se resalta al pasar/enfocar. */
+        .net-list { list-style: none; margin: 0 0 14px; padding: 0; }
+        .net-list li { margin: 0 0 6px; }
+        .net-list button {
+            width: 100%;
+            text-align: left;
+            padding: 11px 14px;
+            font-size: 14px;
+            font-family: inherit;
+            color: var(--text, #1f2d20);
+            background: var(--surface-2, #f4f8f2);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color .15s ease, background .15s ease;
+        }
+        .net-list button:hover { border-color: var(--primary, #2e7d32); }
+        .net-list button:focus-visible {
+            outline: none;
+            border-color: var(--primary, #2e7d32);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2e7d32) 22%, transparent);
+        }
+        #wifiScanning { font-size: 14px; color: var(--text-dim, #5c6f5a); }
+
+        /* Bloque de ayuda plegable "Antes de actualizar" (vista OTA). */
+        .help {
+            margin-top: 14px;
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 8px;
+            background: var(--surface-2, #f4f8f2);
+            padding: 4px 12px;
+        }
+        .help > summary {
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-dim, #5c6f5a);
+            padding: 8px 0;
+            list-style: none;
+        }
+        .help > summary::-webkit-details-marker { display: none; }
+        .help > summary::before {
+            content: "▸";
+            display: inline-block;
+            margin-right: 8px;
+            color: var(--text-dim, #5c6f5a);
+            transition: transform .2s ease;
+        }
+        .help[open] > summary::before { transform: rotate(90deg); }
+        .help p { font-size: 13px; line-height: 1.5; color: var(--text-dim, #5c6f5a); margin: 0 0 8px; }
+        .help code {
+            background: var(--surface, #fff);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 4px;
+            padding: 0 4px;
+            font-size: .92em;
+        }
+
+        /* Barra de progreso de la instalación OTA (vista flashing). */
+        #view-flashing { text-align: center; }
+        progress#otaProgress {
+            width: 100%;
+            height: 10px;
+            margin: 12px 0 4px;
+            border: none;
+            border-radius: 999px;
+            overflow: hidden;
+            appearance: none;
+            -webkit-appearance: none;
+            background: var(--surface-2, #f4f8f2);
+        }
+        progress#otaProgress::-webkit-progress-bar { background: var(--surface-2, #f4f8f2); border-radius: 999px; }
+        progress#otaProgress::-webkit-progress-value { background: var(--primary, #2e7d32); border-radius: 999px; transition: width .2s ease; }
+        progress#otaProgress::-moz-progress-bar { background: var(--primary, #2e7d32); border-radius: 999px; }
+        #otaPercent { font-size: 22px; font-weight: 700; color: var(--primary, #2e7d32); }
+        #otaStage { font-size: 13px; color: var(--text-dim, #5c6f5a); }
+        #otaCurrent { color: var(--primary, #2e7d32); }
+
+        /* Footer del dashboard: versión del firmware. Discreto, centrado; el
+           color fino lo define la paleta cuando llegue el diseño fuerte. */
+        .dash-footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-dim, #6b7280);
+        }
+
+        /* =====================================================================
+           RESPONSIVO — pantallas angostas (teléfonos pequeños, ~320–400px)
+           El portal se abre casi siempre desde el celular en el AP, así que el
+           layout debe aguantar anchos chicos sin desbordarse. ================== */
+        @media (max-width: 400px) {
+            .actions { gap: 8px; }
+            .actions button { min-width: 100%; }   /* botones apilados, uno por fila */
+            .nav-item { font-size: 11px; padding: 6px 2px; gap: 4px; }
+            .nav-ico { width: 22px; height: 22px; }
+            .dash-nav { gap: 4px; }
+            #dashHero .dash-item + .dash-item { margin-left: 10px; }
+            .dash-stat-value { font-size: 15px; }
+        }
+        /* Los sliders y el porcentaje del espectro no deben empujar el ancho. */
+        .field output { white-space: nowrap; }
     </style>
     <!-- ===================================================================
          MODO PREVIEW (mock) — SOLO PARA PROBAR EN EL NAVEGADOR SIN ESP32
          ===================================================================
-         Este archivo es una COPIA de mainForm.html con un simulador del
-         firmware inyectado. NO se sirve desde el dispositivo ni se regenera a
-         mainForm.h. La fuente de verdad sigue siendo mainForm.html (sin mock).
+         ARCHIVO GENERADO por scripts/gen_preview_v2.py — NO EDITAR A MANO.
+         Es una COPIA de mainForm.html con un simulador del firmware inyectado.
+         NO se sirve desde el dispositivo. La fuente de verdad es mainForm.html.
 
          Qué simula:
            - /getparams  -> cultivo de ejemplo, hasRegisteredUser + sessionValid
@@ -179,7 +754,7 @@
                 sessionValid: true,       // false -> dashboard en modo lectura (muestra el banner); true -> se salta el login
                 wifiConnected: false,
                 wifiSsid: "",
-                firmwareVersion: "1.0.1-preview",
+                firmwareVersion: "1.0.0-preview",
                 rtcValid: true,            // false -> la pastilla pasa a "En espera" y dia/semana a "—"
                 planta: "Albahaca",
                 enable: true,
@@ -326,7 +901,7 @@
 
         <!-- ==================== CREDENCIALES (register/auth) ================ -->
         <section id="view-credentials" class="view" hidden>
-            <form id="formCredentials">
+            <form id="formCredentials" novalidate>
                 <div class="field">
                     <label for="user">Usuario</label>
                     <input type="text" id="user" name="user" autocomplete="off" maxlength="32" required>
@@ -371,35 +946,65 @@
 
             <div class="dash-section">
                 <h3>Fotoperiodo</h3>
-                <p>
-                    <span class="dash-item">Prendido: <strong id="dashFpOn">—</strong> h</span>
-                    <span class="dash-item">Apagado: <strong id="dashFpOff">—</strong> h</span>
-                </p>
+                <div class="dash-grid">
+                    <div class="dash-stat">
+                        <span class="dash-stat-label">Prendido</span>
+                        <span class="dash-stat-value"><strong id="dashFpOn">—</strong> h</span>
+                    </div>
+                    <div class="dash-stat">
+                        <span class="dash-stat-label">Apagado</span>
+                        <span class="dash-stat-value"><strong id="dashFpOff">—</strong> h</span>
+                    </div>
+                </div>
             </div>
 
             <div class="dash-section">
                 <h3>Espectros</h3>
-                <p>
-                    <span class="dash-item">Azul: <strong id="dashLedA">—</strong></span>
-                    <span class="dash-item">Rojo: <strong id="dashLedR">—</strong></span>
-                    <span class="dash-item">Blanco: <strong id="dashLedB">—</strong></span>
-                </p>
+                <div class="dash-spectrum">
+                    <div class="dash-spectrum-col">
+                        <span class="dash-dot is-white"></span>
+                        <span class="dash-stat-value"><strong id="dashLedB">—</strong></span>
+                        <span class="dash-stat-label">Blanco</span>
+                    </div>
+                    <div class="dash-spectrum-col">
+                        <span class="dash-dot is-blue"></span>
+                        <span class="dash-stat-value"><strong id="dashLedA">—</strong></span>
+                        <span class="dash-stat-label">Azul</span>
+                    </div>
+                    <div class="dash-spectrum-col">
+                        <span class="dash-dot is-red"></span>
+                        <span class="dash-stat-value"><strong id="dashLedR">—</strong></span>
+                        <span class="dash-stat-label">Rojo</span>
+                    </div>
+                </div>
             </div>
 
             <div class="dash-section">
                 <h3>Riego</h3>
-                <p>
-                    <span class="dash-item">Frecuencia: <strong id="dashIrrH">—</strong></span>
-                    <span class="dash-item">Duración: <strong id="dashIrrM">—</strong> min</span>
-                </p>
+                <div class="dash-grid">
+                    <div class="dash-stat">
+                        <span class="dash-stat-label">Frecuencia</span>
+                        <span class="dash-stat-value"><strong id="dashIrrH">—</strong></span>
+                    </div>
+                    <div class="dash-stat">
+                        <span class="dash-stat-label">Duración</span>
+                        <span class="dash-stat-value"><strong id="dashIrrM">—</strong> min</span>
+                    </div>
+                </div>
             </div>
 
             <div class="dash-section">
                 <h3>Ventilación</h3>
-                <p>
-                    <span class="dash-item">Frecuencia: <strong id="dashVentH">—</strong></span>
-                    <span class="dash-item">Duración: <strong id="dashVentM">—</strong> min</span>
-                </p>
+                <div class="dash-grid">
+                    <div class="dash-stat">
+                        <span class="dash-stat-label">Frecuencia</span>
+                        <span class="dash-stat-value"><strong id="dashVentH">—</strong></span>
+                    </div>
+                    <div class="dash-stat">
+                        <span class="dash-stat-label">Duración</span>
+                        <span class="dash-stat-value"><strong id="dashVentM">—</strong> min</span>
+                    </div>
+                </div>
             </div>
 
             <!-- NAVEGACIÓN hub→spoke: los cuatro destinos como íconos en UNA fila.
@@ -419,15 +1024,12 @@
                     <span class="nav-label">Editar</span>
                 </button>
                 <button type="button" class="nav-item" id="btnWifi" aria-label="Conexión a Internet: sin conectar">
-                    <span class="nav-ico-wrap">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M5 12.55a11 11 0 0 1 14 0"></path>
-                            <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
-                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-                            <line x1="12" y1="20" x2="12.01" y2="20"></line>
-                        </svg>
-                        <span class="nav-dot" id="wifiDot" aria-hidden="true"></span>
-                    </span>
+                    <svg class="nav-ico" id="wifiIco" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M5 12.55a11 11 0 0 1 14 0"></path>
+                        <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                    </svg>
                     <span class="nav-label">Wi-Fi</span>
                     <span id="wifiState" hidden>sin conectar</span>
                 </button>
@@ -448,11 +1050,16 @@
                     <span class="nav-label">Salir</span>
                 </button>
             </nav>
+
+            <!-- Footer discreto: versión del firmware que reporta /getparams
+                 (constante de compilación del binario). Estructural; el diseño
+                 fuerte se define después. -->
+            <p class="dash-footer">SmartPlant · versión <span id="fwVersion">—</span></p>
         </section>
 
         <!-- ============================= EDICIÓN =========================== -->
         <section id="view-edit" class="view" hidden>
-            <form id="formEdit">
+            <form id="formEdit" novalidate>
                 <div class="dash-section" id="edit-power">
                     <h3>Estado del sistema</h3>
                     <!-- Interruptor MAESTRO: inhibe todos los actuadores (luz, riego,
@@ -555,7 +1162,7 @@
             <p id="wifiScanning" hidden>Buscando redes…</p>
             <ul id="netList" class="net-list"></ul>
 
-            <form id="formWifi">
+            <form id="formWifi" novalidate>
                 <div class="field">
                     <label for="ssid">Red (SSID)</label>
                     <input type="text" id="ssid" name="ssid" maxlength="32" autocomplete="off" required>
@@ -582,7 +1189,7 @@
             </p>
             <p>Versión instalada: <strong id="otaCurrent">—</strong></p>
 
-            <form id="formOta">
+            <form id="formOta" novalidate>
                 <div class="field">
                     <label for="otaFile">Archivo de firmware (.bin)</label>
                     <input type="file" id="otaFile" name="firmware" accept=".bin" required>
@@ -717,6 +1324,11 @@
            ===================================================================== */
         function setEstado(nuevo) {
             estado = nuevo;
+            // Al cambiar de vista se limpia el banner persistente para que un
+            // mensaje de una pantalla no quede colgado en otra. Quien necesite
+            // mostrar un mensaje AL entrar a una vista debe llamar showMsg
+            // DESPUÉS de setEstado (ver sesionInvalida).
+            clearMsg();
             for (const id of Object.values(VIEW_OF)) {
                 const el = $(id);
                 if (el) el.hidden = true;
@@ -746,6 +1358,74 @@
         }
 
         const clearMsg = () => { $("msg").hidden = true; };
+
+        /* Toast EFÍMERO para confirmaciones (éxito): flota, aparece y se va solo.
+           A diferencia del banner #msg (persistente, para errores/atención), el
+           toast no ocupa espacio ni requiere que el usuario lo cierre. Criterio:
+           confirmaciones -> toast; errores/atención -> showMsg (banner). */
+        let toastTimer = null;
+        function mostrarToast(ok, texto) {
+            let toast = $("toast");
+            if (!toast) {
+                toast = document.createElement("div");
+                toast.id = "toast";
+                document.body.appendChild(toast);
+            }
+            toast.className = "toast" + (ok ? " toast-ok" : " toast-error");
+            toast.textContent = texto;
+            void toast.offsetWidth;   // reinicia la animación si ya estaba visible
+            toast.classList.add("show");
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+        }
+
+        /* =====================================================================
+           Feedback de validación por campo
+           Marca los inputs que fallan (borde rojo + aria-invalid) y coloca el
+           mensaje concreto bajo cada uno (.field-error). La marca se limpia sola
+           cuando el usuario edita el campo. Sustituye a listar todos los errores
+           juntos en el banner #msg.
+           ===================================================================== */
+        function limpiarErroresCampos(scope) {
+            const root = scope || document;
+            root.querySelectorAll(".input-invalid").forEach((el) => {
+                el.classList.remove("input-invalid");
+                el.removeAttribute("aria-invalid");
+            });
+            root.querySelectorAll(".field-error").forEach((el) => el.remove());
+        }
+
+        function pintarErroresCampos(errores) {
+            const vistos = new Set();   // un mensaje por campo (el primero)
+            errores.forEach(({ f, m }) => {
+                const campo = $(f);
+                if (!campo) return;
+                campo.classList.add("input-invalid");
+                campo.setAttribute("aria-invalid", "true");
+                if (vistos.has(f)) return;
+                vistos.add(f);
+                const small = document.createElement("small");
+                small.className = "field-error";
+                small.textContent = m;
+                // El input vive dentro de un .field; se cuelga el mensaje ahí.
+                const cont = campo.closest(".field") || campo.parentElement;
+                if (cont) cont.appendChild(small);
+                const limpiar = () => {
+                    campo.classList.remove("input-invalid");
+                    campo.removeAttribute("aria-invalid");
+                    const msg = cont && cont.querySelector(".field-error");
+                    if (msg) msg.remove();
+                    campo.removeEventListener("input", limpiar);
+                    campo.removeEventListener("change", limpiar);
+                };
+                campo.addEventListener("input", limpiar);
+                campo.addEventListener("change", limpiar);
+            });
+            if (errores.length) {
+                const primero = $(errores[0].f);
+                if (primero) primero.focus({ preventScroll: false });
+            }
+        }
 
         /* =====================================================================
            Validaciones — réplica de las del firmware (utils.cpp / Plant.cpp)
@@ -782,12 +1462,12 @@
 
         function validarCredenciales(user, pass) {
             const e = [];
-            if (user.length < 4 || user.length > 32) e.push("El usuario debe tener entre 4 y 32 caracteres.");
-            if (pass.length < 8 || pass.length > 64) e.push("La contraseña debe tener entre 8 y 64 caracteres.");
-            if (!isValidReadableString(user, false)) e.push("El usuario solo admite letras, números y (_-.@!#$%&*?+=).");
-            if (!isValidReadableString(pass, false)) e.push("La contraseña solo admite letras, números y (_-.@!#$%&*?+=).");
-            if (hasTooManyRepeatedChars(user)) e.push("El usuario no puede repetir un carácter más de 3 veces seguidas.");
-            if (hasTooManyRepeatedChars(pass)) e.push("La contraseña no puede repetir un carácter más de 3 veces seguidas.");
+            if (user.length < 4 || user.length > 32) e.push({ f: "user", m: "El usuario debe tener entre 4 y 32 caracteres." });
+            if (pass.length < 8 || pass.length > 64) e.push({ f: "pass", m: "La contraseña debe tener entre 8 y 64 caracteres." });
+            if (!isValidReadableString(user, false)) e.push({ f: "user", m: "El usuario solo admite letras, números y (_-.@!#$%&*?+=)." });
+            if (!isValidReadableString(pass, false)) e.push({ f: "pass", m: "La contraseña solo admite letras, números y (_-.@!#$%&*?+=)." });
+            if (hasTooManyRepeatedChars(user)) e.push({ f: "user", m: "El usuario no puede repetir un carácter más de 3 veces seguidas." });
+            if (hasTooManyRepeatedChars(pass)) e.push({ f: "pass", m: "La contraseña no puede repetir un carácter más de 3 veces seguidas." });
             return e;
         }
 
@@ -804,32 +1484,34 @@
             const ledRojo = $("ledRojo").value.trim();
 
             if (planta === "") {
-                e.push("El nombre de la planta es obligatorio.");
+                e.push({ f: "planta", m: "El nombre de la planta es obligatorio." });
             } else {
-                if (planta.length < 3 || planta.length > 20) e.push("La planta debe tener entre 3 y 20 caracteres.");
-                if (!isValidReadableString(planta, true)) e.push("La planta solo admite letras, números, espacios y (_-.@!#$%&*?+=).");
-                if (/\s{2,}/.test(planta)) e.push("La planta no puede tener espacios repetidos.");
-                if (/^\d+$/.test(planta)) e.push("La planta no puede ser solo números.");
-                if (hasTooManyRepeatedChars(planta)) e.push("La planta no puede repetir un carácter más de 3 veces seguidas.");
+                if (planta.length < 3 || planta.length > 20) e.push({ f: "planta", m: "La planta debe tener entre 3 y 20 caracteres." });
+                if (!isValidReadableString(planta, true)) e.push({ f: "planta", m: "La planta solo admite letras, números, espacios y (_-.@!#$%&*?+=)." });
+                if (/\s{2,}/.test(planta)) e.push({ f: "planta", m: "La planta no puede tener espacios repetidos." });
+                if (/^\d+$/.test(planta)) e.push({ f: "planta", m: "La planta no puede ser solo números." });
+                if (hasTooManyRepeatedChars(planta)) e.push({ f: "planta", m: "La planta no puede repetir un carácter más de 3 veces seguidas." });
             }
 
-            if (!isStrictInteger(fpOn) || Number(fpOn) > 23) e.push("La hora de prendido debe ser un entero entre 0 y 23.");
-            if (!isStrictInteger(fpOff) || Number(fpOff) > 23) e.push("La hora de apagado debe ser un entero entre 0 y 23.");
-            if (isStrictInteger(fpOn) && isStrictInteger(fpOff) && Number(fpOn) === Number(fpOff))
-                e.push("Las horas de prendido y apagado no pueden ser iguales.");
+            if (!isStrictInteger(fpOn) || Number(fpOn) > 23) e.push({ f: "fpOn", m: "La hora de prendido debe ser un entero entre 0 y 23." });
+            if (!isStrictInteger(fpOff) || Number(fpOff) > 23) e.push({ f: "fpOff", m: "La hora de apagado debe ser un entero entre 0 y 23." });
+            if (isStrictInteger(fpOn) && isStrictInteger(fpOff) && Number(fpOn) === Number(fpOff)) {
+                e.push({ f: "fpOn", m: "Las horas de prendido y apagado no pueden ser iguales." });
+                e.push({ f: "fpOff", m: "Las horas de prendido y apagado no pueden ser iguales." });
+            }
 
-            if (!isStrictInteger(irrM) || Number(irrM) > 59) e.push("La duración del riego debe estar entre 0 y 59 minutos.");
-            if (!isStrictInteger(ventM) || Number(ventM) > 59) e.push("La duración de la ventilación debe estar entre 0 y 59 minutos.");
-            if (!isStrictInteger(irrH) || !VALID_FREQUENCIES.includes(Number(irrH))) e.push("Selecciona una frecuencia de riego válida.");
-            if (!isStrictInteger(ventH) || !VALID_FREQUENCIES.includes(Number(ventH))) e.push("Selecciona una frecuencia de ventilación válida.");
+            if (!isStrictInteger(irrM) || Number(irrM) > 59) e.push({ f: "irrM", m: "La duración del riego debe estar entre 0 y 59 minutos." });
+            if (!isStrictInteger(ventM) || Number(ventM) > 59) e.push({ f: "ventM", m: "La duración de la ventilación debe estar entre 0 y 59 minutos." });
+            if (!isStrictInteger(irrH) || !VALID_FREQUENCIES.includes(Number(irrH))) e.push({ f: "irrH", m: "Selecciona una frecuencia de riego válida." });
+            if (!isStrictInteger(ventH) || !VALID_FREQUENCIES.includes(Number(ventH))) e.push({ f: "ventH", m: "Selecciona una frecuencia de ventilación válida." });
             // Coherencia frecuencia/duración: con frecuencia activa y duración 0 el
             // equipo nunca encendería (el firmware exige minuto < duración), pero se
             // vería "configurado". Para desactivar existe la frecuencia "Apagado".
-            if (Number(irrH) > 0 && Number(irrM) === 0) e.push("Con el riego activo la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»).");
-            if (Number(ventH) > 0 && Number(ventM) === 0) e.push("Con la ventilación activa la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»).");
+            if (Number(irrH) > 0 && Number(irrM) === 0) e.push({ f: "irrM", m: "Con el riego activo la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)." });
+            if (Number(ventH) > 0 && Number(ventM) === 0) e.push({ f: "ventM", m: "Con la ventilación activa la duración debe ser de al menos 1 minuto (o elige la frecuencia «Apagado»)." });
 
-            if (!isStrictInteger(ledAzul) || Number(ledAzul) > 100) e.push("El espectro azul debe estar entre 0 y 100 %.");
-            if (!isStrictInteger(ledRojo) || Number(ledRojo) > 100) e.push("El espectro rojo debe estar entre 0 y 100 %.");
+            if (!isStrictInteger(ledAzul) || Number(ledAzul) > 100) e.push({ f: "ledAzul", m: "El espectro azul debe estar entre 0 y 100 %." });
+            if (!isStrictInteger(ledRojo) || Number(ledRojo) > 100) e.push({ f: "ledRojo", m: "El espectro rojo debe estar entre 0 y 100 %." });
 
             return e;
         }
@@ -872,6 +1554,10 @@
             $("dashVentH").textContent = FREQ_LABELS[p.ventH] ?? "—";
             $("dashVentM").textContent = p.ventM ?? "—";
 
+            // Versión del firmware en el footer: la reporta /getparams (constante
+            // de compilación del binario). Si el equipo no la manda, se deja "—".
+            $("fwVersion").textContent = p.firmwareVersion || "—";
+
             // Ayuda contextual solo para el cultivo sin configurar (día 0 = sin
             // anclar). Desaparece en cuanto hay configuración, para no estorbar
             // al usuario habitual.
@@ -887,10 +1573,10 @@
             $("wifiState").textContent = conectado
                 ? ("conectado a " + (p.wifiSsid || "tu red"))
                 : "sin conectar";
-            // Refleja el estado en el ícono (punto) y en el aria-label del botón,
-            // ya que la etiqueta visible solo dice "Wi-Fi".
-            const wifiDot = $("wifiDot");
-            if (wifiDot) wifiDot.classList.toggle("is-on", conectado);
+            // Refleja el estado en el color del propio ícono SVG y en el
+            // aria-label del botón, ya que la etiqueta visible solo dice "Wi-Fi".
+            const wifiIco = $("wifiIco");
+            if (wifiIco) wifiIco.classList.toggle("is-on", conectado);
             const btnWifi = $("btnWifi");
             if (btnWifi) btnWifi.setAttribute("aria-label",
                 conectado
@@ -986,8 +1672,10 @@
             params.sessionValid = false;
             pendingIntent = intent;
             pendingKeepForm = conservarFormulario === true;
-            showMsg(false, mensaje || "Tu sesión expiró. Vuelve a iniciar sesión.");
+            // setEstado limpia el banner al cambiar de vista, así que el mensaje
+            // se muestra DESPUÉS de entrar a la vista de auth.
             setEstado("auth");
+            showMsg(false, mensaje || "Tu sesión expiró. Vuelve a iniciar sesión.");
         }
 
         /* =====================================================================
@@ -1071,7 +1759,8 @@
                 const json = await res.json();
                 if (res.status === 401) { sesionInvalida(json.message, "edit", true); return; }
                 const ok = res.ok && json.status === true;
-                showMsg(ok, json.message || (ok ? "Cultivo reiniciado." : "No se pudo reiniciar el cultivo."));
+                if (ok) mostrarToast(true, json.message || "Cultivo reiniciado.");
+                else showMsg(false, json.message || "No se pudo reiniciar el cultivo.");
                 if (ok) {
                     // Refresca y vuelve al dashboard, que mostrará el cultivo sin
                     // nombre y el conteo de días en blanco.
@@ -1118,8 +1807,13 @@
             const esReset = !esRegistro && pass === "**reset**";
 
             if (!esReset) {
+                limpiarErroresCampos($("formCredentials"));
                 const errores = validarCredenciales(user, pass);
-                if (errores.length) { showMsg(false, errores.join(" ")); return; }
+                if (errores.length) {
+                    pintarErroresCampos(errores);
+                    showMsg(false, "Revisa los campos marcados.");
+                    return;
+                }
             }
 
             const btn = $("btnCredentials");
@@ -1176,9 +1870,20 @@
         $("formEdit").addEventListener("submit", async (ev) => {
             ev.preventDefault();
             clearMsg();
+            limpiarErroresCampos($("formEdit"));
 
             const errores = validarParametros();
-            if (errores.length) { showMsg(false, errores.join(" ")); return; }
+            if (errores.length) {
+                // Si el error está en un espectro (azul/rojo), abre el panel
+                // avanzado para que el campo marcado quede a la vista.
+                if (errores.some((er) => er.f === "ledAzul" || er.f === "ledRojo")) {
+                    const adv = document.querySelector(".spectrum-advanced");
+                    if (adv) adv.open = true;
+                }
+                pintarErroresCampos(errores);
+                showMsg(false, "Revisa los campos marcados.");
+                return;
+            }
 
             const ahora = new Date();
             const data = {
@@ -1226,7 +1931,7 @@
                     return;
                 }
 
-                showMsg(true, json.message || "Parámetros actualizados.");
+                mostrarToast(true, json.message || "Parámetros actualizados.");
                 await obtenerParams();
                 pintarDashboard();
                 setEstado("view");
@@ -1326,11 +2031,15 @@
                 }
 
                 // El POST solo ARRANCA el intento (no bloquea el portal): el
-                // resultado se confirma consultando /getparams.
+                // resultado se confirma consultando /getparams. "Conectando…" es
+                // un progreso que debe PERSISTIR durante la espera -> banner.
                 showMsg(true, "Conectando a " + ssid + "…");
                 const ok = await esperarConexion();
                 if (ok) {
-                    showMsg(true, "Conectado a " + (params.wifiSsid || ssid) + ".");
+                    // Éxito: confirmación efímera (toast) y limpiamos el banner de
+                    // progreso antes de saltar al dashboard.
+                    clearMsg();
+                    mostrarToast(true, "Conectado a " + (params.wifiSsid || ssid) + ".");
                     pintarDashboard();
                     setEstado("view");
                 } else {
@@ -1413,13 +2122,13 @@
                     const json = JSON.parse(xhr.responseText);
                     if (json && json.message) mensaje = json.message;
                 } catch (e) { /* respuesta no-JSON: se deja el mensaje genérico */ }
-                showMsg(false, mensaje);
                 setEstado("ota");
+                showMsg(false, mensaje);
             });
 
             xhr.addEventListener("error", () => {
-                showMsg(false, "Se perdió la comunicación durante la subida. El equipo conserva el firmware anterior.");
                 setEstado("ota");
+                showMsg(false, "Se perdió la comunicación durante la subida. El equipo conserva el firmware anterior.");
             });
 
             xhr.send(cuerpo);

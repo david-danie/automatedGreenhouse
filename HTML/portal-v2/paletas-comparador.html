@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartPlant V2 — Comparador de paletas claras</title>
+<style>
+    /* ---- Las 3 paletas candidatas (copiadas de paletas-guardadas.css) ---- */
+    [data-theme="invernadero"] {
+        --bg:#eef3ec; --surface:#ffffff; --surface-2:#f4f8f2; --border:#d3e2cf;
+        --text:#1f2d20; --text-dim:#5c6f5a; --primary:#2e7d32; --primary-2:#256628;
+        --on-primary:#ffffff; --secondary:#e5533d; --secondary-2:#c8412e; --on-secondary:#ffffff;
+        --accent:#2196f3; --ok-bg:#e6f4ea; --ok-text:#1b5e20; --err-bg:#fdecea; --err-text:#b3261e;
+        --shadow:0 6px 24px rgba(46,125,50,.12);
+    }
+    [data-theme="tierra"] {
+        --bg:#f3ede2; --surface:#fffdf8; --surface-2:#f7f1e6; --border:#e0d5c2;
+        --text:#3a2f24; --text-dim:#7a6b58; --primary:#6b8e5a; --primary-2:#57764a;
+        --on-primary:#ffffff; --secondary:#c1613a; --secondary-2:#a44f2d; --on-secondary:#ffffff;
+        --accent:#4a86a8; --ok-bg:#eaf1e3; --ok-text:#4a6b39; --err-bg:#f7e6df; --err-text:#9c4426;
+        --shadow:0 6px 24px rgba(90,75,55,.14);
+    }
+    [data-theme="slate"] {
+        --bg:#eef1f5; --surface:#ffffff; --surface-2:#f4f6f9; --border:#d5dbe3;
+        --text:#1e293b; --text-dim:#64748b; --primary:#059669; --primary-2:#047857;
+        --on-primary:#ffffff; --secondary:#e11d48; --secondary-2:#be123c; --on-secondary:#ffffff;
+        --accent:#0ea5e9; --ok-bg:#e7f6ef; --ok-text:#047857; --err-bg:#fdeaef; --err-text:#be123c;
+        --shadow:0 6px 24px rgba(30,41,59,.10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #dcdcdc; padding: 24px;
+        display: flex; flex-wrap: wrap; gap: 24px; justify-content: center;
+    }
+    /* Cada columna renderiza un tema real vía data-theme, usando las variables. */
+    .demo { background: var(--bg); padding: 20px; border-radius: 18px; width: 360px; }
+    .card {
+        background: var(--surface); color: var(--text);
+        border: 1px solid var(--border); border-radius: 16px;
+        box-shadow: var(--shadow); padding: 24px;
+    }
+    .theme-name { text-align:center; font-weight:700; margin-bottom:12px; color: var(--text); }
+    h1 { font-size: 22px; color: var(--primary); margin-bottom: 4px; }
+    h3 { font-size: 14px; color: var(--text-dim); text-transform: uppercase;
+         letter-spacing: .5px; margin: 18px 0 8px; }
+    label { display:block; font-size: 13px; color: var(--text); margin-bottom: 6px; }
+    input[type=text], select {
+        width:100%; padding: 10px 12px; font-size: 14px; color: var(--text);
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: 8px; margin-bottom: 14px;
+    }
+    input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+    .row { display:flex; gap: 10px; }
+    button { flex:1; padding: 12px; border:none; border-radius: 8px; font-size: 14px;
+             font-weight: 600; cursor: pointer; }
+    .primary { background: var(--primary); color: var(--on-primary); }
+    .secondary { background: var(--secondary); color: var(--on-secondary); }
+    .discreet { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+    .msg { padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
+    .msg.ok { background: var(--ok-bg); color: var(--ok-text); }
+    .msg.err { background: var(--err-bg); color: var(--err-text); }
+    .spectrum { display:flex; gap: 8px; margin: 8px 0 14px; }
+    .dot { width: 28px; height: 28px; border-radius: 50%; }
+    .dot.blue { background: var(--accent); }
+    .dot.red { background: var(--secondary); }
+    .dot.white { background: #fff; border: 1px solid var(--border); }
+    .footer { text-align:center; font-size: 12px; color: var(--text-dim); margin-top: 18px; }
+    .chip { display:inline-flex; align-items:center; gap:6px; padding: 8px 14px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: 999px; color: var(--primary); font-size: 13px; }
+</style>
+</head>
+<body>
+    <!-- Cambia/duplica columnas para comparar. Cada .demo lleva su data-theme. -->
+    <div class="demo" data-theme="invernadero">
+        <div class="theme-name">1 · invernadero</div>
+        <div class="card">
+            <h1>SmartPlant 🌱</h1>
+            <p style="color:var(--text-dim);font-size:13px">Albahaca · Semana 5 · Día 34</p>
+            <div class="msg ok">Parámetros actualizados correctamente.</div>
+            <div class="msg err">La sesión expiró. Inicia sesión y reintenta.</div>
+            <h3>General</h3>
+            <label>Nombre de la planta</label>
+            <input type="text" value="Albahaca">
+            <label>Frecuencia de riego</label>
+            <select><option>3 veces al día</option></select>
+            <h3>Espectros</h3>
+            <div class="spectrum"><span class="dot white"></span><span class="dot blue"></span><span class="dot red"></span></div>
+            <span class="chip">☁ Actualizar firmware</span>
+            <h3>Acciones</h3>
+            <div class="row">
+                <button class="primary">Guardar</button>
+                <button class="secondary">Cancelar</button>
+            </div>
+            <div class="footer">SmartPlant · versión 1.0.0</div>
+        </div>
+    </div>
+
+    <div class="demo" data-theme="tierra">
+        <div class="theme-name">3 · tierra</div>
+        <div class="card">
+            <h1>SmartPlant 🌱</h1>
+            <p style="color:var(--text-dim);font-size:13px">Albahaca · Semana 5 · Día 34</p>
+            <div class="msg ok">Parámetros actualizados correctamente.</div>
+            <div class="msg err">La sesión expiró. Inicia sesión y reintenta.</div>
+            <h3>General</h3>
+            <label>Nombre de la planta</label>
+            <input type="text" value="Albahaca">
+            <label>Frecuencia de riego</label>
+            <select><option>3 veces al día</option></select>
+            <h3>Espectros</h3>
+            <div class="spectrum"><span class="dot white"></span><span class="dot blue"></span><span class="dot red"></span></div>
+            <span class="chip">☁ Actualizar firmware</span>
+            <h3>Acciones</h3>
+            <div class="row">
+                <button class="primary">Guardar</button>
+                <button class="secondary">Cancelar</button>
+            </div>
+            <div class="footer">SmartPlant · versión 1.0.0</div>
+        </div>
+    </div>
+
+    <div class="demo" data-theme="slate">
+        <div class="theme-name">4 · slate (claro)</div>
+        <div class="card">
+            <h1>SmartPlant 🌱</h1>
+            <p style="color:var(--text-dim);font-size:13px">Albahaca · Semana 5 · Día 34</p>
+            <div class="msg ok">Parámetros actualizados correctamente.</div>
+            <div class="msg err">La sesión expiró. Inicia sesión y reintenta.</div>
+            <h3>General</h3>
+            <label>Nombre de la planta</label>
+            <input type="text" value="Albahaca">
+            <label>Frecuencia de riego</label>
+            <select><option>3 veces al día</option></select>
+            <h3>Espectros</h3>
+            <div class="spectrum"><span class="dot white"></span><span class="dot blue"></span><span class="dot red"></span></div>
+            <span class="chip">☁ Actualizar firmware</span>
+            <h3>Acciones</h3>
+            <div class="row">
+                <button class="primary">Guardar</button>
+                <button class="secondary">Cancelar</button>
+            </div>
+            <div class="footer">SmartPlant · versión 1.0.0</div>
+        </div>
+    </div>
+</body>
+</html>
