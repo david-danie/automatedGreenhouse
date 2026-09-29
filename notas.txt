@@ -171,3 +171,19 @@ recrearlos a mano en cada máquina:
   
   Después: gzip del portal, y el OTA cuando termines de revisar el esquema de particiones.
   
+  ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x3 (RTC_SW_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40048b82
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x110c
+load:0x403cbf10,len:0xb54
+load:0x403ce710,len:0x2f8c
+entry 0x403cbf10
+E (24) esp_image: image at 0x1f0000 has invalid magic byte (nothing flashed here?)
+E (24) boot: OTA app partition slot 1 is not bootable
+E (25) esp_image: image at 0x20000 has invalid magic byte (nothing flashed here?)
+E (32) boot: OTA app partition slot 0 is not bootable
+E (37) boot: No bootable app partitions in the partition table
+  
