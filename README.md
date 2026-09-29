@@ -275,8 +275,11 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 │   ├── sensible.h             # Secretos del AP (no versionado)
 │   └── mainForm.h             # Artefacto generado: el HTML que sirve el ESP32
 ├── HTML/
-│   ├── mainForm.html          # Fuente de verdad del portal (legible y comentada)
-│   └── mainForm.preview.html  # Artefacto generado: el portal con firmware simulado
+│   ├── mainForm.html          # Fuente de verdad del portal V1 (legible y comentada)
+│   ├── mainForm.preview.html  # Artefacto generado: el portal V1 con firmware simulado
+│   └── portal-v2/             # Portal V2 (rediseño, aún no servido): mainForm.html (fuente),
+│                              #   mainForm.preview.html (generado) y paletas-guardadas.css
+├── scripts/                   # Generadores: gen_mainform.py, gen_preview.py, gen_preview_v2.py
 ├── ESP32_Board/               # Diseño de la tarjeta (KiCad)
 ├── pythonServer/              # Backend: FastAPI + Alembic + Docker (auth funcional)
 ├── docs/                      # Documentación técnica
@@ -297,6 +300,12 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 ```bash
 python3 scripts/gen_mainform.py   # -> ESP32_controller/mainForm.h  (lo que sirve el dispositivo)
 python3 scripts/gen_preview.py    # -> HTML/mainForm.preview.html   (para revisar sin dispositivo)
+```
+
+El **Portal V2** (en desarrollo, aún no servido) sigue la misma convención con su propio generador de preview:
+
+```bash
+python3 scripts/gen_preview_v2.py # -> HTML/portal-v2/mainForm.preview.html  (mock fetch/XHR; fuente: HTML/portal-v2/mainForm.html)
 ```
 
 </div>
@@ -333,7 +342,7 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
   - [x] Reset de fábrica **restringido a la interfaz del AP**, y operación rutinaria separada en `POST /newcrop` (autenticada, conserva cuenta y Wi-Fi)
   - [x] **Límite de intentos** de login: espera creciente de 5 s a 5 min, contador en RAM
 - [ ] Servir el portal **gzip** (`Content-Encoding: gzip`) para menos flash y carga más rápida
-- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-v2/`): estructura, JS y **CSS con paletas intercambiables** listos; falta elegir la paleta definitiva, el endpoint OTA y homologarlo como versión oficial ([ver estado](docs/ARCHITECTURE.md))
+- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-v2/`): estructura, JS y **diseño visual completo** sobre la paleta **invernadero** (campos, botones, dashboard, notificaciones toast/banner/validación por campo, OTA); paletas alternativas en `paletas-guardadas.css`. Falta el repaso visual fino y **homologarlo** (promover a `HTML/mainForm.html` + generar su `mainForm.h`) como versión oficial ([ver estado](docs/ARCHITECTURE.md))
 - [x] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): endpoint `POST /otaupdate` en el firmware (librería `Update`), `partitions.csv` con dos slots OTA y **cliente en ambos portales** (V1 y V2, vistas `ota`/`flashing` con barra de progreso). Falta probar el flujo completo en hardware real ([ver requisitos](docs/ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota))
 - [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos. Ya está en pie la base — la infraestructura corre en Docker (Postgres/Timescale, MinIO y Mosquitto), Alembic crea el esquema completo (5 tablas + hypertable), el registro/login/refresh funciona con JWT y los dispositivos se vinculan a una cuenta recibiendo su propio token revocable. En curso: recibir configuración y telemetría por REST (escrito, pendiente de probar). Falta exponer las lecturas para la app, servir OTA y la ingesta por MQTT ([ver estado](pythonServer/README.md))
 - [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
