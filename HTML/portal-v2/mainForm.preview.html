@@ -96,14 +96,15 @@
 
            Hooks del markup (los consume la hoja de estilos de este archivo):
              .view          cada pantalla        .field       etiqueta + control
-             .dash-section  panel con título
-             .dash-grid / .dash-stat   estadísticas del dashboard (rejilla)
+             .dash-block    sección: título FUERA + .dash-card (contenido)
+             .dash-hero (#dashHero)   tarjeta destacada del dashboard
+             .dash-phrase   dato de un renglón (riego/ventilación/fotoperiodo)
              .dash-spectrum / .dash-dot   espectros con punto de color por canal
              .actions / .dash-nav  navegación    .help        <details> explicativo
              .primary · .secondary · .discreet · .crop-reset
              .msg (banner persistente, [data-ok] = éxito) · .toast (efímero)
              .net-list (redes Wi-Fi) · .input-invalid / .field-error (validación)
-             .nav-item / .nav-ico / .nav-label (botones SVG)
+             .nav-item / .nav-ico / .nav-label (accesos por ícono, tipo tile)
            ===================================================================== */
 
         /* =====================================================================
@@ -120,6 +121,7 @@
             --text-dim:      #5c6f5a;
             --primary:       #2e7d32;
             --primary-2:     #256628;
+            --primary-soft:  #cfe6d0;
             --on-primary:    #ffffff;
             --secondary:     #e5533d;
             --secondary-2:   #c8412e;
@@ -148,12 +150,23 @@
             margin: 0;
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 14px;
             padding: 16px;
             box-sizing: border-box;
             background: var(--bg, #eef2f0);
             color: var(--text, #1a1a1a);
+        }
+        /* Footer global de versión: metadato de referencia, mínimo y atenuado.
+           Fuera de la tarjeta, centrado bajo ella, sin caja ni color de acento. */
+        #appFooter {
+            margin: 0;
+            font-size: 11px;
+            color: var(--text-dim, #6b7280);
+            text-align: center;
+            opacity: .85;
         }
         #card {
             width: 100%;
@@ -164,6 +177,15 @@
             border: 1px solid var(--border, #e2e8e5);
             border-radius: 16px;
             box-shadow: var(--shadow, 0 8px 32px rgba(0, 0, 0, .12));
+        }
+        /* Título del portal: centrado y en el color primario de la paleta, igual
+           que la V1. El color sale SIEMPRE de la paleta (--primary). */
+        #title {
+            margin: 0 0 18px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
         }
         /* En pantallas chicas la tarjeta ocupa el ancho con menos padding. */
         @media (max-width: 480px) {
@@ -182,7 +204,17 @@
         .toggle-password svg { width: 20px; height: 20px; }
         /* Estado de conexión Wi-Fi: el ícono se pinta con el color primario de la
            paleta cuando hay conexión (antes era un punto indicador aparte). */
+        /* Ícono Wi-Fi: refleja el estado de conexión con color, y debe destacar
+           sobre el tile verde de acceso. Desconectado -> atenuado; conectado ->
+           primario; en hover el tile se rellena y el ícono va en --on-primary. */
+        #wifiIco { color: var(--text-dim, #5c6f5a); }
         #wifiIco.is-on { color: var(--primary, #10b981); }
+        /* En hover el tile se rellena de --primary; el ícono va en --on-primary.
+           Se incluye .is-on por especificidad (para que también gane al verde). */
+        .nav-item:hover #wifiIco.is-on,
+        .nav-item:focus-visible #wifiIco.is-on,
+        .nav-item:hover #wifiIco,
+        .nav-item:focus-visible #wifiIco { color: var(--on-primary, #fff); }
         /* Validación por campo: el input culpable se marca con borde rojo (color
            de error de la paleta) y un mensaje debajo. No depende solo del color:
            el JS también pone aria-invalid. */
@@ -345,16 +377,61 @@
         /* Sliders de espectro: cada canal con SU color (no el primario), igual
            que en la V1: azul -> --accent, rojo -> --secondary. El valor (<output>)
            también se tinta con el color de su canal. */
+        /* Sliders: la porción LLENA lleva el color del canal (--chan) hasta --pct
+           (lo actualiza el JS), y la porción VACÍA es clara y uniforme (--surface-2),
+           sin la zona oscura que hacía accent-color con el azul. El thumb también
+           usa el color del canal. El valor numérico va en color de fuente. */
         .field input[type="range"] {
+            --pct: 50%;
+            --chan: var(--primary, #2e7d32);
             width: 100%;
             cursor: pointer;
-            accent-color: var(--primary, #2e7d32);
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;   /* el track real lo dibujan las pseudo-reglas */
+            margin: 6px 0;
         }
-        #ledAzul { accent-color: var(--accent, #2196f3); }
-        #ledRojo { accent-color: var(--secondary, #e5533d); }
-        .field output { font-weight: 600; color: var(--primary, #2e7d32); }
-        #ledAzulOut { color: var(--accent, #2196f3); }
-        #ledRojoOut { color: var(--secondary, #e5533d); }
+        #ledAzul { --chan: var(--accent, #2196f3); }
+        #ledRojo { --chan: var(--secondary, #e5533d); }
+        /* Track: gradiente lleno(--chan)→vacío(--surface-2) partido en --pct. */
+        .field input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--border, #d3e2cf);
+            background: linear-gradient(to right,
+                var(--chan) 0 var(--pct),
+                var(--surface-2, #f4f8f2) var(--pct) 100%);
+        }
+        .field input[type="range"]::-moz-range-track {
+            height: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--border, #d3e2cf);
+            background: linear-gradient(to right,
+                var(--chan) 0 var(--pct),
+                var(--surface-2, #f4f8f2) var(--pct) 100%);
+        }
+        /* Thumb: la perilla lleva el color del canal. */
+        .field input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid var(--surface, #fff);
+            margin-top: -6px;   /* centra el thumb sobre el track de 6px */
+            background: var(--chan);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+        }
+        .field input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid var(--surface, #fff);
+            background: var(--chan);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+        }
+        /* Valor numérico del slider: color de fuente normal (no el del canal). */
+        .field output { font-weight: 600; color: var(--text, #1f2d20); }
 
         /* Campo con botón de ver/ocultar contraseña: el botón se superpone sobre
            el borde derecho del input (que reserva espacio con padding-right). */
@@ -474,7 +551,7 @@
             border: 1px solid var(--border, #d3e2cf);
             border-radius: 8px;
             cursor: pointer;
-            transition: background .15s ease, border-color .15s ease;
+            transition: background .15s ease, border-color .15s ease, color .15s ease;
         }
         .crop-reset button:hover {
             background: var(--surface-2, #f4f8f2);
@@ -491,8 +568,9 @@
 
         /* =====================================================================
            DASHBOARD (vista de solo lectura)
-           Hero destacado + secciones suaves con pares etiqueta/valor, y una fila
-           de accesos por ícono SIN recuadro (solo ícono + etiqueta). ============ */
+           Hero destacado (nombre + estado arriba, Semana/Día en dos celdas) y
+           secciones suaves; la fila de accesos por ícono va SIN recuadro. Toda
+           la tematización sale de la paleta V2 (--primary, --on-primary, …). ==== */
         #dashHero {
             background: var(--primary, #2e7d32);
             color: var(--on-primary, #fff);
@@ -500,15 +578,53 @@
             padding: 18px 20px;
             margin-bottom: 16px;
         }
-        #dashHero h2 {
-            margin: 0 0 8px;
-            font-size: 20px;
-            font-weight: 600;
+        .dash-hero-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
         }
-        #dashHero p { margin: 4px 0; font-size: 14px; }
-        #dashHero .dash-item { color: color-mix(in srgb, var(--on-primary, #fff) 88%, transparent); }
-        #dashHero strong { color: var(--on-primary, #fff); font-weight: 700; }
-        #dashHero .dash-item + .dash-item { margin-left: 16px; }
+        .dash-plant { font-size: 20px; font-weight: 600; }
+        .dash-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--on-primary, #fff) 22%, transparent);
+            white-space: nowrap;
+        }
+        .dash-status::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--on-primary, #fff);
+        }
+        .dash-status.is-off { opacity: .85; }
+        .dash-status.is-off::before {
+            background: color-mix(in srgb, var(--on-primary, #fff) 55%, transparent);
+        }
+        .dash-cycle { display: flex; gap: 12px; }
+        .dash-cycle-item {
+            flex: 1;
+            background: color-mix(in srgb, var(--on-primary, #fff) 15%, transparent);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .dash-cycle-num { display: block; font-size: 24px; font-weight: 700; line-height: 1; }
+        .dash-cycle-lbl {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-top: 4px;
+            opacity: .9;
+        }
 
         .dash-section {
             background: var(--surface-2, #f4f8f2);
@@ -517,27 +633,35 @@
             padding: 12px 16px;
             margin-bottom: 12px;
         }
-        .dash-section h3 {
-            margin: 0 0 10px;
-            font-size: 12px;
+        /* Bloque de sección: el TÍTULO va FUERA del contenedor (como la V1); debajo
+           una tarjeta con la info. Separa mejor las secciones y aligera el conjunto.
+           Lo usan el dashboard y la vista de edición (misma estructura). */
+        .dash-block { margin-bottom: 16px; }
+        .dash-block > h3 {
+            margin: 0 0 6px 2px;
+            font-size: 13px;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: .5px;
+            color: var(--primary);
+        }
+        .dash-card {
+            background: var(--surface-2, #f4f8f2);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+        /* Dentro de una tarjeta, el último campo no arrastra margen inferior. */
+        .dash-card .field:last-child { margin-bottom: 0; }
+        /* Frase de un renglón (riego, ventilación, fotoperiodo): los datos son UNA
+           idea, no dos celdas sueltas. Valores resaltados; conector atenuado. */
+        .dash-phrase {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.5;
             color: var(--text-dim, #5c6f5a);
         }
-        /* Rejilla de estadísticas (fotoperiodo/riego/ventilación): 2 columnas de
-           celdas centradas, etiqueta arriba y valor grande debajo. Estilo V1. */
-        .dash-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        .dash-stat {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            text-align: center;
+        .dash-phrase strong {
+            color: var(--text, #1f2d20);
+            font-weight: 700;
         }
         .dash-stat-label {
             font-size: 11px;
@@ -569,6 +693,12 @@
         .dash-dot.is-blue  { background: var(--accent, #2196f3); }
         .dash-dot.is-red   { background: var(--secondary, #e5533d); }
         .dash-dot.is-white { background: var(--surface, #fff); border: 1px solid var(--text-dim, #5c6f5a); }
+        /* Punto AL LADO del valor (fila), no encima. */
+        .dash-spectrum-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
 
         /* Avisos discretos del dashboard (solo lectura / cultivo sin configurar). */
         .dash-auth-hint,
@@ -597,21 +727,25 @@
             flex-direction: column;
             align-items: center;
             gap: 6px;
-            padding: 8px 4px;
-            background: none;
-            border: none;
-            border-radius: 8px;
-            color: var(--text-dim, #5c6f5a);
+            padding: 12px 4px;
+            /* Fondo verde CLARO SÓLIDO (--primary-soft), claramente distinto del
+               gris de los inputs, con borde verde. En reposo ya resalta como
+               "acción"; en hover se rellena de --primary. */
+            background: var(--primary-soft, #cfe6d0);
+            border: 1px solid var(--primary, #2e7d32);
+            border-radius: 10px;
+            color: var(--primary, #2e7d32);
             font-family: inherit;
             font-size: 12px;
             cursor: pointer;
-            transition: color .15s ease, background .15s ease;
+            transition: color .15s ease, background .15s ease, border-color .15s ease;
         }
-        .nav-item:hover { color: var(--primary, #2e7d32); }
+        .nav-item:hover,
         .nav-item:focus-visible {
             outline: none;
-            color: var(--primary, #2e7d32);
-            background: color-mix(in srgb, var(--primary, #2e7d32) 10%, transparent);
+            color: var(--on-primary, #fff);
+            background: var(--primary, #2e7d32);
+            border-color: var(--primary, #2e7d32);
         }
         .nav-label { line-height: 1; }
 
@@ -701,15 +835,6 @@
         #otaPercent { font-size: 22px; font-weight: 700; color: var(--primary, #2e7d32); }
         #otaStage { font-size: 13px; color: var(--text-dim, #5c6f5a); }
         #otaCurrent { color: var(--primary, #2e7d32); }
-
-        /* Footer del dashboard: versión del firmware. Discreto, centrado; el
-           color fino lo define la paleta cuando llegue el diseño fuerte. */
-        .dash-footer {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-dim, #6b7280);
-        }
 
         /* =====================================================================
            RESPONSIVO — pantallas angostas (teléfonos pequeños, ~320–400px)
@@ -936,74 +1061,69 @@
             </p>
 
             <div class="dash-section" id="dashHero">
-                <h2 id="dashPlanta">—</h2>
-                <p><span class="dash-item">Estado: <strong id="dashStatus">—</strong></span></p>
-                <p>
-                    <span class="dash-item">Semana <strong id="dashSemana">—</strong></span>
-                    <span class="dash-item">Día <strong id="dashDia">—</strong></span>
-                </p>
+                <div class="dash-hero-top">
+                    <span class="dash-plant" id="dashPlanta">—</span>
+                    <span class="dash-status" id="dashStatus">—</span>
+                </div>
+                <div class="dash-cycle">
+                    <div class="dash-cycle-item">
+                        <span class="dash-cycle-num" id="dashSemana">—</span>
+                        <span class="dash-cycle-lbl">Semana</span>
+                    </div>
+                    <div class="dash-cycle-item">
+                        <span class="dash-cycle-num" id="dashDia">—</span>
+                        <span class="dash-cycle-lbl">Día</span>
+                    </div>
+                </div>
             </div>
 
-            <div class="dash-section">
+            <div class="dash-block">
                 <h3>Fotoperiodo</h3>
-                <div class="dash-grid">
-                    <div class="dash-stat">
-                        <span class="dash-stat-label">Prendido</span>
-                        <span class="dash-stat-value"><strong id="dashFpOn">—</strong> h</span>
-                    </div>
-                    <div class="dash-stat">
-                        <span class="dash-stat-label">Apagado</span>
-                        <span class="dash-stat-value"><strong id="dashFpOff">—</strong> h</span>
-                    </div>
+                <div class="dash-card">
+                    <p class="dash-phrase">Luz de <strong id="dashFpOn">—</strong> h a <strong id="dashFpOff">—</strong> h</p>
                 </div>
             </div>
 
-            <div class="dash-section">
+            <div class="dash-block">
                 <h3>Espectros</h3>
-                <div class="dash-spectrum">
-                    <div class="dash-spectrum-col">
-                        <span class="dash-dot is-white"></span>
-                        <span class="dash-stat-value"><strong id="dashLedB">—</strong></span>
-                        <span class="dash-stat-label">Blanco</span>
-                    </div>
-                    <div class="dash-spectrum-col">
-                        <span class="dash-dot is-blue"></span>
-                        <span class="dash-stat-value"><strong id="dashLedA">—</strong></span>
-                        <span class="dash-stat-label">Azul</span>
-                    </div>
-                    <div class="dash-spectrum-col">
-                        <span class="dash-dot is-red"></span>
-                        <span class="dash-stat-value"><strong id="dashLedR">—</strong></span>
-                        <span class="dash-stat-label">Rojo</span>
+                <div class="dash-card">
+                    <div class="dash-spectrum">
+                        <div class="dash-spectrum-col">
+                            <span class="dash-spectrum-top">
+                                <span class="dash-dot is-white"></span>
+                                <span class="dash-stat-value"><strong id="dashLedB">—</strong></span>
+                            </span>
+                            <span class="dash-stat-label">Blanco</span>
+                        </div>
+                        <div class="dash-spectrum-col">
+                            <span class="dash-spectrum-top">
+                                <span class="dash-dot is-blue"></span>
+                                <span class="dash-stat-value"><strong id="dashLedA">—</strong></span>
+                            </span>
+                            <span class="dash-stat-label">Azul</span>
+                        </div>
+                        <div class="dash-spectrum-col">
+                            <span class="dash-spectrum-top">
+                                <span class="dash-dot is-red"></span>
+                                <span class="dash-stat-value"><strong id="dashLedR">—</strong></span>
+                            </span>
+                            <span class="dash-stat-label">Rojo</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="dash-section">
+            <div class="dash-block">
                 <h3>Riego</h3>
-                <div class="dash-grid">
-                    <div class="dash-stat">
-                        <span class="dash-stat-label">Frecuencia</span>
-                        <span class="dash-stat-value"><strong id="dashIrrH">—</strong></span>
-                    </div>
-                    <div class="dash-stat">
-                        <span class="dash-stat-label">Duración</span>
-                        <span class="dash-stat-value"><strong id="dashIrrM">—</strong> min</span>
-                    </div>
+                <div class="dash-card">
+                    <p class="dash-phrase">Riega <strong id="dashIrrH">—</strong> durante <strong id="dashIrrM">—</strong> min</p>
                 </div>
             </div>
 
-            <div class="dash-section">
+            <div class="dash-block">
                 <h3>Ventilación</h3>
-                <div class="dash-grid">
-                    <div class="dash-stat">
-                        <span class="dash-stat-label">Frecuencia</span>
-                        <span class="dash-stat-value"><strong id="dashVentH">—</strong></span>
-                    </div>
-                    <div class="dash-stat">
-                        <span class="dash-stat-label">Duración</span>
-                        <span class="dash-stat-value"><strong id="dashVentM">—</strong> min</span>
-                    </div>
+                <div class="dash-card">
+                    <p class="dash-phrase">Ventila <strong id="dashVentH">—</strong> durante <strong id="dashVentM">—</strong> min</p>
                 </div>
             </div>
 
@@ -1050,94 +1170,99 @@
                     <span class="nav-label">Salir</span>
                 </button>
             </nav>
-
-            <!-- Footer discreto: versión del firmware que reporta /getparams
-                 (constante de compilación del binario). Estructural; el diseño
-                 fuerte se define después. -->
-            <p class="dash-footer">SmartPlant · versión <span id="fwVersion">—</span></p>
         </section>
 
         <!-- ============================= EDICIÓN =========================== -->
         <section id="view-edit" class="view" hidden>
             <form id="formEdit" novalidate>
-                <div class="dash-section" id="edit-power">
-                    <h3>Estado del sistema</h3>
+                <div class="dash-block" id="edit-power">
                     <!-- Interruptor MAESTRO: inhibe todos los actuadores (luz, riego,
-                         ventilación) sin perder la configuración. Se separa del resto
-                         por su alto impacto: es lo primero que ve el usuario y no debe
-                         confundirse con los metadatos del cultivo. -->
-                    <div class="field">
-                        <label for="enable">Sistema activo</label>
-                        <input type="checkbox" id="enable" name="enable">
+                         ventilación) sin perder la configuración. Sin título de
+                         sección: el label del campo ya lo explica (B1, evita doble
+                         encabezado en secciones de un solo campo). -->
+                    <div class="dash-card">
+                        <div class="field">
+                            <label for="enable">Sistema activo</label>
+                            <input type="checkbox" id="enable" name="enable">
+                        </div>
                     </div>
                 </div>
 
-                <div class="dash-section">
-                    <h3>General</h3>
-                    <div class="field">
-                        <label for="planta">Nombre de la planta</label>
-                        <input type="text" id="planta" name="planta" maxlength="20" autocomplete="off" required>
+                <div class="dash-block">
+                    <div class="dash-card">
+                        <div class="field">
+                            <label for="planta">Nombre de la planta</label>
+                            <input type="text" id="planta" name="planta" maxlength="20" autocomplete="off" required>
+                        </div>
                     </div>
                 </div>
 
-                <div class="dash-section">
+                <div class="dash-block">
                     <h3>Fotoperiodo</h3>
-                    <div class="field">
-                        <label for="fpOn">Hora de prendido (0–23)</label>
-                        <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" required>
-                    </div>
-                    <div class="field">
-                        <label for="fpOff">Hora de apagado (0–23)</label>
-                        <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
+                    <div class="dash-card">
+                        <div class="field">
+                            <label for="fpOn">Hora de prendido (0–23)</label>
+                            <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" required>
+                        </div>
+                        <div class="field">
+                            <label for="fpOff">Hora de apagado (0–23)</label>
+                            <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
+                        </div>
                     </div>
                 </div>
 
-                <div class="dash-section">
+                <div class="dash-block">
                     <h3>Espectros de luz</h3>
                     <!-- Jerarquía: la luz blanca es el control PRINCIPAL (ON/OFF,
                          salida digital en el firmware). El azul y el rojo son PWM
                          avanzados y opcionales; van agrupados en un desplegable
                          para no abrumar al usuario común, que solo prende el blanco. -->
-                    <div class="field">
-                        <!-- El blanco es una salida ON/OFF en el firmware (no PWM):
-                             por eso es un interruptor y no un deslizador. -->
-                        <label for="ledBlanco">Luz blanca</label>
-                        <input type="checkbox" id="ledBlanco" name="ledBlanco">
+                    <div class="dash-card">
+                        <div class="field">
+                            <!-- El blanco es una salida ON/OFF en el firmware (no PWM):
+                                 por eso es un interruptor y no un deslizador. -->
+                            <label for="ledBlanco">Luz blanca</label>
+                            <input type="checkbox" id="ledBlanco" name="ledBlanco">
+                        </div>
+                        <details class="spectrum-advanced">
+                            <summary>Espectro avanzado (opcional)</summary>
+                            <div class="field">
+                                <label for="ledAzul">Azul: <output id="ledAzulOut">0</output>%</label>
+                                <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
+                            </div>
+                            <div class="field">
+                                <label for="ledRojo">Rojo: <output id="ledRojoOut">0</output>%</label>
+                                <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
+                            </div>
+                        </details>
                     </div>
-                    <details class="spectrum-advanced">
-                        <summary>Espectro avanzado (opcional)</summary>
-                        <div class="field">
-                            <label for="ledAzul">Azul: <output id="ledAzulOut">0</output>%</label>
-                            <input type="range" id="ledAzul" name="ledAzul" min="0" max="100" step="5" value="50">
-                        </div>
-                        <div class="field">
-                            <label for="ledRojo">Rojo: <output id="ledRojoOut">0</output>%</label>
-                            <input type="range" id="ledRojo" name="ledRojo" min="0" max="100" step="5" value="50">
-                        </div>
-                    </details>
                 </div>
 
-                <div class="dash-section">
+                <div class="dash-block">
                     <h3>Riego</h3>
-                    <div class="field">
-                        <label for="irrH">Frecuencia</label>
-                        <select id="irrH" name="irrH" required></select>
-                    </div>
-                    <div class="field">
-                        <label for="irrM">Duración (minutos)</label>
-                        <input type="number" id="irrM" name="irrM" min="0" max="59" step="1" required>
+                    <div class="dash-card">
+                        <div class="field">
+                            <label for="irrH">Frecuencia</label>
+                            <select id="irrH" name="irrH" required></select>
+                        </div>
+                        <div class="field">
+                            <label for="irrM">Duración (minutos)</label>
+                            <input type="number" id="irrM" name="irrM" min="0" max="59" step="1" required>
+                        </div>
                     </div>
                 </div>
 
-                <div class="dash-section">
+                <div class="dash-block">
                     <h3>Ventilación</h3>
-                    <div class="field">
-                        <label for="ventH">Frecuencia</label>
-                        <select id="ventH" name="ventH" required></select>
-                    </div>
-                    <div class="field">
-                        <label for="ventM">Duración (minutos)</label>
-                        <input type="number" id="ventM" name="ventM" min="0" max="59" step="1" required>
+                    <div class="dash-card">
+                        <div class="field">
+                            <label for="ventH">Frecuencia</label>
+                            <select id="ventH" name="ventH" required></select>
+                        </div>
+                        <div class="field">
+                            <label for="ventM">Duración (minutos)</label>
+                            <input type="number" id="ventM" name="ventM" min="0" max="59" step="1" required>
+                        </div>
                     </div>
                 </div>
 
@@ -1146,7 +1271,7 @@
                     <button type="button" class="secondary" id="btnEditBack">Cancelar</button>
                 </div>
                 <div class="crop-reset">
-                    <button type="button" id="btnNewCrop">Iniciar cultivo nuevo</button>
+                    <button type="button" id="btnNewCrop">Nuevo cultivo</button>
                     <p class="help">Borra el nombre, el conteo de días y los parámetros para empezar una cosecha nueva. Conserva tu usuario y la red Wi-Fi.</p>
                 </div>
             </form>
@@ -1234,6 +1359,11 @@
         </section>
     </main>
 
+    <!-- Footer global (FUERA de la tarjeta): versión del firmware que reporta
+         /getparams. Metadato del equipo, no de una vista concreta: por eso vive
+         bajo la tarjeta y se ve en todas las pantallas, atenuado y sin caja. -->
+    <p id="appFooter">SmartPlant · <span id="fwVersion">—</span></p>
+
     <script>
         "use strict";
 
@@ -1309,7 +1439,7 @@
             welcome: "Bienvenido",
             register: "Crea tu usuario",
             auth: "Inicia sesión",
-            view: "Tu cultivo",
+            view: "Tu cultivo 🌱",
             edit: "Editar parámetros",
             wifi: "Conexión a Internet",
             ota: "Actualizar firmware",
@@ -1525,6 +1655,10 @@
             const res = await fetch(url, { headers: { "Accept": "application/json" } });
             if (!res.ok) throw new Error("HTTP " + res.status);
             params = await res.json();
+            // Footer global de versión: se actualiza en cada lectura de params,
+            // no por vista (el footer vive fuera de la tarjeta, siempre visible).
+            const fw = $("fwVersion");
+            if (fw) fw.textContent = params.firmwareVersion || "—";
             return params;
         }
 
@@ -1538,8 +1672,10 @@
 
             $("dashPlanta").textContent = p.planta || "Sin nombre";
             // Tres estados: Inactivo (apagado por el usuario), En espera (habilitado
-            // pero sin hora, no acciona) y Activo.
+            // pero sin hora, no acciona) y Activo. "is-off" marca "no está actuando"
+            // (aplica a Inactivo y En espera) para atenuar el badge.
             $("dashStatus").textContent = !activo ? "Inactivo" : (horaOk ? "Activo" : "En espera");
+            $("dashStatus").classList.toggle("is-off", !activo || !horaOk);
             // Sin hora fiable la edad del cultivo no es calculable: el firmware manda
             // 0 y pintar "0" afirmaría algo falso.
             $("dashSemana").textContent = horaOk ? (p.semana ?? "—") : "—";
@@ -1553,10 +1689,6 @@
             $("dashIrrM").textContent = p.irrM ?? "—";
             $("dashVentH").textContent = FREQ_LABELS[p.ventH] ?? "—";
             $("dashVentM").textContent = p.ventM ?? "—";
-
-            // Versión del firmware en el footer: la reporta /getparams (constante
-            // de compilación del binario). Si el equipo no la manda, se deja "—".
-            $("fwVersion").textContent = p.firmwareVersion || "—";
 
             // Ayuda contextual solo para el cultivo sin configurar (día 0 = sin
             // anclar). Desaparece en cuanto hay configuración, para no estorbar
@@ -1603,6 +1735,13 @@
         function sincronizarSliders() {
             $("ledAzulOut").textContent = $("ledAzul").value;
             $("ledRojoOut").textContent = $("ledRojo").value;
+            // Actualiza --pct en cada slider: la CSS pinta la porción LLENA con el
+            // color del canal hasta ese %, y el resto claro (uniforme).
+            for (const id of ["ledAzul", "ledRojo"]) {
+                const el = $(id);
+                const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+                el.style.setProperty("--pct", pct + "%");
+            }
         }
 
         function poblarSelectsFrecuencia() {

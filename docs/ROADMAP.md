@@ -74,7 +74,7 @@ Arduino-ESP32 puede compilarse **como componente dentro de un proyecto ESP-IDF**
 
 **Criticidad de `partitions.csv`:** OTA de doble slot exige dos particiones de app del mismo tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTURE.md § requisito de particiones](ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota).
 
-> El proyecto **Arduino actual ya incluye** `ESP32_controller/partitions.csv` con dos slots OTA (4 MB: `nvs` 24 KB, `otadata`, dos slots de 1.81 MB), creado para el OTA local. La migración a IDF puede reutilizar ese layout como punto de partida.
+> El proyecto **Arduino actual ya incluye** `ESP32_controller/partitions.csv` con dos slots OTA (4 MB: `nvs` 24 KB, `otadata`, dos slots de ~1.94 MB con `ota_0` en el offset estándar `0x10000`), creado para el OTA local. La migración a IDF puede reutilizar ese layout como punto de partida.
 
 ---
 

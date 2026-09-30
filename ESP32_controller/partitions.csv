@@ -14,11 +14,16 @@
 # nvs   24 KB : config del proyecto + margen para el token de dispositivo del
 #               backend y crecimiento futuro (uso actual ~0.9 KB).
 # otadata 8 KB: registra qué slot arranca (requerido por OTA; 2 sectores).
-# app0/app1   : ~1.81 MB por slot, idénticos (OTA alterna entre ambos).
+# app0/app1   : ~1.94 MB por slot, idénticos (OTA alterna entre ambos).
+#
+# app0 arranca en 0x10000, el offset ESTÁNDAR de app del core Arduino-ESP32. Debe
+# coincidir con el offset donde el IDE escribe el binario: si la tabla declara la
+# primera app en otro offset (p. ej. 0x20000) pero el IDE la flashea en 0x10000,
+# el bootloader busca en el slot equivocado y falla con "No bootable app
+# partitions". Por eso NO se usa un offset no estándar.
 #
 # Name,   Type, SubType,  Offset,   Size,    Flags
 nvs,      data, nvs,      0x9000,   0x6000,
 otadata,  data, ota,      0xF000,   0x2000,
-phy_init, data, phy,      0x11000,  0x1000,
-app0,     app,  ota_0,    0x20000,  0x1D0000,
-app1,     app,  ota_1,    0x1F0000, 0x1D0000,
+app0,     app,  ota_0,    0x10000,  0x1F0000,
+app1,     app,  ota_1,    0x200000, 0x1F0000,

@@ -187,3 +187,9 @@ E (25) esp_image: image at 0x20000 has invalid magic byte (nothing flashed here?
 E (32) boot: OTA app partition slot 0 is not bootable
 E (37) boot: No bootable app partitions in the partition table
   
+CSV Error at line 28: Partitions overlap. Partition sets offset 0x10000. Previous partition ends 0x11000
+exit status 2
+
+Compilation error: exit status 2
+
+seguridad al subir binario

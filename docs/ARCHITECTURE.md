@@ -350,11 +350,12 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   - **Accesibilidad:** cada botón lleva `aria-label`, los SVG van `aria-hidden`, y la etiqueta
     de texto queda visible bajo el ícono (no se depende solo de la forma).
 - **CSS con paletas intercambiables.** El markup se construyó primero con hooks
-  (`.view`, `.field`, `.dash-section`, `.dash-grid`/`.dash-stat`, `.dash-spectrum`/`.dash-dot`,
-  `.help`, `.actions`, `.dash-nav`, `.msg`, `.toast`, `.net-list`, `.crop-reset`) y la hoja se
-  añadió encima **sin tocar el JS**. Está organizada en dos capas: los colores viven aislados
-  como **variables CSS** por paleta (18 variables cada una), y los selectores de componente
-  referencian **solo variables** — ningún color literal. Cambiar de paleta es editar un atributo:
+  (`.view`, `.field`, `.dash-block`/`.dash-card`, `.dash-hero`, `.dash-phrase`,
+  `.dash-spectrum`/`.dash-dot`, `.help`, `.actions`, `.dash-nav`/`.nav-item`, `.msg`, `.toast`,
+  `.net-list`, `.crop-reset`) y la hoja se añadió encima **sin tocar el JS**. Está organizada
+  en dos capas: los colores viven aislados como **variables CSS** por paleta (18 variables cada
+  una), y los selectores de componente referencian **solo variables** — ningún color literal.
+  Cambiar de paleta es editar un atributo:
 
   ```html
   <html lang="es" data-theme="invernadero">   <!-- invernadero (claro, por defecto) · tierra · slate · neon -->
@@ -955,9 +956,14 @@ de particiones con `ota_0` + `ota_1` + `otadata`.** Sin dos slots, `Update.begin
 
 El proyecto **fija su propia tabla** en `ESP32_controller/partitions.csv` (versionada, no
 depende del menú *Tools → Partition Scheme* del IDE): flash 4 MB, `nvs` 24 KB, `otadata`
-8 KB, `phy_init` 4 KB y **dos slots de app de 1.81 MB** (`ota_0`/`ota_1`), sin SPIFFS. Con
-la app actual (~1.1 MB) cada slot queda al ~61 %, con margen para el cliente del backend y
-TLS futuros.
+8 KB y **dos slots de app de ~1.94 MB** (`ota_0` en `0x10000`, `ota_1` en `0x200000`), sin
+SPIFFS. Con la app actual (~1.1 MB) cada slot queda holgado, con margen para el cliente del
+backend y TLS futuros.
+
+> **`ota_0` va en el offset estándar `0x10000`** (donde el core Arduino-ESP32 escribe la
+> app). Es crítico que coincida: si la tabla declara la primera app en otro offset (p. ej.
+> `0x20000`) pero el IDE la flashea en `0x10000`, el bootloader arranca en el slot equivocado
+> y falla con `No bootable app partitions`. Por eso no se usa un offset no estándar.
 
 > **Instalar esta tabla reescribe el layout de flash y BORRA la NVS** (usuario, Wi-Fi,
 > `systemStatus`, `cropStart`): hay que re-registrar tras el primer flasheo. Es el "borra la

@@ -20,6 +20,7 @@
     --text-dim:      #86efac;   /* era --text-muted */
     --primary:       #10b981;   /* era --primary       */
     --primary-2:     #34d399;   /* era --primary-hover */
+    --primary-soft:  #0c2a1c;   /* verde oscuro para tiles de acceso (tema oscuro) */
     --on-primary:    #050d0a;
     --secondary:     #f43f5e;   /* era --flora-red  */
     --secondary-2:   #fb7185;
@@ -74,6 +75,7 @@
     --text-dim:      #5c6f5a;
     --primary:       #2e7d32;
     --primary-2:     #256628;
+    --primary-soft:  #cfe6d0;
     --on-primary:    #ffffff;
     --secondary:     #e5533d;   /* acción de riesgo / espectro rojo */
     --secondary-2:   #c8412e;
@@ -99,6 +101,7 @@
     --text-dim:      #7a6b58;
     --primary:       #6b8e5a;
     --primary-2:     #57764a;
+    --primary-soft:  #dde8d4;
     --on-primary:    #ffffff;
     --secondary:     #c1613a;   /* terracota: riesgo / espectro rojo */
     --secondary-2:   #a44f2d;
@@ -124,6 +127,7 @@
     --text-dim:      #64748b;
     --primary:       #059669;   /* esmeralda: único acento vivo */
     --primary-2:     #047857;
+    --primary-soft:  #d1ece1;
     --on-primary:    #ffffff;
     --secondary:     #e11d48;   /* rosa/rojo: riesgo / espectro rojo */
     --secondary-2:   #be123c;
