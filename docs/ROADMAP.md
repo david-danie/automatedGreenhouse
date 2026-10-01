@@ -74,7 +74,7 @@ Arduino-ESP32 puede compilarse **como componente dentro de un proyecto ESP-IDF**
 
 **Criticidad de `partitions.csv`:** OTA de doble slot exige dos particiones de app del mismo tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTURE.md § requisito de particiones](ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota).
 
-> El proyecto **Arduino actual ya incluye** `ESP32_controller/partitions.csv` con dos slots OTA (4 MB: `nvs` 24 KB, `otadata`, dos slots de ~1.94 MB con `ota_0` en el offset estándar `0x10000`), creado para el OTA local. La migración a IDF puede reutilizar ese layout como punto de partida.
+> El proyecto **Arduino actual ya incluye** `ESP32_controller/partitions.csv` con dos slots OTA (4 MB: `nvs` 20 KB, `otadata`, dos slots de ~1.94 MB con `ota_0` en el offset estándar `0x10000`), creado para el OTA local. La migración a IDF puede reutilizar ese layout como punto de partida.
 
 ---
 
@@ -140,8 +140,19 @@ Arduino-ESP32 puede compilarse **como componente dentro de un proyecto ESP-IDF**
 
 - [ ] `esp_https_ota` con **CA pinning**
 - [ ] **Firmware firmado** (secure boot / verificación de firma de imagen)
-- [ ] Rollback automático si la imagen nueva no valida el arranque
+- [ ] **Rollback automático si la imagen nueva no arranca** — hoy NO existe: el OTA local
+      reinicia directo al binario nuevo sin "marcado de app válida", así que un `.bin`
+      estructuralmente válido pero no arrancable puede brickear el equipo (ver
+      [ARCHITECTURE.md § OTA](ARCHITECTURE.md#endpoint-post-otaupdate)). Requiere
+      `esp_ota_mark_app_valid_cancel_rollback()` + `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`
+      (de primera clase en IDF).
 - [ ] Integración con el endpoint OTA del backend (ver [BACKEND.md](BACKEND.md))
+
+> **Mitigación de corto plazo (no requiere IDF):** verificar el **hash** del binario en el
+> OTA local — el cliente envía el SHA/MD5 y el firmware lo fija con `Update.setMD5(...)`;
+> `Update.end()` falla si no coincide. Restringe a binarios aprobados y atrapa corruptos, sin
+> esperar a la firma criptográfica. No sustituye al rollback, pero reduce el riesgo de subir
+> un binario equivocado.
 
 **Verificación:** un OTA con imagen firmada válida completa y persiste; una imagen no firmada o con CA incorrecta se rechaza; el rollback restaura el slot anterior ante fallo de arranque.
 

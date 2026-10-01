@@ -955,10 +955,10 @@ corre desde el activo, y al validar cambia el arranque en `otadata`. **Esto exig
 de particiones con `ota_0` + `ota_1` + `otadata`.** Sin dos slots, `Update.begin()` falla.
 
 El proyecto **fija su propia tabla** en `ESP32_controller/partitions.csv` (versionada, no
-depende del menú *Tools → Partition Scheme* del IDE): flash 4 MB, `nvs` 24 KB, `otadata`
-8 KB y **dos slots de app de ~1.94 MB** (`ota_0` en `0x10000`, `ota_1` en `0x200000`), sin
-SPIFFS. Con la app actual (~1.1 MB) cada slot queda holgado, con margen para el cliente del
-backend y TLS futuros.
+depende del menú *Tools → Partition Scheme* del IDE): flash 4 MB, `nvs` 20 KB, `otadata`
+8 KB (termina justo en `0x10000`) y **dos slots de app de ~1.94 MB** (`ota_0` en `0x10000`,
+`ota_1` en `0x200000`), sin SPIFFS. Con la app actual (~1.1 MB) cada slot queda holgado, con
+margen para el cliente del backend y TLS futuros.
 
 > **`ota_0` va en el offset estándar `0x10000`** (donde el core Arduino-ESP32 escribe la
 > app). Es crítico que coincida: si la tabla declara la primera app en otro offset (p. ej.
@@ -987,6 +987,23 @@ backend y TLS futuros.
    reconecta — el portal ya avisa "no cierres la ventana" y maneja el post-reinicio.
 6. **Sin firma criptográfica:** acepta cualquier `.bin` válido de quien tenga sesión y esté
    en el AP. La firma es cosa de la OTA segura por Internet, no de esta local.
+
+> **PENDIENTE (riesgo conocido) — sin rollback automático ante imagen no arrancable.**
+> `Update.end(true)` valida que el `.bin` sea una imagen ESP32 **estructuralmente** válida
+> (magic byte + checksum), pero NO garantiza que arranque en este C3 (p. ej. un binario de
+> otra variante o con un bug de arranque pasa esa validación). El firmware reinicia directo
+> a la imagen nueva **sin "marcado de app válida"**: el binario nuevo no confirma "arranqué
+> bien", así que si no arranca, el equipo queda inservible (brick) — habría que reflashear
+> por USB. El **doble slot** (`ota_0`/`ota_1`) es el prerequisito del rollback (la imagen
+> anterior queda intacta en el otro slot), pero el **mecanismo** que lo dispara no está
+> activado en Arduino. Mitigaciones por prioridad:
+> 1. **[barata, sin rollback]** verificar **hash** del binario: el cliente envía el SHA/MD5 y
+>    el firmware lo fija con `Update.setMD5(...)` → `Update.end()` falla si no coincide
+>    (restringe a binarios aprobados; evita corruptos/equivocados).
+> 2. **[completa]** habilitar rollback automático: marcar la app como válida tras un arranque
+>    sano (`esp_ota_mark_app_valid_cancel_rollback()`) y activar el rollback del bootloader
+>    (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`). Es de primera clase en **ESP-IDF**, por eso
+>    encaja en la migración (ver [ROADMAP.md](ROADMAP.md)); en Arduino puro es incómodo.
 
 `firmwareVersion` se expone en `/getparams` (constante de compilación en `Constants.h`), así
 que la vista OTA puede mostrar la versión instalada. **Hay que subir ese valor en cada
