@@ -1964,31 +1964,28 @@
                 mostrarToast(false, "Revisa los campos marcados.");
                 return;
             }
-            const formData = new FormData(form);
-            const data = {};
-            formData.forEach((value, key) => {
-                if (key === 'fpOn' || key === 'fpOff' || key === 'irrH' || key === 'irrM' ||
-                    key === 'ventH' || key === 'ventM' ||
-                    key === 'ledAzul' || key === 'ledRojo')
-                    data[key] = Number(value.trim())
-                else if (key === 'ledBlanco')
-                    {} // se maneja abajo como checkbox (blanco = ON/OFF)
-                else
-                    data[key] = value.trim();
-            });
-            data.enable = document.getElementById("enable").checked;
-            data.ledBlanco = document.getElementById("ledBlanco").checked ? 1 : 0;
             const fechaHoraActual = new Date();
-            data['dia'] = Number(fechaHoraActual.getDate());
-            data['mes'] = Number(fechaHoraActual.getMonth() + 1);
-            data['anio'] = Number(fechaHoraActual.getFullYear().toString().slice(-2));
-            data['diaSem'] = Number(fechaHoraActual.getDay()) + 1;
-            data['hr'] = Number(fechaHoraActual.getHours());
-            data['min'] = Number(fechaHoraActual.getMinutes());
-            data['seg'] = Number(fechaHoraActual.getSeconds());
-            delete data.user;
-            delete data.pass;
-            data.token = getToken();
+            const data = {
+                planta: document.getElementById("planta").value.trim(),
+                enable: document.getElementById("enable").checked,
+                fpOn: Number(document.getElementById("fpOn").value.trim()),
+                fpOff: Number(document.getElementById("fpOff").value.trim()),
+                ledAzul: Number(document.getElementById("ledAzul").value.trim()),
+                ledRojo: Number(document.getElementById("ledRojo").value.trim()),
+                ledBlanco: document.getElementById("ledBlanco").checked ? 1 : 0,
+                irrH: Number(document.getElementById("irrH").value.trim()),
+                irrM: Number(document.getElementById("irrM").value.trim()),
+                ventH: Number(document.getElementById("ventH").value.trim()),
+                ventM: Number(document.getElementById("ventM").value.trim()),
+                dia: Number(fechaHoraActual.getDate()),
+                mes: Number(fechaHoraActual.getMonth() + 1),
+                anio: Number(fechaHoraActual.getFullYear().toString().slice(-2)),
+                diaSem: Number(fechaHoraActual.getDay()) + 1,
+                hr: Number(fechaHoraActual.getHours()),
+                min: Number(fechaHoraActual.getMinutes()),
+                seg: Number(fechaHoraActual.getSeconds()),
+                token: getToken()
+            };
             const submitBtn = form.querySelector('button[type="submit"]');
             const submitOriginal = submitBtn.textContent;
             submitBtn.disabled = true;
