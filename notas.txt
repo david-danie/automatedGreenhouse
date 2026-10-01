@@ -164,3 +164,5 @@ Sketch uses 1177663 bytes (7%) of program storage space. Maximum is 16777216 byt
 Global variables use 39116 bytes (11%) of dynamic memory, leaving 288564 bytes for local variables. Maximum is 327680 bytes.
 
 Uncaught TypeError: value.trim is not a function data[key] = value.trim(); 1798
+
+como se calcula los dias
