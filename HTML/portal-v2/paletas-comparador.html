@@ -27,6 +27,13 @@
         --accent:#0ea5e9; --ok-bg:#e7f6ef; --ok-text:#047857; --err-bg:#fdeaef; --err-text:#be123c;
         --shadow:0 6px 24px rgba(30,41,59,.10);
     }
+    [data-theme="neon"] {
+        --bg:#050d0a; --surface:#0c1813; --surface-2:#08120d; --border:#14312a;
+        --text:#f0fdf4; --text-dim:#86efac; --primary:#10b981; --primary-2:#34d399;
+        --on-primary:#050d0a; --secondary:#f43f5e; --secondary-2:#fb7185; --on-secondary:#050d0a;
+        --accent:#38bdf8; --ok-bg:#0c2a1c; --ok-text:#34d399; --err-bg:#2a1113; --err-text:#fca5a5;
+        --shadow:0 6px 24px rgba(0,0,0,.55);
+    }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -124,6 +131,30 @@
 
     <div class="demo" data-theme="slate">
         <div class="theme-name">4 · slate (claro)</div>
+        <div class="card">
+            <h1>SmartPlant 🌱</h1>
+            <p style="color:var(--text-dim);font-size:13px">Albahaca · Semana 5 · Día 34</p>
+            <div class="msg ok">Parámetros actualizados correctamente.</div>
+            <div class="msg err">La sesión expiró. Inicia sesión y reintenta.</div>
+            <h3>General</h3>
+            <label>Nombre de la planta</label>
+            <input type="text" value="Albahaca">
+            <label>Frecuencia de riego</label>
+            <select><option>3 veces al día</option></select>
+            <h3>Espectros</h3>
+            <div class="spectrum"><span class="dot white"></span><span class="dot blue"></span><span class="dot red"></span></div>
+            <span class="chip">☁ Actualizar firmware</span>
+            <h3>Acciones</h3>
+            <div class="row">
+                <button class="primary">Guardar</button>
+                <button class="secondary">Cancelar</button>
+            </div>
+            <div class="footer">SmartPlant · versión 1.0.0</div>
+        </div>
+    </div>
+
+    <div class="demo" data-theme="neon">
+        <div class="theme-name" style="color:var(--text)">· neon (oscuro)</div>
         <div class="card">
             <h1>SmartPlant 🌱</h1>
             <p style="color:var(--text-dim);font-size:13px">Albahaca · Semana 5 · Día 34</p>

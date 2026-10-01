@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="invernadero">
+<html lang="es" data-theme="tierra">
 
 <head>
     <meta charset="UTF-8">
@@ -97,41 +97,41 @@
            Hooks del markup (los consume la hoja de estilos de este archivo):
              .view          cada pantalla        .field       etiqueta + control
              .dash-block    sección: título FUERA + .dash-card (contenido)
-             .dash-hero (#dashHero)   tarjeta destacada del dashboard
+             #dashHero   tarjeta destacada del dashboard
              .dash-phrase   dato de un renglón (riego/ventilación/fotoperiodo)
              .dash-spectrum / .dash-dot   espectros con punto de color por canal
              .actions / .dash-nav  navegación    .help        <details> explicativo
-             .primary · .secondary · .discreet · .crop-reset
+             .primary · .secondary · .crop-reset
              .msg (banner persistente, [data-ok] = éxito) · .toast (efímero)
-             .net-list (redes Wi-Fi) · .input-invalid / .field-error (validación)
+             .input-invalid / .field-error (validación de campos)
              .nav-item / .nav-ico / .nav-label (accesos por ícono, tipo tile)
            ===================================================================== */
 
         /* =====================================================================
-           1. PALETA — "invernadero" (tema claro por defecto de la V2)
-           Verde natural, evolución de la V1. Define las 18 variables del sistema.
-           Para probar otra paleta, ver HTML/portal-v2/paletas-guardadas.css y
-           cambiar el data-theme del <html>. =================================== */
-        [data-theme="invernadero"] {
-            --bg:            #eef3ec;
-            --surface:       #ffffff;
-            --surface-2:     #f4f8f2;
-            --border:        #d3e2cf;
-            --text:          #1f2d20;
-            --text-dim:      #5c6f5a;
-            --primary:       #2e7d32;
-            --primary-2:     #256628;
-            --primary-soft:  #cfe6d0;
+           1. PALETA — "tierra" (tema claro por defecto de la V2)
+           Cálido botánico: crema/arena + verde salvia + terracota. Define las 18
+           variables del sistema (+ --primary-soft). Para probar otra paleta, ver
+           HTML/portal-v2/paletas-guardadas.css y cambiar el data-theme del <html>. */
+        [data-theme="tierra"] {
+            --bg:            #f3ede2;
+            --surface:       #fffdf8;
+            --surface-2:     #f7f1e6;
+            --border:        #e0d5c2;
+            --text:          #3a2f24;
+            --text-dim:      #7a6b58;
+            --primary:       #6b8e5a;
+            --primary-2:     #57764a;
+            --primary-soft:  #dde8d4;
             --on-primary:    #ffffff;
-            --secondary:     #e5533d;
-            --secondary-2:   #c8412e;
+            --secondary:     #c1613a;
+            --secondary-2:   #a44f2d;
             --on-secondary:  #ffffff;
-            --accent:        #2196f3;
-            --ok-bg:         #e6f4ea;
-            --ok-text:       #1b5e20;
-            --err-bg:        #fdecea;
-            --err-text:      #b3261e;
-            --shadow:        0 6px 24px rgba(46, 125, 50, .12);
+            --accent:        #4a86a8;
+            --ok-bg:         #eaf1e3;
+            --ok-text:       #4a6b39;
+            --err-bg:        #f7e6df;
+            --err-text:      #9c4426;
+            --shadow:        0 6px 24px rgba(90, 75, 55, .14);
         }
 
         /* Tipografía: se usa la fuente de UI del sistema (SF en iOS/macOS,
@@ -434,13 +434,16 @@
         .field output { font-weight: 600; color: var(--text, #1f2d20); }
 
         /* Campo con botón de ver/ocultar contraseña: el botón se superpone sobre
-           el borde derecho del input (que reserva espacio con padding-right). */
-        .field:has(.toggle-password) { position: relative; }
-        .field:has(.toggle-password) input { padding-right: 44px; }
+           el borde derecho del input. Se ancla al .input-wrap (que solo envuelve
+           input + ojo), NO al .field, para que un <small> u otro contenido debajo
+           no desplace su posición. Centrado vertical sobre el input. */
+        .input-wrap { position: relative; }
+        .input-wrap input { width: 100%; box-sizing: border-box; padding-right: 44px; }
         .toggle-password {
             position: absolute;
             right: 6px;
-            bottom: 6px;
+            top: 50%;
+            transform: translateY(-50%);
             width: 32px;
             height: 32px;
             display: inline-flex;
@@ -454,14 +457,13 @@
         }
         .toggle-password:hover { color: var(--primary, #2e7d32); }
 
-        /* Bloque "Espectro avanzado (opcional)": desplegable subordinado, con un
-           marco suave que lo separa como sección secundaria. */
+        /* "Espectro avanzado (opcional)": desplegable subordinado, SIN marco propio
+           — vive dentro del recuadro de "Espectros de luz" (.spectrum-card). Solo
+           una línea superior lo separa de la luz blanca. */
         .spectrum-advanced {
-            border: 1px solid var(--border, #d3e2cf);
-            border-radius: 8px;
-            background: var(--surface-2, #f4f8f2);
-            padding: 4px 12px;
-            margin-bottom: 14px;
+            border-top: 1px solid var(--border, #d3e2cf);
+            margin-top: 12px;
+            padding-top: 4px;
         }
         .spectrum-advanced > summary {
             cursor: pointer;
@@ -483,8 +485,8 @@
 
         /* =====================================================================
            BOTONES Y ACCIONES
-           Primario/secundario rellenos (comparador de paletas); .discreet y el
-           reset de cultivo, de baja jerarquía. .actions los agrupa en fila. ==== */
+           Primario/secundario rellenos (comparador de paletas); el reset de
+           cultivo, de baja jerarquía. .actions los agrupa en fila. ============= */
         .actions {
             display: flex;
             flex-wrap: wrap;
@@ -496,8 +498,7 @@
             min-width: 120px;
         }
         button.primary,
-        button.secondary,
-        button.discreet {
+        button.secondary {
             padding: 12px 16px;
             font-size: 14px;
             font-family: inherit;
@@ -517,53 +518,40 @@
             color: var(--on-secondary, #fff);
         }
         button.secondary:hover { background: var(--secondary-2, #c8412e); }
-        /* Discreto: sin relleno, para acciones de baja jerarquía. */
-        button.discreet {
-            background: var(--surface-2, #f4f8f2);
-            color: var(--text, #1f2d20);
-            border-color: var(--border, #d3e2cf);
-        }
-        button.discreet:hover { border-color: var(--primary, #2e7d32); }
         button.primary:focus-visible,
-        button.secondary:focus-visible,
-        button.discreet:focus-visible {
+        button.secondary:focus-visible {
             outline: none;
             box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2e7d32) 30%, transparent);
         }
         button:disabled { opacity: .6; cursor: default; }
 
-        /* Reset de cultivo: acción aparte y de baja intensidad (no es alarma, es
-           rutina de cada cosecha), separada por una línea para no pulsarla por
-           inercia. El texto de ayuda va atenuado. */
+        /* Reiniciar parámetros: acción destructiva y ocasional. Zona de peligro al
+           final del formulario, separada por una línea. Botón COMPACTO y discreto
+           (no de ancho completo) y centrado, para que no compita con Guardar/
+           Cancelar ni se vea como una tercera acción principal. */
         .crop-reset {
             margin-top: 24px;
             padding-top: 18px;
             border-top: 1px solid var(--border, #d3e2cf);
+            text-align: center;
         }
         .crop-reset button {
-            width: 100%;
-            padding: 11px 16px;
-            font-size: 14px;
+            display: inline-block;
+            width: auto;
+            padding: 8px 16px;
+            font-size: 13px;
             font-family: inherit;
             font-weight: 500;
             color: var(--text-dim, #5c6f5a);
-            background: var(--surface, #fff);
+            background: none;
             border: 1px solid var(--border, #d3e2cf);
             border-radius: 8px;
             cursor: pointer;
-            transition: background .15s ease, border-color .15s ease, color .15s ease;
+            transition: border-color .15s ease, color .15s ease;
         }
         .crop-reset button:hover {
-            background: var(--surface-2, #f4f8f2);
             border-color: var(--secondary, #e5533d);
             color: var(--secondary, #e5533d);
-        }
-        .crop-reset .help {
-            margin-top: 8px;
-            font-size: 12px;
-            line-height: 1.5;
-            color: var(--text-dim, #5c6f5a);
-            text-align: center;
         }
 
         /* =====================================================================
@@ -651,12 +639,35 @@
         }
         /* Dentro de una tarjeta, el último campo no arrastra margen inferior. */
         .dash-card .field:last-child { margin-bottom: 0; }
+
+        /* EDICIÓN — las secciones normales NO usan tarjeta: los campos van directos
+           bajo su título (el fondo gris de una tarjeta competiría con el de los
+           inputs). Solo los espectros llevan recuadro (.spectrum-card, abajo). */
+        /* Dos campos en una fila (fotoperiodo, riego, ventilación). En pantallas
+           chicas se apilan. */
+        .field-row {
+            display: flex;
+            gap: 12px;
+        }
+        .field-row > .field {
+            flex: 1;
+            min-width: 0;
+            margin-bottom: 14px;
+        }
+        /* Recuadro que agrupa los tres espectros (blanco + azul/rojo). */
+        .spectrum-card {
+            background: var(--surface-2, #f4f8f2);
+            border: 1px solid var(--border, #d3e2cf);
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
         /* Frase de un renglón (riego, ventilación, fotoperiodo): los datos son UNA
            idea, no dos celdas sueltas. Valores resaltados; conector atenuado. */
         .dash-phrase {
             margin: 0;
             font-size: 14px;
             line-height: 1.5;
+            text-align: center;
             color: var(--text-dim, #5c6f5a);
         }
         .dash-phrase strong {
@@ -719,7 +730,13 @@
             display: flex;
             justify-content: space-around;
             gap: 8px;
-            margin-top: 18px;
+            /* La nav NO tiene título de sección, a diferencia del resto. Entre
+               secciones el hueco visual = margin (16px) + el alto del <h3> de la
+               siguiente. Para que el espacio ANTES de la nav se vea igual, se
+               compensa aquí el "colchón" del título ausente (alto del h3 ~17px +
+               su margin-bottom 6px ≈ 23px). Así la separación queda homogénea.
+               (.dash-nav solo se usa aquí, en el dashboard.) */
+            margin-top: 23px;
         }
         .nav-item {
             flex: 1;
@@ -757,34 +774,38 @@
         .view > h2 { font-size: 20px; font-weight: 600; color: var(--text, #1f2d20); margin: 0 0 8px; }
         .field small { font-size: 12px; color: var(--text-dim, #5c6f5a); }
 
-        /* Lista de redes Wi-Fi: cada red es un botón de ancho completo, plano,
-           que se resalta al pasar/enfocar. */
-        .net-list { list-style: none; margin: 0 0 14px; padding: 0; }
-        .net-list li { margin: 0 0 6px; }
-        .net-list button {
-            width: 100%;
-            text-align: left;
-            padding: 11px 14px;
-            font-size: 14px;
-            font-family: inherit;
-            color: var(--text, #1f2d20);
+        /* Botón "buscar redes" dentro del formulario: centrado, arriba de Conectar. */
+        .wifi-rescan-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+        /* Botón "buscar redes": ícono (izquierda) + etiqueta (derecha), con caja de
+           input (fondo --surface-2 + borde --border) para que se lea como botón.
+           nowrap para que la etiqueta no colapse en dos líneas. */
+        .rescan-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
             background: var(--surface-2, #f4f8f2);
             border: 1px solid var(--border, #d3e2cf);
             border-radius: 8px;
+            color: var(--text-dim, #5c6f5a);
+            font-family: inherit;
+            font-size: 13px;
+            white-space: nowrap;
             cursor: pointer;
-            transition: border-color .15s ease, background .15s ease;
+            transition: color .15s ease, border-color .15s ease;
         }
-        .net-list button:hover { border-color: var(--primary, #2e7d32); }
-        .net-list button:focus-visible {
-            outline: none;
-            border-color: var(--primary, #2e7d32);
-            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2e7d32) 22%, transparent);
-        }
+        .rescan-btn:hover { color: var(--primary, #2e7d32); border-color: var(--primary, #2e7d32); }
+        .rescan-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
         #wifiScanning { font-size: 14px; color: var(--text-dim, #5c6f5a); }
 
         /* Bloque de ayuda plegable "Antes de actualizar" (vista OTA). */
         .help {
-            margin-top: 14px;
+            margin-bottom: 14px;
             border: 1px solid var(--border, #d3e2cf);
             border-radius: 8px;
             background: var(--surface-2, #f4f8f2);
@@ -834,7 +855,6 @@
         progress#otaProgress::-moz-progress-bar { background: var(--primary, #2e7d32); border-radius: 999px; }
         #otaPercent { font-size: 22px; font-weight: 700; color: var(--primary, #2e7d32); }
         #otaStage { font-size: 13px; color: var(--text-dim, #5c6f5a); }
-        #otaCurrent { color: var(--primary, #2e7d32); }
 
         /* =====================================================================
            RESPONSIVO — pantallas angostas (teléfonos pequeños, ~320–400px)
@@ -846,7 +866,6 @@
             .nav-item { font-size: 11px; padding: 6px 2px; gap: 4px; }
             .nav-ico { width: 22px; height: 22px; }
             .dash-nav { gap: 4px; }
-            #dashHero .dash-item + .dash-item { margin-left: 10px; }
             .dash-stat-value { font-size: 15px; }
         }
         /* Los sliders y el porcentaje del espectro no deben empujar el ancho. */
@@ -880,8 +899,10 @@
                 </div>
                 <div class="field">
                     <label for="pass">Contraseña</label>
-                    <input type="password" id="pass" name="pass" autocomplete="current-password" maxlength="64" required>
-                    <button type="button" class="toggle-password" id="btnTogglePass" aria-label="Mostrar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                    <div class="input-wrap">
+                        <input type="password" id="pass" name="pass" autocomplete="current-password" maxlength="64" required>
+                        <button type="button" class="toggle-password" id="btnTogglePass" aria-label="Mostrar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                    </div>
                 </div>
                 <div class="actions">
                     <button type="submit" class="primary" id="btnCredentials">Continuar</button>
@@ -927,7 +948,7 @@
             <div class="dash-block">
                 <h3>Fotoperiodo</h3>
                 <div class="dash-card">
-                    <p class="dash-phrase">Luz de <strong id="dashFpOn">—</strong> h a <strong id="dashFpOff">—</strong> h</p>
+                    <p class="dash-phrase"><strong id="dashLuzH">—</strong> hr luz y <strong id="dashOscH">—</strong> hr oscuridad</p>
                 </div>
             </div>
 
@@ -963,14 +984,14 @@
             <div class="dash-block">
                 <h3>Riego</h3>
                 <div class="dash-card">
-                    <p class="dash-phrase">Riega <strong id="dashIrrH">—</strong> durante <strong id="dashIrrM">—</strong> min</p>
+                    <p class="dash-phrase" id="dashRiego">—</p>
                 </div>
             </div>
 
             <div class="dash-block">
                 <h3>Ventilación</h3>
                 <div class="dash-card">
-                    <p class="dash-phrase">Ventila <strong id="dashVentH">—</strong> durante <strong id="dashVentM">—</strong> min</p>
+                    <p class="dash-phrase" id="dashVent">—</p>
                 </div>
             </div>
 
@@ -1025,34 +1046,30 @@
                 <div class="dash-block" id="edit-power">
                     <!-- Interruptor MAESTRO: inhibe todos los actuadores (luz, riego,
                          ventilación) sin perder la configuración. Sin título de
-                         sección: el label del campo ya lo explica (B1, evita doble
+                         sección: el label del campo ya lo explica (evita doble
                          encabezado en secciones de un solo campo). -->
-                    <div class="dash-card">
-                        <div class="field">
-                            <label for="enable">Sistema activo</label>
-                            <input type="checkbox" id="enable" name="enable">
-                        </div>
+                    <div class="field">
+                        <label for="enable">Sistema activo</label>
+                        <input type="checkbox" id="enable" name="enable">
                     </div>
                 </div>
 
                 <div class="dash-block">
-                    <div class="dash-card">
-                        <div class="field">
-                            <label for="planta">Nombre de la planta</label>
-                            <input type="text" id="planta" name="planta" maxlength="20" autocomplete="off" required>
-                        </div>
+                    <div class="field">
+                        <label for="planta">Nombre de la planta</label>
+                        <input type="text" id="planta" name="planta" maxlength="20" autocomplete="off" required>
                     </div>
                 </div>
 
                 <div class="dash-block">
                     <h3>Fotoperiodo</h3>
-                    <div class="dash-card">
+                    <div class="field-row">
                         <div class="field">
-                            <label for="fpOn">Hora de prendido (0–23)</label>
+                            <label for="fpOn">Prendido (0–23 hr)</label>
                             <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" required>
                         </div>
                         <div class="field">
-                            <label for="fpOff">Hora de apagado (0–23)</label>
+                            <label for="fpOff">Apagado (0–23 hr)</label>
                             <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
                         </div>
                     </div>
@@ -1063,8 +1080,10 @@
                     <!-- Jerarquía: la luz blanca es el control PRINCIPAL (ON/OFF,
                          salida digital en el firmware). El azul y el rojo son PWM
                          avanzados y opcionales; van agrupados en un desplegable
-                         para no abrumar al usuario común, que solo prende el blanco. -->
-                    <div class="dash-card">
+                         para no abrumar al usuario común, que solo prende el blanco.
+                         A diferencia del resto de secciones, los espectros SÍ van
+                         dentro de un recuadro (.spectrum-card) que los agrupa. -->
+                    <div class="spectrum-card">
                         <div class="field">
                             <!-- El blanco es una salida ON/OFF en el firmware (no PWM):
                                  por eso es un interruptor y no un deslizador. -->
@@ -1087,7 +1106,7 @@
 
                 <div class="dash-block">
                     <h3>Riego</h3>
-                    <div class="dash-card">
+                    <div class="field-row">
                         <div class="field">
                             <label for="irrH">Frecuencia</label>
                             <select id="irrH" name="irrH" required></select>
@@ -1101,7 +1120,7 @@
 
                 <div class="dash-block">
                     <h3>Ventilación</h3>
-                    <div class="dash-card">
+                    <div class="field-row">
                         <div class="field">
                             <label for="ventH">Frecuencia</label>
                             <select id="ventH" name="ventH" required></select>
@@ -1118,36 +1137,42 @@
                     <button type="button" class="secondary" id="btnEditBack">Cancelar</button>
                 </div>
                 <div class="crop-reset">
-                    <button type="button" id="btnNewCrop">Nuevo cultivo</button>
-                    <p class="help">Borra el nombre, el conteo de días y los parámetros para empezar una cosecha nueva. Conserva tu usuario y la red Wi-Fi.</p>
+                    <button type="button" id="btnNewCrop">Reiniciar parámetros</button>
                 </div>
             </form>
         </section>
 
         <!-- ============================== WI-FI ============================ -->
         <section id="view-wifi" class="view" hidden>
-            <p>
-                Conecta el equipo a tu red para habilitar funciones en línea. El portal
-                sigue disponible mientras esté conectado.
-            </p>
-
             <p id="wifiScanning" hidden>Buscando redes…</p>
-            <ul id="netList" class="net-list"></ul>
 
             <form id="formWifi" novalidate>
                 <div class="field">
-                    <label for="ssid">Red (SSID)</label>
-                    <input type="text" id="ssid" name="ssid" maxlength="32" autocomplete="off" required>
+                    <label for="ssid">Red</label>
+                    <select id="ssid" name="ssid" required></select>
                 </div>
                 <div class="field">
                     <label for="wifiPass">Contraseña</label>
-                    <input type="password" id="wifiPass" name="pass" maxlength="63" autocomplete="off">
-                    <button type="button" class="toggle-password" id="btnToggleWifiPass" aria-label="Mostrar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                    <div class="input-wrap">
+                        <input type="password" id="wifiPass" name="pass" maxlength="63" autocomplete="off">
+                        <button type="button" class="toggle-password" id="btnToggleWifiPass" aria-label="Mostrar contraseña"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                    </div>
                     <small>Déjala vacía si la red es abierta.</small>
+                </div>
+                <!-- Buscar redes: parte del flujo del formulario, centrado y arriba
+                     de Conectar. Botón de ícono (refresh) con etiqueta accesible. -->
+                <div class="wifi-rescan-row">
+                    <button type="button" class="rescan-btn" id="btnWifiRescan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        <span>Buscar redes</span>
+                    </button>
                 </div>
                 <div class="actions">
                     <button type="submit" class="primary" id="btnWifiConnect">Conectar</button>
-                    <button type="button" class="secondary" id="btnWifiRescan">Volver a buscar</button>
                     <button type="button" class="secondary" id="btnWifiBack">Volver</button>
                 </div>
             </form>
@@ -1155,23 +1180,6 @@
 
         <!-- =============================== OTA ============================= -->
         <section id="view-ota" class="view" hidden>
-            <p>
-                Actualiza el firmware del equipo desde este dispositivo, sin necesidad de
-                internet. Útil cuando el equipo está en un lugar de difícil acceso.
-            </p>
-            <p>Versión instalada: <strong id="otaCurrent">—</strong></p>
-
-            <form id="formOta" novalidate>
-                <div class="field">
-                    <label for="otaFile">Archivo de firmware (.bin)</label>
-                    <input type="file" id="otaFile" name="firmware" accept=".bin" required>
-                </div>
-                <div class="actions">
-                    <button type="submit" class="primary" id="btnOtaUpload">Subir e instalar</button>
-                    <button type="button" class="secondary" id="btnOtaBack">Volver</button>
-                </div>
-            </form>
-
             <details class="help">
                 <summary>Antes de actualizar</summary>
                 <p>
@@ -1184,6 +1192,17 @@
                     ventana ni apagues el equipo mientras la barra avanza.
                 </p>
             </details>
+
+            <form id="formOta" novalidate>
+                <div class="field">
+                    <label for="otaFile">Archivo de firmware (.bin)</label>
+                    <input type="file" id="otaFile" name="firmware" accept=".bin" required>
+                </div>
+                <div class="actions">
+                    <button type="submit" class="primary" id="btnOtaUpload">Subir e instalar</button>
+                    <button type="button" class="secondary" id="btnOtaBack">Volver</button>
+                </div>
+            </form>
         </section>
 
         <!-- ============================ FLASHING =========================== -->
@@ -1267,6 +1286,25 @@
             12: "Cada 12 h (2 × día)", 24: "Una vez al día", 48: "Cada 2 días",
             72: "Cada 3 días", 168: "Una vez por semana"
         };
+
+        /* Frase del dashboard para riego/ventilación (formato "Cada N hr durante
+           M min"). Solo los números van en <strong>. Casos: 0=Apagado (sin
+           duración), 1=cada hora, 2–12=cada N hr, 24=una vez al día, 48/72=cada N
+           días, 168=una vez por semana. El valor de frecuencia es el INTERVALO en
+           horas (igual que el firmware). Devuelve HTML (números resaltados). */
+        function fraseFrecuencia(hVal, mVal) {
+            const h = Number(hVal), m = Number(mVal);
+            if (!Number.isInteger(h)) return "—";
+            if (h === 0) return "Apagado";
+            const dur = Number.isInteger(m) ? ` durante <strong>${m}</strong> min` : "";
+            let freq;
+            if (h === 1) freq = "Cada hora";
+            else if (h < 24) freq = `Cada <strong>${h}</strong> hr`;
+            else if (h === 24) freq = "Una vez al día";
+            else if (h === 168) freq = "Una vez por semana";
+            else freq = `Cada <strong>${h / 24}</strong> días`;
+            return freq + dur;
+        }
 
         /* Qué sección se muestra en cada estado. `register` y `auth` comparten
            el bloque de credenciales. */
@@ -1527,15 +1565,24 @@
             // 0 y pintar "0" afirmaría algo falso.
             $("dashSemana").textContent = horaOk ? (p.semana ?? "—") : "—";
             $("dashDia").textContent = horaOk ? (p.dia ?? "—") : "—";
-            $("dashFpOn").textContent = p.fpOn ?? "—";
-            $("dashFpOff").textContent = p.fpOff ?? "—";
+            // Fotoperiodo: se muestran las HORAS de luz y de oscuridad (duración),
+            // no las horas de reloj. El ciclo puede cruzar medianoche (fpOff < fpOn),
+            // por eso el +24 % 24. Si falta algún dato, fallback "—". El firmware y
+            // el front prohíben fpOn === fpOff, así que no hay caso 0/24 ambiguo.
+            const fpOn = Number(p.fpOn), fpOff = Number(p.fpOff);
+            if (Number.isInteger(fpOn) && Number.isInteger(fpOff) && fpOn !== fpOff) {
+                const luz = (fpOff - fpOn + 24) % 24;
+                $("dashLuzH").textContent = luz;
+                $("dashOscH").textContent = 24 - luz;
+            } else {
+                $("dashLuzH").textContent = "—";
+                $("dashOscH").textContent = "—";
+            }
             $("dashLedA").textContent = (p.ledAzul ?? 0) + "%";
             $("dashLedR").textContent = (p.ledRojo ?? 0) + "%";
             $("dashLedB").textContent = Number(p.ledBlanco) > 0 ? "Encendida" : "Apagada";
-            $("dashIrrH").textContent = FREQ_LABELS[p.irrH] ?? "—";
-            $("dashIrrM").textContent = p.irrM ?? "—";
-            $("dashVentH").textContent = FREQ_LABELS[p.ventH] ?? "—";
-            $("dashVentM").textContent = p.ventM ?? "—";
+            $("dashRiego").innerHTML = fraseFrecuencia(p.irrH, p.irrM);
+            $("dashVent").innerHTML = fraseFrecuencia(p.ventH, p.ventM);
 
             // Ayuda contextual solo para el cultivo sin configurar (día 0 = sin
             // anclar). Desaparece en cuanto hay configuración, para no estorbar
@@ -1642,7 +1689,6 @@
                 setEstado("wifi");
                 escanearRedes();
             } else if (intent === "ota") {
-                $("otaCurrent").textContent = params.firmwareVersion || "desconocida";
                 setEstado("ota");
             } else {
                 setEstado("view");
@@ -1933,8 +1979,8 @@
            Wi-Fi: escaneo, conexión y confirmación por polling
            ===================================================================== */
         async function escanearRedes() {
-            const lista = $("netList");
-            lista.innerHTML = "";
+            const sel = $("ssid");
+            sel.innerHTML = "";
             $("wifiScanning").hidden = false;
             try {
                 // El escaneo del firmware es ASÍNCRONO: la primera petición lo arranca y
@@ -1958,28 +2004,34 @@
                     showMsg(false, "No se encontraron redes. Intenta buscar de nuevo.");
                     return;
                 }
+                // Se llena el <select> con las redes escaneadas: texto = SSID +
+                // candado (🔒 protegida / 🔓 abierta), sin barras de señal. El estado
+                // "secure" se guarda en dataset para ajustar la contraseña al elegir.
                 for (const red of redes) {
-                    const li = document.createElement("li");
-                    const btn = document.createElement("button");
-                    btn.type = "button";
-                    btn.textContent = red.ssid + " (" + red.rssi + " dBm)" + (red.secure ? "" : " · abierta");
-                    // Al elegir una red se rellena el formulario; si es abierta,
-                    // la contraseña se deshabilita (el firmware acepta vacía).
-                    btn.addEventListener("click", () => {
-                        $("ssid").value = red.ssid;
-                        $("wifiPass").disabled = !red.secure;
-                        if (!red.secure) $("wifiPass").value = "";
-                        $("wifiPass").focus({ preventScroll: true });
-                    });
-                    li.appendChild(btn);
-                    lista.appendChild(li);
+                    const opt = document.createElement("option");
+                    opt.value = red.ssid;
+                    opt.textContent = red.ssid + (red.secure ? " 🔒" : " 🔓");
+                    opt.dataset.secure = red.secure ? "1" : "0";
+                    sel.appendChild(opt);
                 }
+                ajustarPassPorRed();   // sincroniza la contraseña con la 1ª red
             } catch (e) {
                 showMsg(false, "No se pudo escanear. Intenta de nuevo.");
             } finally {
                 $("wifiScanning").hidden = true;
             }
         }
+
+        // Ajusta el campo de contraseña según la red seleccionada: si es abierta,
+        // se deshabilita y se vacía (el firmware acepta contraseña vacía).
+        function ajustarPassPorRed() {
+            const opt = $("ssid").selectedOptions[0];
+            const abierta = opt && opt.dataset.secure === "0";
+            const pass = $("wifiPass");
+            pass.disabled = !!abierta;
+            if (abierta) pass.value = "";
+        }
+        $("ssid").addEventListener("change", ajustarPassPorRed);
 
         $("btnWifiRescan").addEventListener("click", () => { clearMsg(); escanearRedes(); });
 
