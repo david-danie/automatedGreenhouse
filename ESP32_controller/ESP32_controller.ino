@@ -146,10 +146,13 @@ void loop() {
 void handleRoot() {
   // Página estática única. El cliente pide /getparams y, según hasRegisteredUser,
   // pinta la bienvenida o el dashboard.
-  // send_P sirve el HTML (~72 KB) directo desde flash, por trozos: evita el String
-  // temporal de ~72 KB que crearía send() con un const char* (ese pico de heap
-  // podía fallar con AP+STA, dejando el formulario sin cargar).
-  server.send_P(200, "text/html", mainForm);
+  // El portal va COMPRIMIDO con gzip (mainForm_gz, generado por gen_mainform.py):
+  // ~12–18 KB en vez de ~73 KB -> menos flash, menos chunks por el AP y carga más
+  // rápida. Se declara Content-Encoding: gzip y el navegador lo descomprime solo.
+  // send_P sirve directo desde flash (sin String temporal); al ser binario (tiene
+  // bytes nulos) se pasa la LONGITUD explícita.
+  server.sendHeader("Content-Encoding", "gzip");
+  server.send_P(200, "text/html", (const char*)mainForm_gz, mainForm_gz_len);
   Serial.println("*****  " + server.uri() + "  *****");
 }
 
