@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Genera HTML/portal-v2/mainForm.preview.html desde HTML/portal-v2/mainForm.html.
+"""Genera HTML/portal-dev/mainForm.preview.html desde HTML/portal-dev/mainForm.html.
 
-Es el equivalente de scripts/gen_preview.py pero para el Portal V2. El preview es
-el MISMO portal con un mock de `fetch` y `XMLHttpRequest` inyectado antes de
+Es el equivalente de scripts/gen_preview.py pero para la pista de DESARROLLO
+(portal-dev). El preview es el MISMO portal con un mock de `fetch` y `XMLHttpRequest` inyectado antes de
 `</head>`, para que el portal funcione en el navegador sin ESP32:
   - `fetch` responde los endpoints con datos simulados y sin validar token.
   - `XMLHttpRequest` se intercepta para la subida OTA (`/otaupdate`), simulando el
@@ -15,20 +15,20 @@ El escenario simulado se controla con las banderas del bloque `MOCK.params` (edi
 este script si el cambio debe persistir entre regeneraciones).
 
 Uso, desde la raíz del proyecto:
-    python3 scripts/gen_preview_v2.py
+    python3 scripts/gen_preview_dev.py
 """
 import sys
 from pathlib import Path
 
-SRC = Path("HTML/portal-v2/mainForm.html")
-DST = Path("HTML/portal-v2/mainForm.preview.html")
+SRC = Path("HTML/portal-dev/mainForm.html")
+DST = Path("HTML/portal-dev/mainForm.preview.html")
 
 # El mock se inyecta ANTES de </head> para que window.fetch/XMLHttpRequest queden
 # parcheados antes de que corra el <script> del portal (que vive en el <body>).
 MOCK = r"""    <!-- ===================================================================
          MODO PREVIEW (mock) — SOLO PARA PROBAR EN EL NAVEGADOR SIN ESP32
          ===================================================================
-         ARCHIVO GENERADO por scripts/gen_preview_v2.py — NO EDITAR A MANO.
+         ARCHIVO GENERADO por scripts/gen_preview_dev.py — NO EDITAR A MANO.
          Es una COPIA de mainForm.html con un simulador del firmware inyectado.
          NO se sirve desde el dispositivo. La fuente de verdad es mainForm.html.
 
