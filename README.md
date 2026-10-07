@@ -76,7 +76,7 @@ La parte interesante de un proyecto embebido no es solo *qué* hace, sino *cómo
 | **Autenticación sin reenviar credenciales** | **Token de sesión** de 128 bits (`esp_random()`), TTL fijo en RAM (muere con el reboot, expiración por `millis()` a prueba de wrap-around). El AP va cifrado con WPA2-PSK. |
 | **Validación idéntica en navegador y dispositivo** | Reglas replicadas bit a bit front↔firmware, contando por **carácter UTF-8** (no bytes), para que acentos y ñ no descuadren los límites entre JS y C++. |
 | **Servir 50 KB de HTML sin agotar el heap** | `send_P` entrega el portal por trozos directo desde flash. Con `send()` y un `const char*` se creaba un `String` temporal del tamaño completo, y ese pico podía fallar en modo AP+STA dejando el formulario sin cargar. |
-| **Menos flash y carga más rápida del portal** | El HTML legible (fuente de verdad) se regenera sin comentarios al artefacto que sirve el ESP32 (~73 KB). Hoy esa limpieza ahorra solo ~0.5 KB: el ahorro de fondo vendrá de `gzip` (~12–18 KB estimados), aún pendiente. |
+| **Menos flash y carga más rápida del portal** | El HTML legible (fuente de verdad) se regenera sin comentarios y **comprimido con gzip** al artefacto que sirve el ESP32: de ~93 KB a **~16 KB (−83 %)**. `handleRoot` lo entrega con `Content-Encoding: gzip` y el navegador lo descomprime solo. |
 
 ---
 
@@ -275,11 +275,11 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 │   ├── sensible.h             # Secretos del AP (no versionado)
 │   └── mainForm.h             # Artefacto generado: el HTML que sirve el ESP32
 ├── HTML/
-│   ├── mainForm.html          # Fuente de verdad del portal V1 (legible y comentada)
-│   ├── mainForm.preview.html  # Artefacto generado: el portal V1 con firmware simulado
-│   └── portal-v2/             # Portal V2 (rediseño, aún no servido): mainForm.html (fuente),
+│   ├── mainForm.html          # Pista ESTABLE (producción): fuente del portal
+│   ├── mainForm.preview.html  # Preview de la estable (generado, con mock)
+│   └── portal-dev/             # Pista DESARROLLO (pruebas): mainForm.html (fuente),
 │                              #   mainForm.preview.html (generado) y paletas-guardadas.css
-├── scripts/                   # Generadores: gen_mainform.py, gen_preview.py, gen_preview_v2.py
+├── scripts/                   # Generadores: gen_mainform.py (--dev), gen_preview.py, gen_preview_dev.py
 ├── ESP32_Board/               # Diseño de la tarjeta (KiCad)
 ├── pythonServer/              # Backend: FastAPI + Alembic + Docker (auth funcional)
 ├── docs/                      # Documentación técnica
@@ -295,18 +295,27 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 
 <div align="justify">
 
-**Convención del portal:** se edita `HTML/mainForm.html` (fuente legible y comentada) y de ahí se regeneran **dos artefactos**, nunca al revés:
+**Convención del portal — dos pistas.** El formulario se mantiene en **dos pistas** permanentes, cada una con su fuente legible y comentada:
+
+- **Estable** (producción): `HTML/mainForm.html`
+- **Desarrollo** (pruebas / features nuevas, p. ej. temperatura/humedad): `HTML/portal-dev/mainForm.html`
+
+Se edita la fuente de cada pista y de ahí se regeneran sus artefactos, **nunca al revés**:
 
 ```bash
-python3 scripts/gen_mainform.py   # -> ESP32_controller/mainForm.h  (lo que sirve el dispositivo)
-python3 scripts/gen_preview.py    # -> HTML/mainForm.preview.html   (para revisar sin dispositivo)
+# Previews para revisar en el navegador sin dispositivo (cada uno inyecta su propio
+# mock de fetch/XHR que simula el firmware):
+python3 scripts/gen_preview.py     # -> HTML/mainForm.preview.html            (estable)
+python3 scripts/gen_preview_dev.py  # -> HTML/portal-dev/mainForm.preview.html  (desarrollo)
+
+# Promover UNA pista al artefacto embebido que sirve el ESP32 (un solo .h; se elige cuál):
+python3 scripts/gen_mainform.py        # -> ESP32_controller/mainForm.h  desde la ESTABLE
+python3 scripts/gen_mainform.py --dev  # -> ESP32_controller/mainForm.h  desde DESARROLLO
 ```
 
-El **Portal V2** (en desarrollo, aún no servido) sigue la misma convención con su propio generador de preview:
-
-```bash
-python3 scripts/gen_preview_v2.py # -> HTML/portal-v2/mainForm.preview.html  (mock fetch/XHR; fuente: HTML/portal-v2/mainForm.html)
-```
+El firmware sirve **un solo** `mainForm.h`, así que promover = elegir qué pista lo
+sobrescribe. Cada preview tiene su propio mock (pueden divergir a propósito: la pista de
+desarrollo simula lo que va probando).
 
 </div>
 
@@ -341,8 +350,8 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
   - [x] Contraseña de usuario **hasheada** con PBKDF2-HMAC-SHA256 + salt de 16 B (queda calibrar las iteraciones en la placa)
   - [x] Reset de fábrica **restringido a la interfaz del AP**, y operación rutinaria separada en `POST /newcrop` (autenticada, conserva cuenta y Wi-Fi)
   - [x] **Límite de intentos** de login: espera creciente de 5 s a 5 min, contador en RAM
-- [ ] Servir el portal **gzip** (`Content-Encoding: gzip`) para menos flash y carga más rápida
-- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-v2/`): estructura, JS y **diseño visual completo** sobre la paleta **invernadero** (campos, botones, dashboard, notificaciones toast/banner/validación por campo, OTA); paletas alternativas en `paletas-guardadas.css`. Falta el repaso visual fino y **homologarlo** (promover a `HTML/mainForm.html` + generar su `mainForm.h`) como versión oficial ([ver estado](docs/ARCHITECTURE.md))
+- [x] Servir el portal **gzip** (`Content-Encoding: gzip`): `gen_mainform.py` comprime el HTML y lo embebe como arreglo de bytes (`mainForm_gz`); `handleRoot` lo sirve con el encabezado. Reduce el portal de ~93 KB a ~16 KB (−83 %). Falta probarlo en hardware.
+- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-dev/`): estructura, JS y **diseño visual completo** con **paletas intercambiables** (claras: tierra/invernadero/slate; oscura: verde-oscuro; ver `paletas-guardadas.css` y el comparador). Falta el repaso visual fino y **homologarlo** (promover con `gen_mainform.py --dev` + generar su `mainForm.h`) como versión oficial ([ver estado](docs/ARCHITECTURE.md))
 - [x] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): endpoint `POST /otaupdate` en el firmware (librería `Update`), `partitions.csv` con dos slots OTA y **cliente en ambos portales** (V1 y V2, vistas `ota`/`flashing` con barra de progreso). Falta probar el flujo completo en hardware real ([ver requisitos](docs/ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota))
 - [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos. Ya está en pie la base — la infraestructura corre en Docker (Postgres/Timescale, MinIO y Mosquitto), Alembic crea el esquema completo (5 tablas + hypertable), el registro/login/refresh funciona con JWT y los dispositivos se vinculan a una cuenta recibiendo su propio token revocable. En curso: recibir configuración y telemetría por REST (escrito, pendiente de probar). Falta exponer las lecturas para la app, servir OTA y la ingesta por MQTT ([ver estado](pythonServer/README.md))
 - [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
