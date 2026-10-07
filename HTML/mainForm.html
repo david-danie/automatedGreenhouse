@@ -1036,12 +1036,12 @@
                 </div>
                 <div class="form-group2">
                     <div class="form-group">
-                        <label for="fpOn">Prendido (h)</label>
-                        <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" required>
+                        <label for="fpOn">Prendido (hr)</label>
+                        <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" placeholder="0–23" required>
                     </div>
                     <div class="form-group">
-                        <label for="fpOff">Apagado (h)</label>
-                        <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
+                        <label for="fpOff">Apagado (hr)</label>
+                        <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" placeholder="0–23" required>
                     </div>
                 </div>
                 <div class="section-header">
@@ -1088,24 +1088,24 @@
                         <label for="irrH">Frecuencia</label>
                         <div class="select-container">
                             <select id="irrH" name="irrH" required>
-                                <option value="1">24 veces al día</option>
-                                <option value="2">12 veces al día</option>
-                                <option value="3">8 veces al día</option>
-                                <option value="4">6 veces al día</option>
-                                <option value="6">4 veces al día</option>
-                                <option value="8">3 veces al día</option>
-                                <option value="12">2 veces al día</option>
-                                <option value="24">1 vez al día</option>
+                                <option value="1">Cada hora</option>
+                                <option value="2">Cada 2 horas</option>
+                                <option value="3">Cada 3 horas</option>
+                                <option value="4">Cada 4 horas</option>
+                                <option value="6">Cada 6 horas</option>
+                                <option value="8">Cada 8 horas</option>
+                                <option value="12">Cada 12 horas</option>
+                                <option value="24">Una vez al día</option>
                                 <option value="48">Cada 2 días</option>
                                 <option value="72">Cada 3 días</option>
-                                <option value="168">Cada semana</option>
+                                <option value="168">Una vez por semana</option>
                                 <option value="0">No regar</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="irrM">Minutos</label>
-                        <input type="number" name="irrM" required id="irrM" min="0" max="59" step="1">
+                        <input type="number" name="irrM" required id="irrM" min="0" max="59" step="1" placeholder="0–59">
                     </div>
                 </div>
                 <div class="section-header">
@@ -1116,24 +1116,24 @@
                         <label for="ventH">Frecuencia</label>
                         <div class="select-container">
                             <select id="ventH" name="ventH" required>
-                                <option value="1">24 veces al día</option>
-                                <option value="2">12 veces al día</option>
-                                <option value="3">8 veces al día</option>
-                                <option value="4">6 veces al día</option>
-                                <option value="6">4 veces al día</option>
-                                <option value="8">3 veces al día</option>
-                                <option value="12">2 veces al día</option>
-                                <option value="24">1 vez al día</option>
+                                <option value="1">Cada hora</option>
+                                <option value="2">Cada 2 horas</option>
+                                <option value="3">Cada 3 horas</option>
+                                <option value="4">Cada 4 horas</option>
+                                <option value="6">Cada 6 horas</option>
+                                <option value="8">Cada 8 horas</option>
+                                <option value="12">Cada 12 horas</option>
+                                <option value="24">Una vez al día</option>
                                 <option value="48">Cada 2 días</option>
                                 <option value="72">Cada 3 días</option>
-                                <option value="168">Cada semana</option>
+                                <option value="168">Una vez por semana</option>
                                 <option value="0">No ventilar</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="ventM">Minutos</label>
-                        <input type="number" name="ventM" required id="ventM" min="0" max="59" step="1">
+                        <input type="number" name="ventM" required id="ventM" min="0" max="59" step="1" placeholder="0–59">
                     </div>
                 </div>
                 <div class="buttons">
@@ -1265,9 +1265,9 @@
         const VALID_FREQUENCIES = [0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168];
         const FREQ_LABELS = {
             0: "Apagado",
-            1: "24 × día", 2: "12 × día", 3: "8 × día", 4: "6 × día",
-            6: "4 × día", 8: "3 × día", 12: "2 × día", 24: "1 × día",
-            48: "Cada 2 días", 72: "Cada 3 días", 168: "Semanal"
+            1: "Cada hora", 2: "Cada 2 horas", 3: "Cada 3 horas", 4: "Cada 4 horas",
+            6: "Cada 6 horas", 8: "Cada 8 horas", 12: "Cada 12 horas", 24: "Una vez al día",
+            48: "Cada 2 días", 72: "Cada 3 días", 168: "Una vez por semana"
         };
         async function obtenerValoresDispositivo() {
             try {
@@ -1325,17 +1325,22 @@
             const p = params;
             document.getElementById('planta').value = p.planta || "";
             document.getElementById('enable').checked = p.enable === true || p.enable === "true";
-            document.getElementById('fpOn').value = p.fpOn;
-            document.getElementById('fpOff').value = p.fpOff;
+            // Cultivo SIN configurar (día 0 = sin anclar): los campos numéricos de
+            // texto llegan VACÍOS en vez de "0" (menos ruido visual y evita guardar
+            // un 0 por un toque accidental). Con cultivo ya configurado se llenan con
+            // su valor real (incluido un 0 legítimo). Sliders/selects no aplican.
+            const sinConfig = Number(p.dia) === 0;
+            document.getElementById('fpOn').value = sinConfig ? "" : p.fpOn;
+            document.getElementById('fpOff').value = sinConfig ? "" : p.fpOff;
             document.getElementById('ledAzul').value = p.ledAzul;
             document.getElementById('luzAzulValue').innerText = `${p.ledAzul}%`;
             document.getElementById('ledRojo').value = p.ledRojo;
             document.getElementById('luzRojaValue').innerText = `${p.ledRojo}%`;
             document.getElementById('ledBlanco').checked = Number(p.ledBlanco) > 0;
             document.getElementById('irrH').value = p.irrH;
-            document.getElementById('irrM').value = p.irrM;
+            document.getElementById('irrM').value = sinConfig ? "" : p.irrM;
             document.getElementById('ventH').value = p.ventH;
-            document.getElementById('ventM').value = p.ventM;
+            document.getElementById('ventM').value = sinConfig ? "" : p.ventM;
             updateSliderProgress('ledAzul', 'progressA');
             updateSliderProgress('ledRojo', 'progressR');
             // Si el cultivador ya usa los espectros (azul/rojo > 0), abre el
@@ -1360,8 +1365,12 @@
             status.classList.toggle('is-off', !activo || !horaOk);
             // Sin hora fiable la edad del cultivo no es calculable: el firmware manda
             // 0 y pintar "0" afirmaría algo falso.
+            // "Día" es el día DENTRO de la semana (1–7), derivado del día TOTAL que
+            // manda el firmware: (total-1) % 7 + 1. La semana la manda ya calculada.
             document.getElementById('dashSemana').textContent = horaOk ? (p.semana ?? "—") : "—";
-            document.getElementById('dashDia').textContent = horaOk ? (p.dia ?? "—") : "—";
+            document.getElementById('dashDia').textContent = (horaOk && Number(p.dia) > 0)
+                ? ((Number(p.dia) - 1) % 7 + 1)
+                : "—";
             document.getElementById('dashFpOn').textContent = p.fpOn ?? "—";
             document.getElementById('dashFpOff').textContent = p.fpOff ?? "—";
             setDashLed('dashLedA', p.ledAzul);
@@ -1785,28 +1794,35 @@
                 mostrarToast(false, "Revisa los campos marcados.");
                 return;
             }
+            const formData = new FormData(form);
+            const data = {};
+            formData.forEach((value, key) => {
+                if (key === 'fpOn' || key === 'fpOff' || key === 'irrH' || key === 'irrM' ||
+                    key === 'ventH' || key === 'ventM' ||
+                    key === 'ledAzul' || key === 'ledRojo')
+                    data[key] = Number(value.trim())
+                else if (key === 'ledBlanco')
+                    {} // se maneja abajo como checkbox (blanco = ON/OFF)
+                else if (key === 'firmware')
+                    {} // input de archivo de la vista OTA: NO es un parámetro del
+                       // cultivo y su valor es un File (no string). Se ignora aquí
+                       // para no romper value.trim(); la OTA usa su propio flujo.
+                else
+                    data[key] = value.trim();
+            });
+            data.enable = document.getElementById("enable").checked;
+            data.ledBlanco = document.getElementById("ledBlanco").checked ? 1 : 0;
             const fechaHoraActual = new Date();
-            const data = {
-                planta: document.getElementById("planta").value.trim(),
-                enable: document.getElementById("enable").checked,
-                fpOn: Number(document.getElementById("fpOn").value.trim()),
-                fpOff: Number(document.getElementById("fpOff").value.trim()),
-                ledAzul: Number(document.getElementById("ledAzul").value.trim()),
-                ledRojo: Number(document.getElementById("ledRojo").value.trim()),
-                ledBlanco: document.getElementById("ledBlanco").checked ? 1 : 0,
-                irrH: Number(document.getElementById("irrH").value.trim()),
-                irrM: Number(document.getElementById("irrM").value.trim()),
-                ventH: Number(document.getElementById("ventH").value.trim()),
-                ventM: Number(document.getElementById("ventM").value.trim()),
-                dia: Number(fechaHoraActual.getDate()),
-                mes: Number(fechaHoraActual.getMonth() + 1),
-                anio: Number(fechaHoraActual.getFullYear().toString().slice(-2)),
-                diaSem: Number(fechaHoraActual.getDay()) + 1,
-                hr: Number(fechaHoraActual.getHours()),
-                min: Number(fechaHoraActual.getMinutes()),
-                seg: Number(fechaHoraActual.getSeconds()),
-                token: getToken()
-            };
+            data['dia'] = Number(fechaHoraActual.getDate());
+            data['mes'] = Number(fechaHoraActual.getMonth() + 1);
+            data['anio'] = Number(fechaHoraActual.getFullYear().toString().slice(-2));
+            data['diaSem'] = Number(fechaHoraActual.getDay()) + 1;
+            data['hr'] = Number(fechaHoraActual.getHours());
+            data['min'] = Number(fechaHoraActual.getMinutes());
+            data['seg'] = Number(fechaHoraActual.getSeconds());
+            delete data.user;
+            delete data.pass;
+            data.token = getToken();
             const submitBtn = form.querySelector('button[type="submit"]');
             const submitOriginal = submitBtn.textContent;
             submitBtn.disabled = true;

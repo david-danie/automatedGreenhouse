@@ -7,48 +7,32 @@
    paleta debe definirlas TODAS para que ninguna quede heredando de otra.
 
    ---------------------------------------------------------------------------
-   "neon" — Rescatada de mainFormStyled.html (eliminado el 2026-09-22).
-   Tema oscuro tipo "hidroponía/neón": esmeralda con acentos azul y rojo.
-   Mapeada del set original de mainFormStyled a las 18 variables del sistema.
+   "verde-oscuro" — Tema OSCURO con el verde como color predominante. Fondo verde
+   muy oscuro, superficies oscuras, texto claro verdoso y primario verde vivo. Los
+   acentos (azul para el espectro azul, coral para riesgo/espectro rojo) van más
+   apagados que un neón, para que el verde sea el protagonista sin estridencia.
    --------------------------------------------------------------------------- */
-[data-theme="neon"] {
-    --bg:            #050d0a;   /* era --bg-deep    */
-    --surface:       #0c1813;   /* era --bg-surface */
-    --surface-2:     #08120d;   /* era --bg-input   */
-    --border:        #14312a;   /* de --border-subtle rgba(52,211,153,.15) sobre fondo */
-    --text:          #f0fdf4;   /* era --text-main  */
-    --text-dim:      #86efac;   /* era --text-muted */
-    --primary:       #10b981;   /* era --primary       */
-    --primary-2:     #34d399;   /* era --primary-hover */
-    --primary-soft:  #0c2a1c;   /* verde oscuro para tiles de acceso (tema oscuro) */
-    --on-primary:    #050d0a;
-    --secondary:     #f43f5e;   /* era --flora-red  */
-    --secondary-2:   #fb7185;
-    --on-secondary:  #050d0a;
-    --accent:        #38bdf8;   /* era --hydro-blue */
-    --ok-bg:         #0c2a1c;
-    --ok-text:       #34d399;
-    --err-bg:        #2a1113;   /* de --danger-bg   */
-    --err-text:      #fca5a5;   /* era --danger-text */
-    --shadow:        0 6px 24px rgba(0, 0, 0, .55);
+[data-theme="verde-oscuro"] {
+    --bg:            #0f1511;
+    --surface:       #19211b;
+    --surface-2:     #212b23;
+    --border:        #303d33;
+    --text:          #e6efe8;
+    --text-dim:      #9fb4a5;
+    --primary:       #5bbd72;
+    --primary-2:     #74cf88;
+    --primary-soft:  #1c2a20;
+    --on-primary:    #0f1511;
+    --secondary:     #e07a5f;
+    --secondary-2:   #c96647;
+    --on-secondary:  #0f1511;
+    --accent:        #6ca8d6;
+    --ok-bg:         #16281d;
+    --ok-text:       #74cf88;
+    --err-bg:        #2c1a16;
+    --err-text:      #e8a593;
+    --shadow:        0 6px 24px rgba(0, 0, 0, .45);
 }
-
-/* Referencia: variables originales de mainFormStyled.html (por si quieres
-   reconstruir el estilo "glow" completo, que usaba más tokens que el sistema
-   de 18 variables — bordes con brillo, gradientes de fondo, fuente mono, etc.):
-
-     --bg-deep: #050d0a;         --bg-surface: #0c1813;
-     --bg-card: rgba(16,32,25,.85);  --bg-input: #08120d;
-     --border-subtle: rgba(52,211,153,.15);  --border-glow: rgba(52,211,153,.4);
-     --text-main: #f0fdf4;       --text-muted: #86efac;   --text-dim: #4ade8099;
-     --primary: #10b981;         --primary-glow: #059669;  --primary-hover: #34d399;
-     --hydro-blue: #38bdf8;      --hydro-blue-glow: rgba(56,189,248,.3);
-     --flora-red: #f43f5e;       --flora-red-glow: rgba(244,63,94,.3);
-     --amber-warn: #fbbf24;
-     --danger-bg: rgba(239,68,68,.15);  --danger-border: rgba(239,68,68,.4);
-     --danger-text: #fca5a5;
-     --radius-sm: 8px;  --radius-md: 14px;  --radius-lg: 20px;
-*/
 
 
 /* ===========================================================================

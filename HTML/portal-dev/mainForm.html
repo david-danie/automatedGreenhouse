@@ -92,7 +92,7 @@
            de paleta; (5) responsivo. El JS no se toca desde el CSS: se apoya en
            los hooks de clase/id del markup.
 
-           Paletas alternativas para probar: HTML/portal-v2/paletas-guardadas.css
+           Paletas alternativas para probar: HTML/portal-dev/paletas-guardadas.css
 
            Hooks del markup (los consume la hoja de estilos de este archivo):
              .view          cada pantalla        .field       etiqueta + control
@@ -111,7 +111,7 @@
            1. PALETA — "tierra" (tema claro por defecto de la V2)
            Cálido botánico: crema/arena + verde salvia + terracota. Define las 18
            variables del sistema (+ --primary-soft). Para probar otra paleta, ver
-           HTML/portal-v2/paletas-guardadas.css y cambiar el data-theme del <html>. */
+           HTML/portal-dev/paletas-guardadas.css y cambiar el data-theme del <html>. */
         [data-theme="tierra"] {
             --bg:            #f3ede2;
             --surface:       #fffdf8;
@@ -871,159 +871,6 @@
         /* Los sliders y el porcentaje del espectro no deben empujar el ancho. */
         .field output { white-space: nowrap; }
     </style>
-    <!-- ===================================================================
-         MODO PREVIEW (mock) — SOLO PARA PROBAR EN EL NAVEGADOR SIN ESP32
-         ===================================================================
-         ARCHIVO GENERADO por scripts/gen_preview_v2.py — NO EDITAR A MANO.
-         Es una COPIA de mainForm.html con un simulador del firmware inyectado.
-         NO se sirve desde el dispositivo. La fuente de verdad es mainForm.html.
-
-         Qué simula:
-           - /getparams  -> cultivo de ejemplo, hasRegisteredUser + sessionValid
-                            en true, así arranca en el dashboard y la compuerta
-                            de auth se cruza sola (sin pedir login).
-           - /wifiscan, /wificredentials, /newparams, /exit -> respuestas OK.
-           - /otaupdate  -> simula progreso de subida y éxito.
-         Cambia MOCK.params abajo para probar otros escenarios (p.ej.
-         hasRegisteredUser:false para ver welcome/registro).
-    -->
-    <script>
-    (function () {
-        "use strict";
-
-        const MOCK = {
-            // Estado del dispositivo simulado. Edítalo para probar escenarios.
-            params: {
-                hasRegisteredUser: true,   // false -> arranca en welcome/registro
-                sessionValid: true,       // false -> dashboard en modo lectura (muestra el banner); true -> se salta el login
-                wifiConnected: false,
-                wifiSsid: "",
-                firmwareVersion: "1.0.0-preview",
-                rtcValid: true,            // false -> la pastilla pasa a "En espera" y dia/semana a "—"
-                planta: "Albahaca",
-                enable: true,
-                fpOn: 18, fpOff: 6,
-                ledAzul: 70, ledRojo: 45, ledBlanco: 1,
-                irrH: 3, irrM: 15, ventH: 6, ventM: 20,
-                dia: 34, semana: 5
-            },
-            networks: [
-                { ssid: "MiRed",   rssi: -48, secure: true },
-                { ssid: "Vecino",  rssi: -71, secure: false },
-                { ssid: "IoT_2G",  rssi: -80, secure: true }
-            ]
-        };
-
-        // El portal guarda el token en localStorage y algunos botones (p. ej. "Iniciar
-        // cultivo nuevo") abortan si está vacío. Con sessionValid en true se siembra uno
-        // para que esos flujos se puedan probar sin pasar por el login.
-        if (MOCK.params.sessionValid) {
-            try { localStorage.setItem("spToken", "preview-token"); } catch (e) {}
-        }
-
-        const json = (obj, status = 200) => Promise.resolve({
-            ok: status >= 200 && status < 300,
-            status,
-            json: () => Promise.resolve(obj),
-            text: () => Promise.resolve(JSON.stringify(obj))
-        });
-
-        // ---- Intercepta fetch ----
-        const realFetch = window.fetch;
-        window.fetch = function (url, opts) {
-            const u = String(url);
-            const okMsg = (message) => json({ status: true, message });
-
-            if (u.startsWith("/getparams")) return json(MOCK.params);
-            if (u.startsWith("/usercredentials")) {
-                MOCK.params.hasRegisteredUser = true;
-                MOCK.params.sessionValid = true;
-                return json({ status: true, message: "Usuario registrado.", token: "preview-token" });
-            }
-            if (u.startsWith("/authusercredentials")) {
-                const body = opts && opts.body ? JSON.parse(opts.body) : {};
-                if (body.pass === "**reset**") return json({ status: true, message: "Equipo restaurado (simulado)." });
-                MOCK.params.sessionValid = true;
-                return json({ status: true, message: "Acceso concedido.", token: "preview-token" });
-            }
-            if (u.startsWith("/newparams")) {
-                try { Object.assign(MOCK.params, JSON.parse(opts.body)); } catch (e) {}
-                return okMsg("Parámetros actualizados (simulado).");
-            }
-            if (u.startsWith("/newcrop")) {
-                // Emula el firmware: borra datos del cultivo, conserva cuenta y Wi-Fi.
-                Object.assign(MOCK.params, {
-                    planta: "", enable: false, fpOn: 0, fpOff: 0,
-                    ledAzul: 0, ledRojo: 0, ledBlanco: 0,
-                    irrH: 0, irrM: 0, ventH: 0, ventM: 0,
-                    dia: 0, semana: 0
-                });
-                return json({ status: true, message: "Cultivo reiniciado. Configura los parámetros del nuevo cultivo para comenzar." });
-            }
-            if (u.startsWith("/wifiscan")) {
-                // Emula el escaneo asincrono del firmware: la primera llamada responde
-                // scanning=true y la siguiente ya entrega la lista.
-                MOCK._scanCalls = (MOCK._scanCalls || 0) + 1;
-                if (MOCK._scanCalls % 2 === 1) return json({ scanning: true, networks: [] });
-                return json({ scanning: false, networks: MOCK.networks });
-            }
-            if (u.startsWith("/wificredentials")) {
-                try {
-                    const b = JSON.parse(opts.body);
-                    MOCK.params.wifiConnected = true;
-                    MOCK.params.wifiSsid = b.ssid || "MiRed";
-                } catch (e) {}
-                return okMsg("Conexión iniciada (simulado).");
-            }
-            if (u.startsWith("/exit")) return okMsg("Desconectado (simulado). Puedes cerrar esta ventana.");
-            return realFetch ? realFetch(url, opts) : json({}, 404);
-        };
-
-        // ---- Intercepta XMLHttpRequest (lo usa la subida OTA) ----
-        const RealXHR = window.XMLHttpRequest;
-        window.XMLHttpRequest = function () {
-            const u = { method: "GET", url: "" };
-            const listeners = {};
-            const uploadListeners = {};
-            const api = {
-                upload: { addEventListener: (t, cb) => { (uploadListeners[t] = uploadListeners[t] || []).push(cb); } },
-                addEventListener: (t, cb) => { (listeners[t] = listeners[t] || []).push(cb); },
-                open: (m, url) => { u.method = m; u.url = url; },
-                setRequestHeader: () => {},
-                status: 0,
-                responseText: "",
-                send: function () {
-                    // Simula progreso de subida y luego éxito, para ver la vista flashing.
-                    const emitUp = (t, e) => (uploadListeners[t] || []).forEach((cb) => cb(e));
-                    const emit = (t, e) => (listeners[t] || []).forEach((cb) => cb(e));
-                    let pct = 0;
-                    const timer = setInterval(() => {
-                        pct += 20;
-                        emitUp("progress", { lengthComputable: true, loaded: pct, total: 100 });
-                        if (pct >= 100) {
-                            clearInterval(timer);
-                            setTimeout(() => {
-                                api.status = 200;
-                                api.responseText = JSON.stringify({ status: true, message: "Firmware instalado (simulado)." });
-                                emit("load", {});
-                            }, 600);
-                        }
-                    }, 400);
-                }
-            };
-            return api;
-        };
-
-        // Aviso visible de que esto es preview.
-        document.addEventListener("DOMContentLoaded", () => {
-            const b = document.createElement("div");
-            b.textContent = "MODO PREVIEW — datos simulados, sin dispositivo";
-            b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;" +
-                "background:#ff9800;color:#000;font:600 12px system-ui;text-align:center;padding:4px";
-            document.body.appendChild(b);
-        });
-    })();
-    </script>
 </head>
 
 <body>
@@ -1218,12 +1065,12 @@
                     <h3>Fotoperiodo</h3>
                     <div class="field-row">
                         <div class="field">
-                            <label for="fpOn">Prendido (0–23 hr)</label>
-                            <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" required>
+                            <label for="fpOn">Prendido (hr)</label>
+                            <input type="number" id="fpOn" name="fpOn" min="0" max="23" step="1" placeholder="0–23" required>
                         </div>
                         <div class="field">
-                            <label for="fpOff">Apagado (0–23 hr)</label>
-                            <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" required>
+                            <label for="fpOff">Apagado (hr)</label>
+                            <input type="number" id="fpOff" name="fpOff" min="0" max="23" step="1" placeholder="0–23" required>
                         </div>
                     </div>
                 </div>
@@ -1266,7 +1113,7 @@
                         </div>
                         <div class="field">
                             <label for="irrM">Duración (minutos)</label>
-                            <input type="number" id="irrM" name="irrM" min="0" max="59" step="1" required>
+                            <input type="number" id="irrM" name="irrM" min="0" max="59" step="1" placeholder="0–59" required>
                         </div>
                     </div>
                 </div>
@@ -1280,7 +1127,7 @@
                         </div>
                         <div class="field">
                             <label for="ventM">Duración (minutos)</label>
-                            <input type="number" id="ventM" name="ventM" min="0" max="59" step="1" required>
+                            <input type="number" id="ventM" name="ventM" min="0" max="59" step="1" placeholder="0–59" required>
                         </div>
                     </div>
                 </div>
@@ -1434,9 +1281,9 @@
         /* Etiquetas legibles: la llave es el INTERVALO en horas. */
         const FREQ_LABELS = {
             0: "Apagado",
-            1: "Cada hora (24 × día)", 2: "Cada 2 h (12 × día)", 3: "Cada 3 h (8 × día)",
-            4: "Cada 4 h (6 × día)", 6: "Cada 6 h (4 × día)", 8: "Cada 8 h (3 × día)",
-            12: "Cada 12 h (2 × día)", 24: "Una vez al día", 48: "Cada 2 días",
+            1: "Cada hora", 2: "Cada 2 horas", 3: "Cada 3 horas",
+            4: "Cada 4 horas", 6: "Cada 6 horas", 8: "Cada 8 horas",
+            12: "Cada 12 horas", 24: "Una vez al día", 48: "Cada 2 días",
             72: "Cada 3 días", 168: "Una vez por semana"
         };
 
@@ -1716,8 +1563,12 @@
             $("dashStatus").classList.toggle("is-off", !activo || !horaOk);
             // Sin hora fiable la edad del cultivo no es calculable: el firmware manda
             // 0 y pintar "0" afirmaría algo falso.
+            // "Día" es el día DENTRO de la semana (1–7), derivado del día TOTAL que
+            // manda el firmware: (total-1) % 7 + 1. La semana la manda ya calculada.
             $("dashSemana").textContent = horaOk ? (p.semana ?? "—") : "—";
-            $("dashDia").textContent = horaOk ? (p.dia ?? "—") : "—";
+            $("dashDia").textContent = (horaOk && Number(p.dia) > 0)
+                ? ((Number(p.dia) - 1) % 7 + 1)
+                : "—";
             // Fotoperiodo: se muestran las HORAS de luz y de oscuridad (duración),
             // no las horas de reloj. El ciclo puede cruzar medianoche (fpOff < fpOn),
             // por eso el +24 % 24. Si falta algún dato, fallback "—". El firmware y
@@ -1767,15 +1618,20 @@
             const p = params;
             $("planta").value = p.planta || "";
             $("enable").checked = p.enable === true || p.enable === "true";
-            $("fpOn").value = p.fpOn ?? 0;
-            $("fpOff").value = p.fpOff ?? 0;
+            // Cultivo SIN configurar (día 0 = sin anclar): los campos numéricos de
+            // texto llegan VACÍOS en vez de "0" (menos ruido visual y evita guardar
+            // un 0 por un toque accidental). Con cultivo ya configurado se llenan con
+            // su valor real (incluido un 0 legítimo). Sliders/selects no aplican.
+            const sinConfig = Number(p.dia) === 0;
+            $("fpOn").value = sinConfig ? "" : (p.fpOn ?? "");
+            $("fpOff").value = sinConfig ? "" : (p.fpOff ?? "");
             $("ledAzul").value = p.ledAzul ?? 0;
             $("ledRojo").value = p.ledRojo ?? 0;
             $("ledBlanco").checked = Number(p.ledBlanco) > 0;
             $("irrH").value = p.irrH ?? 0;
-            $("irrM").value = p.irrM ?? 0;
+            $("irrM").value = sinConfig ? "" : (p.irrM ?? "");
             $("ventH").value = p.ventH ?? 0;
-            $("ventM").value = p.ventM ?? 0;
+            $("ventM").value = sinConfig ? "" : (p.ventM ?? "");
             sincronizarSliders();
         }
 
