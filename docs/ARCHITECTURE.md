@@ -27,20 +27,20 @@ HTML/
 ```
 
 ### Convención importante (leer antes de tocar formularios)
-- **Edita siempre `HTML/mainForm.html`** (legible y comentado). Es la fuente de verdad.
-- **`ESP32_controller/mainForm.h` es un artefacto generado**: el mismo HTML pero **sin
-  comentarios** (los comentarios viven solo en el `.html` de respaldo) y envuelto en el
-  raw-string C. Es lo que el dispositivo sirve; **no se edita a mano**.
-- Quitar los comentarios del `.h` **ya casi no ahorra nada**: medido hoy, el fuente son
-  75,353 bytes y el artefacto 74,879 (~73 KB), es decir **474 bytes (0.6 %)**. El
-  generador solo elimina comentarios de **línea completa**, y al crecer el portal la
-  proporción de esas líneas es marginal. El ahorro real está en
-  **gzip** (~12–18 KB estimados), todavía pendiente.
+- **Edita siempre la fuente HTML** (legible y comentada), nunca el artefacto. Hay dos pistas:
+  la **estable** (`HTML/mainForm.html`) y la de **desarrollo** (`HTML/portal-dev/mainForm.html`).
+- **`ESP32_controller/mainForm.h` es un artefacto generado**: el HTML (sin comentarios de
+  línea completa) **comprimido con gzip** y embebido como arreglo de bytes en PROGMEM
+  (`mainForm_gz` + `mainForm_gz_len`). Es lo que el dispositivo sirve; **no se edita a mano**.
+  Se produce con `python3 scripts/gen_mainform.py` (estable) o `--dev` (desarrollo).
+- **gzip es el ahorro real**: el HTML (~93 KB) baja a **~16 KB (−83 %)** en el `.h`. (Quitar
+  comentarios por sí solo ahorraba <1 %; el peso lo quita gzip.) El navegador descomprime
+  solo; el firmware únicamente declara `Content-Encoding: gzip` en `handleRoot`.
 - Generar el `.h` desde el `.html`: strip de comentarios HTML (`<!-- -->`), CSS (`/* */`)
-  y JS (`//`) + colapso de líneas en blanco + wrapper `static const char mainForm[] = R"===(` … `)===";`.
-  Tras generar, vale la pena un `node --check` sobre el `<script>` para confirmar que el
-  strip no rompió sintaxis. Para verificar que ambos archivos coinciden: regenera a un
-  temporal y haz `diff` contra el `.h` del repo (deben salir idénticos).
+  y JS (`//`) → **gzip -9 determinista** (`mtime=0`) → arreglo de bytes PROGMEM. Tras generar,
+  vale la pena un `node --check` sobre el `<script>` del fuente para confirmar que el strip no
+  rompió sintaxis. Verificación de integridad: descomprimir el `.gz` del `.h` debe devolver
+  exactamente el HTML limpio.
 - **`HTML/mainForm.preview.html` es el otro artefacto generado** (`scripts/gen_preview.py`):
   el mismo portal con un mock de `fetch` inyectado antes de `</head>`, que responde los 8
   endpoints con datos simulados y sin validar token. Igual que el `.h`, **no se edita a
@@ -308,7 +308,7 @@ segundos; la config se aplica en vivo, así que solo `**reset**` reinicia el equ
 
 ## Portal V2 (en desarrollo, aún no homologado)
 
-Existe una reescritura del portal en `HTML/portal-v2/mainForm.html`. **Todavía NO
+Existe una reescritura del portal en `HTML/portal-dev/mainForm.html`. **Todavía NO
 es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.html`
 → `mainForm.h`). La V2 vive aparte como borrador y no está en el artefacto servido.
 
@@ -358,13 +358,14 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   Cambiar de paleta es editar un atributo:
 
   ```html
-  <html lang="es" data-theme="invernadero">   <!-- invernadero (claro, por defecto) · tierra · slate · neon -->
+  <html lang="es" data-theme="tierra">   <!-- tierra (claro, embebida hoy) · invernadero · slate · verde-oscuro -->
   ```
 
   Cada paleta define el **mismo juego de 18 variables** de color, así que
-  ninguna queda a medias heredando un color de otra. El tema por defecto es
-  **invernadero** (claro, verde natural); las demás candidatas viven en
-  `HTML/portal-v2/paletas-guardadas.css` y se activan cambiando el `data-theme`.
+  ninguna queda a medias heredando un color de otra. Hoy la pista de desarrollo
+  tiene embebida **tierra** (clara); las demás candidatas —invernadero y slate
+  (claras) y **verde-oscuro** (oscura, verde)— viven en
+  `HTML/portal-dev/paletas-guardadas.css` y se activan cambiando el `data-theme`.
 
   > **Invariante:** el cambio de vista usa el atributo `hidden`, no clases, y lo sostiene
   > `[hidden] { display: none !important; }`. Si una regla de `.view` ganara especificidad
@@ -386,29 +387,34 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
 
 **Qué le falta para homologarse:**
 1. ~~**CSS / estilos**~~ — **implementado**: la V2 ya tiene su hoja de estilos
-   completa sobre la paleta **invernadero** (tema claro por defecto). Están estilizados
+   completa, con **paletas intercambiables** (hoy embebe la clara *tierra*). Están estilizados
    contenedor, tipografía, campos (inputs/selects/sliders/toggles y el desplegable de
-   espectro avanzado), botones (`.primary`/`.secondary`/`.discreet`/`.crop-reset`),
+   espectro avanzado), botones (`.primary`/`.secondary`/`.crop-reset`),
    dashboard (hero, secciones, ítems y la fila de íconos sin recuadro), notificaciones
    (toast + banner + validación por campo) y los componentes de wifi/ota/flashing.
    Todos los selectores referencian **solo variables** de paleta. Pendiente: repaso
-   visual fino/responsive. Más paletas para probar en `HTML/portal-v2/paletas-guardadas.css`.
+   visual fino/responsive. Más paletas para probar en `HTML/portal-dev/paletas-guardadas.css`.
 2. ~~**Endpoint OTA en el firmware**~~ — **ya implementado**: `POST /otaupdate` existe en
    `ESP32_controller.ino` (librería `Update`, doble slot vía `partitions.csv`). El cliente
    de la V2 sube el `.bin` por `multipart` con el token en el header `Authorization: Bearer`.
 3. ~~**`firmwareVersion` en `/getparams`**~~ — **ya implementado**: el firmware lo
    expone desde la constante de compilación `firmwareVersion` (`Constants.h`).
-4. **Promover** `portal-v2/mainForm.html` → `HTML/mainForm.html`, regenerar
-   `mainForm.h` y actualizar esta doc (la máquina de estados cambia).
+4. **Modelo de dos pistas (estable + desarrollo).** El portal se mantiene en dos pistas
+   permanentes: la **estable** (`HTML/mainForm.html`) y la de **desarrollo**
+   (`HTML/portal-dev/mainForm.html`, donde se prueban features nuevas: temperatura/humedad,
+   etc.). El firmware sirve **un solo** `mainForm.h`, así que se **promueve** la pista que se
+   quiera con el generador parametrizado: `python3 scripts/gen_mainform.py` (estable) o
+   `python3 scripts/gen_mainform.py --dev` (desarrollo). Al promover la de desarrollo hay que
+   actualizar esta doc (la máquina de estados y el portal servido cambian).
 
-**Cómo probarla sin dispositivo:** hay una copia con firmware simulado en
-`HTML/portal-v2/mainForm.preview.html` (mock de `fetch`/`XHR`). Se abre directo en
-el navegador; arranca en el dashboard sin login y simula Wi-Fi, guardado y OTA.
-**Es un artefacto generado**: se regenera desde el fuente con
-`python3 scripts/gen_preview_v2.py` (inyecta el mock antes de `</head>`), igual que
-`gen_preview.py` para la V1. **No se sirve desde el ESP32 ni se regenera a `mainForm.h`.**
-La fuente de verdad de la V2 es `mainForm.html` (sin mock). Editar `MOCK.params` dentro
-del generador cambia el escenario (p. ej. `hasRegisteredUser:false` → arranca en `welcome`).
+**Cómo probarla sin dispositivo:** cada pista tiene su preview con firmware simulado
+(`mainForm.preview.html`), que se **genera** desde su fuente —`gen_preview.py` para la
+estable, `gen_preview_dev.py` para desarrollo— inyectando un mock de `fetch`/`XHR` antes de
+`</head>`. Se abre directo en el navegador; arranca en el dashboard sin login y simula Wi-Fi,
+guardado y OTA. **El preview no se sirve desde el ESP32 ni se regenera a `mainForm.h`.** La
+fuente de verdad de cada pista es su `mainForm.html` (sin mock). Cada mock puede divergir a
+propósito (la pista de desarrollo simula lo que va probando); editar `MOCK.params` en el
+generador cambia el escenario (p. ej. `hasRegisteredUser:false` → arranca en `welcome`).
 
 ---
 
@@ -417,7 +423,7 @@ Ver el detalle de payloads, validaciones y catálogo de errores en **[`API.md`](
 
 | Método | Ruta                  | Handler                  | Propósito |
 |--------|-----------------------|--------------------------|-----------|
-| GET    | `/`                   | `handleRoot`             | Sirve el HTML único (`mainForm`) vía `send_P` (directo desde flash, sin copiarlo a un `String` de ~73 KB en cada request) |
+| GET    | `/`                   | `handleRoot`             | Sirve el portal (`mainForm_gz`, HTML gzip) con `Content-Encoding: gzip` vía `send_P` directo desde flash (sin `String` temporal); el navegador lo descomprime |
 | GET    | `/getparams`          | `handleGetParameters`    | Estado del dispositivo en JSON (incluye `hasRegisteredUser`; con `?token=`, `sessionValid`; y siempre `wifiConnected`/`wifiSsid`) |
 | POST   | `/usercredentials`    | `handleUserCredentials`  | Alta de usuario (primer arranque). No reinicia; **devuelve `token`** de sesión |
 | POST   | `/authusercredentials`| `handleAuthUserCredentials` | Login para desbloquear edición; **devuelve `token`**; intercepta `**reset**` |
@@ -577,47 +583,50 @@ No hace falta ninguna acción especial ni un endpoint aparte.
 > (`_rtcValid` y `_cropStartDay`); faltaría exponer ese segundo bit.
 
 ## Propuesta: servir el HTML comprimido (gzip) para mayor performance
+## Servir el HTML comprimido (gzip) — implementado
 
-Hoy el HTML se embebe como texto (`mainForm.h`, ~73 KB tras quitarle los comentarios).
-Comprimirlo con gzip suele reducirlo a ~12–18 KB, lo que significa **menos flash
-ocupado**, menos chunks por el AP y carga más rápida del portal. Los navegadores
-descomprimen gzip de forma transparente; solo hay que declarar el encabezado
-`Content-Encoding: gzip`. Esto está **pendiente de implementar** (este directorio es la
-variante "sin comprimir"); se documenta aquí la vía recomendada.
+El portal se embebe **comprimido con gzip**: el `.h` ya no es texto crudo sino el HTML
+gzipeado como arreglo de bytes. Medido: el HTML limpio (~93 KB) baja a **~16 KB en el `.h`
+(−83 %)** → menos flash ocupado, menos chunks por el AP y carga más rápida. Los navegadores
+descomprimen gzip de forma transparente; el firmware solo declara `Content-Encoding: gzip`.
 
-### Flujo propuesto
-1. **Editar siempre el HTML sin comprimir** (`mainForm.h` / `HTML/mainForm.html`) como
-   fuente de verdad. El `.gz` es un artefacto generado, nunca se edita a mano.
-2. **Comprimir** el HTML:
-   ```bash
-   gzip -9 -c HTML/mainForm.html > mainForm.html.gz
-   ```
-3. **Convertir a arreglo de bytes** en un header (PROGMEM):
-   ```bash
-   xxd -i mainForm.html.gz > ESP32_controller/mainForm_gz.h
-   ```
-   Genera algo como `unsigned char mainForm_html_gz[] = {...};` y
-   `unsigned int mainForm_html_gz_len = NNNN;`. Conviene marcarlo `PROGMEM` y, si se quiere,
-   renombrar el símbolo a `mainForm_gz`.
-4. **Servir con el encabezado de codificación** en `handleRoot` (`ESP32_controller.ino`).
-   Como es binario (no una cadena terminada en nulo), debe enviarse con longitud explícita
-   vía `send_P`:
-   ```cpp
-   void handleRoot() {
-     server.sendHeader("Content-Encoding", "gzip");
-     server.send_P(200, "text/html", (const char*)mainForm_gz, mainForm_gz_len);
-   }
-   ```
+### Flujo (integrado en `gen_mainform.py`)
+La compresión es parte del generador del `.h`, no un paso manual, para que **nunca se
+desincronice** del fuente. Un solo comando produce el `.h` de la pista elegida:
+
+```bash
+python3 scripts/gen_mainform.py          # estable -> ESP32_controller/mainForm.h (gzip)
+python3 scripts/gen_mainform.py --dev     # desarrollo (portal-dev)
+```
+
+Internamente: limpia comentarios → `gzip.compress(..., compresslevel=9, mtime=0)` → emite
+
+```cpp
+static const unsigned char mainForm_gz[] PROGMEM = { 0x1f, 0x8b, ... };
+static const unsigned int  mainForm_gz_len = 16023;
+```
+
+`mtime=0` hace la salida **determinista** (mismo HTML → mismos bytes; no cambia por el
+timestamp que gzip incrusta por defecto), para que el `.h` no genere diffs espurios.
+
+### Servido en `handleRoot`
+Al ser binario (contiene bytes nulos) se envía con longitud explícita:
+
+```cpp
+void handleRoot() {
+  server.sendHeader("Content-Encoding", "gzip");
+  server.send_P(200, "text/html", (const char*)mainForm_gz, mainForm_gz_len);
+}
+```
 
 ### Consideraciones
-- **Regenerar el `.gz` en cada cambio de UI**, idealmente como paso de build (script o
-  target), para que no quede desincronizado del HTML fuente. Es el mismo riesgo de
-  sincronía que ya existe entre `mainForm.h` y `HTML/mainForm.html`.
-- Mantener `mainForm.h` (crudo) o sustituirlo por el `_gz.h` es decisión de tamaño vs.
-  conveniencia de depurar; lo habitual es **dejar solo el `.gz` en producción** y conservar
-  el crudo para desarrollo.
-- No afecta a las rutas POST (JSON) ni a `/getparams`: solo cambia cómo se entrega el HTML.
-- `send_P` requiere longitud explícita porque el contenido gzip contiene bytes nulos.
+- **Se regenera el `.h` en cada cambio de UI** con el mismo generador; mismo riesgo de
+  sincronía que ya existía entre el `.h` y el `.html`, pero cubierto por un único comando.
+- En producción vive **solo el `.gz`** (no se guarda el crudo en el `.h`); la fuente de
+  verdad para depurar es el `.html` legible.
+- **No afecta** a las rutas POST (JSON) ni a `/getparams`: solo cambia cómo se entrega el HTML.
+- Verificación de integridad: descomprimir el arreglo del `.h` debe devolver exactamente el
+  HTML limpio (round-trip), y los bytes deben empezar con el magic gzip `1f 8b`.
 
 ## Sesión persistente con token (implementada)
 

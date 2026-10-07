@@ -75,9 +75,12 @@ Sirve la página única del portal (el HTML embebido en `mainForm.h`).
 |---|---|
 | Handler | `handleRoot` |
 | Entrada | — |
-| Respuesta | `text/html` |
+| Respuesta | `text/html` con `Content-Encoding: gzip` |
 
-Se usa `send_P` para servir el HTML por trozos directo desde flash, evitando un `String` temporal de ~50 KB que podía agotar el heap en modo AP+STA.
+El portal se sirve **comprimido con gzip** (`mainForm_gz`, ~16 KB) con el encabezado
+`Content-Encoding: gzip`; el navegador lo descomprime. Se entrega con `send_P` directo desde
+flash (longitud explícita, por ser binario), evitando un `String` temporal que podía agotar
+el heap en modo AP+STA.
 
 ---
 

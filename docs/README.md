@@ -52,6 +52,6 @@
 | Hardware | Prototipo; PCB de la versión ESP32 en [`ESP32_Board/`](../ESP32_Board) (KiCad) |
 | Seguridad del portal | Los tres huecos resueltos: contraseña con PBKDF2, reset restringido al AP y límite de intentos de login — [ARCHITECTURE.md](ARCHITECTURE.md#huecos-de-seguridad-identificados-y-su-resolución) |
 | OTA local | Implementada: endpoint `POST /otaupdate` (firmware, librería `Update`) + `partitions.csv` de doble slot + cliente en **ambos portales** (V1 y V2). Falta probar el flujo completo en hardware — [ARCHITECTURE.md](ARCHITECTURE.md#otaupdate) |
-| Portal gzip | Propuesta con flujo definido; sin implementar — [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Portal gzip | Implementado: `gen_mainform.py` comprime el HTML (~93 KB → ~16 KB) y `handleRoot` lo sirve con `Content-Encoding: gzip`. Falta probar en hardware — [ARCHITECTURE.md](ARCHITECTURE.md#servir-el-html-comprimido-gzip) |
 | Backend | Auth + provisión + config/telemetría + lecturas app-facing **implementados y verificados** end-to-end; faltan OTA/admin y MQTT — [BACKEND.md](BACKEND.md) / [API-backend.md](API-backend.md) |
 | OTA segura | No iniciada; estrategia analizada en [ARCHITECTURE.md](ARCHITECTURE.md) |

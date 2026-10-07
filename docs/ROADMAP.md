@@ -112,7 +112,9 @@ Arduino-ESP32 puede compilarse **como componente dentro de un proyecto ESP-IDF**
 
 - [ ] `esp_http_server`: los 10 endpoints (`/`, `/usercredentials`, `/getparams`, `/newparams`, `/newcrop`, `/authusercredentials`, `/wifiscan`, `/wificredentials`, `/exit`, `onNotFound`)
 - [ ] Servir el portal por **chunks** desde flash (`httpd_resp_send_chunk`) — resuelve el pico de heap por diseño
-- [ ] **gzip** (`Content-Encoding: gzip`) para el portal (pendiente histórico del roadmap)
+- [ ] **gzip** (`Content-Encoding: gzip`) para el portal — **ya implementado en Arduino**
+      (`gen_mainform.py` comprime y `handleRoot` sirve con el encabezado); aquí solo se
+      portaría el mismo esquema a IDF al migrar `handleRoot`.
 - [ ] Autorización del reset por interfaz de AP (equivalente a comparar la IP local del socket con la del SoftAP)
 - [ ] Servidor DNS captivo propio (responde la IP del AP a todas las consultas)
 - [ ] Endpoint **`POST /otaupdate`** (subir `.bin` por el AP) usando `esp_ota_ops`
