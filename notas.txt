@@ -160,4 +160,623 @@ Sensores de temperatura/humedad.
   - Constantes muertas: intervalToSend, buzzerOn, buzzerOff.
   - El buzzer tiene pin y constantes pero está comentado y sin implementar.
 
+GEMINI
+
+Para tu proyecto con el ESP32-C3, el principal reto es que sus pines digitales operan a 3.3V y tienen una corriente de salida máxima baja. Necesitas etapas de potencia que se activen con total seguridad a este voltaje y que estén disponibles en el catálogo básico (Basic Parts) de JLCPCB o distribuidores globales para evitar componentes obsoletos.
+Aquí tienes la solución más económica, comercial y fácil de implementar, dividida por cada tipo de salida.
+------------------------------
+## 1. Etapa para los Mosfets (Tiras LED Dimeables a 1 kHz)
+Para controlar arreglos LED dimeables mediante PWM a 1 kHz, no uses optoacopladores. A esa frecuencia, un optoacoplador común (como el PC817) es demasiado lento y deformará la señal, haciendo que los LEDs parpadeen o no apaguen por completo.
+La mejor opción es usar un Mosfet de nivel lógico (Logic-Level) de canal N, diseñado para abrirse por completo con los 3.3V del ESP32-C3.
+
+* Componente recomendado: AO3400A (Montaje superficial SMT, encapsulado SOT-23) o IRLZ44N (Si prefieres montaje de inserción Thru-Hole, encapsulado TO-220).
+* Por qué elegirlo: El AO3400A es una "Pieza Básica" en JLCPCB, extremadamente económica y se activa totalmente con menos de 2.5V en la compuerta (Gate). Soporta hasta 30V y 5.7A, ideal para tiras LED de 12V o 24V.
+* Circuito de control: Muy simple. Conecta el pin del ESP32 directamente a la compuerta (Gate) del Mosfet a través de una resistencia de 100 ohms (para proteger el pin). Coloca una resistencia de pulso a tierra (Pull-down de 10k ohms) entre la compuerta y GND para asegurar que los LEDs permanezcan apagados mientras el ESP32 se enciende.
+
+------------------------------
+## 2. Etapa para Relevadores (Ventilador, Bomba y Lámpara)
+Para activar las bobinas de los relevadores, siempre debes usar bobinas de Corriente Directa (DC) (típicamente de 5V o 12V, dependiendo de la fuente de alimentación que uses para tu circuito). Controlar la bobina con AC complicaría innecesariamente tu PCB. Los contactos del relevador (la salida) sí controlarán los aparatos de AC (110V/220V) de tu cultivo.
+Para proteger el ESP32-C3 de ruidos eléctricos provocados por la bomba y los motores, la optoaislación es altamente recomendada.
+## Opción A: La solución clásica con Optoacoplador (Totalmente aislada)
+
+* Optoacoplador: PC817 (o su versión SMD EL817). Es el más común del mundo, ultra barato y disponible en cualquier tienda local o JLCPCB.
+* Activador de la bobina: El optoacoplador por sí solo no puede corriente suficiente para activar la bobina del relevador. Necesitas un transistor intermedio. Se usa el un transistor NPN común como el S8050 o 2N2222.
+* Circuito de control: El pin del ESP32 enciende el LED interno del PC817 (usa una resistencia de 330 ohms). El transistor de salida del PC817 activa la base del transistor S8050, el cual finalmente energiza la bobina del relevador. Indispensable: Coloca un diodo de protección en paralelo con la bobina del relevador (como el 1N4148 o 1N4007) para absorber los picos de voltaje al apagarla.
+
+## Opción B: Integrado Darlington (La más limpia y económica para JLCPCB)
+Si no requieres aislamiento óptico estricto pero quieres ahorrar espacio y componentes:
+
+* Componente recomendado: ULN2003A o TBD62003APG.
+* Por qué elegirlo: Es un circuito integrado que contiene 7 canales de transistores listos para manejar relevadores. Ya incluye los diodos de protección internos. Puedes conectar los pines del ESP32-C3 directamente a las entradas del ULN2003, y las salidas directo a los relevadores de 5V o 12V. Es una pieza estándar global que jamás estará obsoleta.
+
+------------------------------
+## Resumen de Selección de Componentes
+
+| Salida | Componente Clave | Tipo / Encapsulado | Función en el circuito | Disponibilidad en JLCPCB |
+|---|---|---|---|---|
+| PWM (LEDs) | AO3400A | Mosfet N-Chan (SOT-23) | Conmutación rápida a 1kHz con señal de 3.3V. | Alta (Pieza Básica) |
+| Relevador | PC817 / EL817 | Optoacoplador (DIP-4 / SOP-4) | Aislar eléctricamente el ESP32 de los ruidos. | Alta (Pieza Básica) |
+| Relevador | S8050 o 2N2222 | Transistor NPN (SOT-23 / TO-92) | Amplificar la corriente para activar la bobina. | Alta (Pieza Básica) |
+| Protección | 1N4148 o 1N4007 | Diodo (SOD-123 / DO-35) | Diodo volante (Flyback) para la bobina. | Alta (Pieza Básica) |
+
+Para ayudarte a cerrar el diseño de tu circuito, ¿podrías decirme:
+
+* ¿A qué voltaje operan tus arreglos de LEDs dimeables (12V, 24V o corriente constante)?
+* ¿De qué voltaje planeas alimentar la etapa de control y las bobinas de los relevadores (ej. usarás una fuente de 5V o de 12V)?
+
+Con esto te puedo compartir los diagramas exactos de conexión con los valores de las resistencias.
+
+CHATGPT
+
+Tu arquitectura puede ser bastante sencilla. **Yo evitaría diseñar la etapa alrededor de optoacopladores hasta decidir si realmente necesitas aislamiento galvánico**. Para un ESP32-C3, en la mayoría de estos casos puedes hacer una etapa de potencia con MOSFETs directamente desde GPIO y reservar los optoacopladores para las partes que realmente estén conectadas a red eléctrica.
+
+Además, hay una decisión de diseño que te simplifica muchísimo el proyecto: **elige relevadores con bobina DC**, preferentemente de 5 V o 12 V, aunque sus contactos puedan conmutar cargas AC de 120/230 V.
+
+## 1\. Arquitectura que te recomendaría
+
+Para tus 5 salidas:
+
+```
+                         ESP32-C3
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+          GPIO RELAY    GPIO PWM       GPIO PWM
+              │             │             │
+              ▼             ▼             ▼
+        Driver MOSFET    MOSFET N       MOSFET N
+              │             │             │
+          Bobina relay   LED array 1   LED array 2
+              │
+           +5/+12 V
+```
+
+Y para ventilador/bomba/lámpara:
+
+```
+ESP32 GPIO
+    │
+    ├── 100 Ω
+    │
+    ▼
+  Gate
+   ┌───┐
+   │ N │ MOSFET
+   └─┬─┘
+     │
+     ├──────── carga
+     │
+    GND
+```
+
+Si esas cargas son, por ejemplo, **ventiladores/bombas de 12/24 V DC**, ni siquiera necesitas un relevador: puedes usar MOSFET directamente.
+
+Si son cargas de **120/230 VAC**, entonces sí usaría relevadores.
+
+---
+
+# 2\. Para los relevadores: usa bobinas DC
+
+Esta es probablemente la decisión más importante.
+
+Un relevador puede tener:
+
+- bobina de 5 V DC
+- bobina de 12 V DC
+- bobina de 24 V DC
+- bobina de 120 VAC
+- bobina de 230 VAC
+
+Pero **para tu PCB yo escogería deliberadamente uno de 5, 12 o 24 V DC**.
+
+Por ejemplo:
+
+- TE Connectivity PCB Power Relay 5V DC CoilMX$61.72LionCircuits + others★ 5
+
+Un relevador con bobina DC se puede controlar así:
+
+```
+              +12 V
+                │
+                │
+             BOBINA
+                │
+                ├─────────|<|──────── +12 V
+                │        Diodo
+                │
+              Drain
+                │
+             MOSFET
+                │
+              Source
+                │
+               GND
+```
+
+El ESP32 solamente controla el **gate**.
+
+### MOSFET para la bobina
+
+Aquí no necesitas nada sofisticado.
+
+Por ejemplo:
+
+- 2N7002
+- BSS138
+- AO3400A
+- IRLML2502
+- Si2302
+
+De esos, **AO3400A sería uno de mis favoritos para tu proyecto** si quieres algo muy común y con bastante margen.
+
+- AO3400A MOSFETMX$0.36Richard Electronics★ 5
+
+El 2N7002 también es extremadamente común:
+
+- MMBT7002K-AQMX$3.06DigiKey Mexico
+
+Pero el 2N7002 tiene bastante menos capacidad de corriente. Para una bobina pequeña puede funcionar perfectamente; para hacer una PCB más universal, prefiero AO3400A.
+
+---
+
+# 3\. El circuito de cada relevador
+
+Yo haría esto:
+
+```
+ESP32 GPIO
+    │
+   100Ω
+    │
+    ├──────── Gate
+    │           │
+    │         AO3400A
+    │           │
+   100kΩ       │
+    │          │
+   GND       Source
+               │
+              GND
+
++12V ──────── BOBINA ─────── Drain
+                  │
+                  │
+             ┌────┴────┐
+             │  Diodo  │
+             └────┬────┘
+                  │
+                 +12V
+```
+
+El diodo va **en paralelo con la bobina y en polarización inversa durante funcionamiento normal**.
+
+Por ejemplo:
+
+- 1N4148 para bobinas pequeñas
+- 1N4007 para algo más robusto
+- SS14 si quieres un diodo Schottky SMD
+
+Yo pondría **SS14 o 1N4007** si no tienes una razón concreta para usar otra cosa.
+
+### Valores
+
+Para cada MOSFET:
+
+- `Rgate = 47–220 Ω`
+- `Rpulldown = 47–100 kΩ`
+
+Una combinación muy conservadora:
+
+```
+GPIO ─── 100Ω ─── Gate
+                  │
+                 100k
+                  │
+                 GND
+```
+
+El pulldown garantiza que el relevador permanezca apagado mientras el ESP32 está arrancando.
+
+Esto es particularmente importante porque el ESP32-C3 tiene estados de GPIO durante reset/boot que no deberías utilizar como garantía de que una carga permanezca apagada. El C3 funciona a 3.3 V y sus especificaciones de GPIO son compatibles con este tipo de control; Espressif especifica, entre otras cosas, `VOH ≥ 0.8×VDD` y un límite de salida de corriente bastante superior a lo que necesitamos aquí.  Espressif Documentation+1
+
+---
+
+# 4\. ¿Necesitas optoacoplador para los relevadores?
+
+**No necesariamente.**
+
+Este punto suele complicar innecesariamente los diseños con ESP32.
+
+Si tienes:
+
+```
+ESP32
+ │
+ │ GPIO
+ ▼
+MOSFET
+ │
+ ▼
+Bobina 12 V
+```
+
+y compartes GND entre la fuente de 12 V y la electrónica del ESP32, no necesitas aislamiento.
+
+Pero si tienes:
+
+```
+ESP32
+      │
+      │  aislamiento
+      ▼
+   potencia
+      │
+      ▼
+  red eléctrica
+```
+
+entonces el aislamiento puede tener mucho sentido.
+
+### Si quieres aislamiento
+
+Un PC817/EL817 es una opción extremadamente común y económica.
+
+- SHARP PC817MX$9.71JAK Electronics★ 5
+
+También hay variantes SMD:
+
+- PC817 SMDMX$3.60JAK Electronics★ 5
+
+Pero **yo no pondría un PC817 simplemente porque "es buena práctica"**. Añade:
+
+- opto
+- resistor LED
+- resistor pull-up
+- posiblemente otro transistor
+- más componentes
+- más espacio
+- más cosas que pueden fallar
+
+Para tus MOSFET PWM de 1 kHz, además, tampoco veo una razón para meter un PC817 entre el ESP32 y el MOSFET.
+
+---
+
+# 5\. Tus dos salidas PWM de 1 kHz son otro asunto
+
+Aquí sí recomiendo claramente:
+
+**ESP32 → MOSFET → LEDs**
+
+No:
+
+**ESP32 → opto → MOSFET**
+
+El ESP32-C3 tiene periférico LED PWM (LEDC), así que 1 kHz es una frecuencia perfectamente razonable para generar PWM.  Espressif Documentation
+
+La etapa puede ser:
+
+```
+                    +V LED
+                      │
+                      │
+                 LED ARRAY
+                      │
+                      │
+                    Drain
+                 ┌────────┐
+PWM ── 100Ω ────►│ AO3400A│
+                 └────────┘
+                    Source
+                      │
+                     GND
+```
+
+Con:
+
+```
+GPIO ── 100Ω ── Gate
+                │
+               100k
+                │
+               GND
+```
+
+Para 1 kHz, esto es trivial para un MOSFET moderno.
+
+---
+
+# 6\. Pero aquí hay una pregunta MUY importante: ¿cómo alimentas los LEDs?
+
+Necesito distinguir entre estas dos situaciones:
+
+### Caso A — LEDs ya tienen driver de corriente
+
+Por ejemplo:
+
+```
+24 V
+ │
+ Driver LED
+ │
+ LED array
+```
+
+Entonces puedes controlar el driver dependiendo de qué entrada tenga:
+
+- PWM
+- enable
+- dimming
+- 0–10 V
+
+### Caso B — tu arreglo LED es simplemente LEDs + resistencias
+
+Por ejemplo:
+
+```
+24 V
+ │
+ resistor
+ │
+ LED
+ │
+ resistor
+ │
+ LED
+ │
+ MOSFET
+ │
+GND
+```
+
+Entonces el MOSFET puede funcionar muy bien como interruptor PWM.
+
+### Caso C — arreglo LED de alta potencia
+
+Por ejemplo 20 W, 50 W, 100 W...
+
+Aquí **no recomiendo simplemente conectar el arreglo a un MOSFET y una fuente de voltaje**.
+
+Necesitas conocer:
+
+- tensión de alimentación
+- corriente
+- potencia
+- si los LEDs tienen resistencia
+- si tienen driver de corriente constante
+- corriente máxima deseada
+
+Y el MOSFET se selecciona en función de eso.
+
+---
+
+# 7\. Para tus dos MOSFET PWM, AO3400A es una muy buena primera opción
+
+Para una PCB económica y fácil de fabricar, yo empezaría investigando:
+
+### AO3400A
+
+Ventajas:
+
+- N-channel
+- SMD SOT-23
+- muy común
+- barato
+- adecuado para control lógico
+- funciona bien con GPIO de 3.3 V
+- excelente para cargas pequeñas/medianas
+- fácil de conseguir
+
+Para cargas mayores, cambiaría a un MOSFET con menor `RDS(on)` y mayor corriente.
+
+**No elegiría el MOSFET únicamente por "60 V / 30 A".**
+
+Para este diseño importan mucho:
+
+```
+RDS(on) @ VGS = 2.5 V o 3.3 V
+```
+
+porque tu ESP32 no le está dando 10 V al gate.
+
+Ese detalle es muy importante.
+
+---
+
+# 8\. Y aquí hay una ventaja enorme de diseñar tu PCB de forma modular
+
+Puedes hacer la huella para un MOSFET SOT-23 bastante común:
+
+```
+       G
+       │
+    ┌─────┐
+ D──┤     │
+ D──┤     │
+ S──┤     │
+    └─────┘
+```
+
+y utilizar:
+
+- AO3400A
+- AO3400
+- Si2302
+- otros equivalentes compatibles
+
+dependiendo de disponibilidad.
+
+Esto te protege muchísimo contra problemas de suministro.
+
+Lo mismo con el optoacoplador: si finalmente lo necesitas, puedes dejar una huella estándar de **4 pines** compatible con PC817/EL817 y variantes equivalentes.
+
+---
+
+# 9\. Yo cambiaría una cosa de tu planteamiento: no hagas que los relevadores sean necesariamente las salidas principales
+
+Si tu cultivo tiene:
+
+- ventilador DC
+- bomba DC
+- lámpara LED DC
+
+y solamente ocasionalmente vas a controlar una carga AC, sería mejor:
+
+```
+                ESP32-C3
+                   │
+       ┌───────────┼───────────┐
+       │           │           │
+       ▼           ▼           ▼
+    MOSFET       MOSFET      MOSFET
+       │           │           │
+   ventilador     bomba     LED blanco
+```
+
+Y:
+
+```
+             ESP32-C3
+                 │
+                 ▼
+              MOSFET
+                 │
+              RELAY
+                 │
+             120/230 VAC
+```
+
+Así los MOSFET manejan directamente las cargas DC y el relevador solamente aparece donde realmente necesitas aislamiento/contactos.
+
+---
+
+# 10\. ¿Y si la bomba o ventilador son AC?
+
+Ahí cambia todo.
+
+Si tienes:
+
+```
+ESP32 → MOSFET → bomba AC
+```
+
+**no.**
+
+Un MOSFET N-channel convencional no es el interruptor adecuado para una carga AC de red.
+
+Tendrías dos caminos principales:
+
+### Opción 1 — Relevador
+
+```
+ESP32
+ ↓
+MOSFET
+ ↓
+bobina DC
+ ↓
+CONTACTOS
+ ↓
+AC
+ ↓
+bomba
+```
+
+Es mi opción favorita para un prototipo de hidroponía sencillo.
+
+### Opción 2 — SSR/triac
+
+```
+ESP32
+ ↓
+opto
+ ↓
+triac/SSR
+ ↓
+AC
+ ↓
+bomba
+```
+
+Puede ser excelente para cargas AC, pero aumenta las consideraciones de diseño térmico, corriente de fuga, tipo de carga, cruce por cero, etc.
+
+Para tu primera PCB probablemente elegiría **relevadores de bobina DC**.
+
+---
+
+# 11\. Sobre el optoacoplador y AC/DC de la bobina
+
+Tu duda original era muy buena:
+
+> "No sé si las bobinas de los relevadores serán DC o AC y por eso aún no puedo decidir qué optoacoplador elegir."
+
+La solución es:
+
+**no diseñes el circuito de control dependiendo de que la bobina sea AC o DC. Define tú el componente.**
+
+Por ejemplo:
+
+> "Mi PCB requiere relevadores con bobina de 12 VDC."
+
+Entonces tu interfaz queda perfectamente definida:
+
+```
+GPIO 3.3 V
+     │
+    100Ω
+     │
+     ▼
+ AO3400A
+     │
+     ▼
+ Relay coil 12 VDC
+     │
+    GND
+```
+
+Y el **tipo de corriente de los contactos** es independiente:
+
+```
+Relay coil:       12 V DC
+
+Relay contacts:   250 VAC / 10 A
+```
+
+Eso es precisamente lo que quieres.
+
+---
+
+# 12\. Componentes que pondría en mi BOM inicial
+
+Para una primera versión, tendría algo parecido a esto:
+
+| Función | Componente que probaría |
+| --- | --- |
+| MOSFET general | **AO3400A** |
+| MOSFET pequeño | **2N7002** |
+| Opto opcional | **PC817 / EL817** |
+| Diodo bobina | **SS14 / 1N4007** |
+| R gate | **100 Ω** |
+| Pull-down gate | **100 kΩ** |
+| Relay | **5/12 V DC coil** |
+| PWM | **1 kHz desde LEDC** |
+| Alimentación potencia | 12/24 V DC según cargas |
+
+Y hay una razón adicional para preferir AO3400A frente al 2N7002 para la parte de potencia: quieres que el mismo diseño pueda tolerar cargas más grandes sin tener que rediseñar inmediatamente la etapa.
+
+---
+
+## 13\. Hay algo que todavía NO cerraría
+
+Antes de dibujar el esquemático definitivo, me faltan **5 datos fundamentales de tus cargas**:
+
+1. **Ventilador:** ¿12 V DC, 24 V DC o 120/230 VAC? ¿Cuántos amperios?
+2. **Bomba:** ¿12 V DC, 24 V DC o AC? ¿Cuántos amperios?
+3. **LED blanco:** ¿qué voltaje/corriente?
+4. **Los dos arreglos LED PWM:** ¿voltaje y corriente máxima de cada uno?
+5. **¿Qué tensión tendrás disponible para potencia?** ¿12 V, 24 V, ambas?
+
+Con esos datos puedo proponerte **el esquemático completo de las 5 salidas**, incluyendo valores de resistencias, diodos, MOSFET específico, protección contra transitorios, conectores y separación entre la parte de **3.3 V / baja tensión y 120/230 VAC**. También puedo orientarlo para que sea razonablemente compatible con el ensamblado de JLCPCB y evitar componentes que sean difíciles de conseguir.
+
+
+
 
