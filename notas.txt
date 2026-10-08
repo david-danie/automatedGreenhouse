@@ -159,6 +159,8 @@ Sensores de temperatura/humedad.
 
   - Constantes muertas: intervalToSend, buzzerOn, buzzerOff.
   - El buzzer tiene pin y constantes pero está comentado y sin implementar.
+  
+Estoy haciendo un proyecto de esp32 c3 que controla un cultivo hidroponico. Las principales salidas son 3 pines para controlar ventilador, bomba y lampara led blanca, yotras 2 importantes son 2 pines pwm para controlar arreglos leds dimeables a 1KHz. Mi duda es la etapa de potencia, que componentes usar para poder activar relevadores y mosfets respectivamente. No se si las bobinas de los relevadores serán de DC o AC, y por eso aun no puedo decidir que tipo de optoacoplador elegir. Quiero algo que pueda conseguir facilmente, economico y que no necesite circuitos de control complicados, lo mismo para los mosfets. Lo ideal sería que pueda conseguirlos rapidamente con cualquier distribuidor autorizado, o que puedan ser suministrados con mis PCB's a traves del servicio de jlcpcb por ejemplo. Lo que venden localmente en mi ciudad, muchas veces está etiquetado como obsoleto con vendedores como mouser o digikey,
 
 GEMINI
 
