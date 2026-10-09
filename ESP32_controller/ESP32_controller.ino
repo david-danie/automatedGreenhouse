@@ -108,6 +108,17 @@ void setup() {
   server.onNotFound(handleNotFound);
   server.begin();
 
+  // Lectura puntual del RTC para que el pitido de arranque refleje el estado real
+  // del reloj. (El punto de I²C PERIÓDICO sigue siendo el loop; esto es una sola
+  // lectura de inicialización.)
+  planta.getCurrentTime();
+
+  // Sistema listo: 1 pitido de confirmación de arranque (y prueba del buzzer en
+  // cada encendido). No bloqueante: lo reproduce buzzerUpdate() desde loop().
+  // Si el RTC NO dio hora fiable, suena en cambio el patrón de advertencia
+  // (buzzerBeepsRtcFail): el equipo no accionará nada hasta sincronizar la hora.
+  planta.buzzerBeep(planta.isRtcValid() ? buzzerBeepsBoot : buzzerBeepsRtcFail);
+
 }
 
 void loop() {
@@ -115,6 +126,10 @@ void loop() {
   // portal responda al instante. El control de dispositivos no necesita esa
   // frecuencia: se throttlea con millis() a deviceUpdateInterval. 
   server.handleClient();
+
+  // Reproductor de pitidos del buzzer: no bloquea, avanza con millis(). Debe ir
+  // junto a handleClient() (cada iteración) para que los tiempos sean precisos.
+  planta.buzzerUpdate();
 
   static uint32_t lastDeviceUpdate = 0;
   uint32_t now = millis();
@@ -225,8 +240,17 @@ void handleAuthUserCredentials() {
   server.send(response.code, response.contentType, response.body);
   if (status == HARD_RESET) {
       Serial.println("[System] Hard reset");
-      vTaskDelay(pdMS_TO_TICKS(1000));
+      // Reset de fábrica: 1 pitido largo SÍNCRONO (como OTA OK), porque el equipo
+      // reinicia de inmediato y el reproductor del loop no alcanzaría a sonar.
+      digitalWrite(buzzerPin, deviceOn);
+      delay(600);
+      digitalWrite(buzzerPin, deviceOff);
+      vTaskDelay(pdMS_TO_TICKS(400));
       ESP.restart();
+  } else if (status == MISMATCH_CREDENTIALS || status == TOO_MANY_ATTEMPTS) {
+      // Login fallido o bloqueado: patrón de error no bloqueante, distinto de la
+      // confirmación, para que un error no se confunda con un éxito.
+      planta.buzzerBeep(buzzerBeepsError);
   }
 }
 
@@ -241,6 +265,10 @@ void handleNewParameters() {
   response = buildHttpResponse(status);
 
   server.send(response.code, response.contentType, response.body);
+
+  // Confirmación sonora de "parámetros aplicados": 3 pitidos no bloqueantes.
+  // Se dispara tras responder, solo si la validación fue correcta.
+  if (status == STATUS_OK) planta.buzzerBeep(buzzerBeepsParams);
 
 }
 
@@ -371,17 +399,33 @@ void handleOtaUpdate() {
   // Respuesta final: corre cuando la subida terminó (o falló en autorización).
   Serial.println("*****  /otaupdate  *****");
 
+  // Pitido SÍNCRONO a propósito en este handler: el camino de éxito reinicia el
+  // equipo de inmediato (el reproductor no bloqueante del loop no alcanzaría a
+  // sonar), y los de error son excepcionales y breves. Fuera de /otaupdate el
+  // buzzer siempre es no bloqueante (buzzerBeep/buzzerUpdate).
+  auto beepSync = [](uint16_t onMs, uint8_t times) {
+    for (uint8_t i = 0; i < times; i++) {
+      digitalWrite(buzzerPin, deviceOn);
+      delay(onMs);
+      digitalWrite(buzzerPin, deviceOff);
+      if (i + 1 < times) delay(150);
+    }
+  };
+
   if (otaHttpError == 401) {
+    beepSync(150, 2);  // error de autorización
     server.send(401, "application/json",
                 "{\"status\":false,\"message\":\"Tu sesión expiró. Inicia sesión y reintenta.\"}");
     return;
   }
   if (otaHttpError == 403) {
+    beepSync(150, 2);  // error de autorización
     server.send(403, "application/json",
                 "{\"status\":false,\"message\":\"La actualización solo se permite desde la red del equipo (AP).\"}");
     return;
   }
   if (otaHttpError != 0 || !Update.isFinished()) {
+    beepSync(150, 2);  // fallo de instalación
     server.send(500, "application/json",
                 "{\"status\":false,\"message\":\"No se pudo instalar el firmware. El equipo conserva el anterior.\"}");
     return;
@@ -392,6 +436,7 @@ void handleOtaUpdate() {
   server.send(200, "application/json",
               "{\"status\":true,\"message\":\"Firmware instalado. El equipo se reinicia.\"}");
   Serial.println("[OTA] Reiniciando al firmware nuevo…");
-  vTaskDelay(pdMS_TO_TICKS(1000));
+  beepSync(600, 1);                      // 1 pitido largo = OTA OK, antes del reboot
+  vTaskDelay(pdMS_TO_TICKS(400));        // completa ~1 s de margen tras responder
   ESP.restart();
 }

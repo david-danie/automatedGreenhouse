@@ -67,3 +67,5 @@ notas
 NOTAS_TECNICAS.txt
 
 
+.DS_Store
+.kiro/

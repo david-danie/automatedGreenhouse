@@ -105,7 +105,7 @@ in a single HTML file; the firmware exposes a JSON API and applies config instan
 | White LED | 0 | digital output (active-low) |
 | Blue LED | 1 | PWM channel 1 |
 | Red LED | 2 | PWM channel 2 |
-| Buzzer | 3 | |
+| Buzzer | 3 | Audible signaling |
 | Fan | 7 | relay (active-low) |
 | Water pump | 10 | relay (active-low) |
 | DS3231 RTC | I²C `0x68` | external clock |

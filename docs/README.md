@@ -11,7 +11,7 @@
 | [**ARCHITECTURE.md**](ARCHITECTURE.md) | Diseño del firmware y del frontend a fondo: decisiones, trade-offs, caveats, máquina de estados del portal, modelo de BD y estrategia TLS para el C3 | Para entender *por qué* el código está escrito así |
 | [**API.md**](API.md) | Referencia completa de la API HTTP **del dispositivo**: rutas, payloads, validaciones, catálogo de errores y ejemplos con `curl` | Para integrar algo contra el dispositivo |
 | [**API-backend.md**](API-backend.md) | Referencia de la API HTTP **del backend** (nube): auth, provisión, config/telemetría del dispositivo y lecturas de la app; qué está implementado y qué no | Para integrar la app o el dispositivo contra la nube |
-| [**HARDWARE.md**](HARDWARE.md) | Mapa de pines, PWM, RTC, SSR, conectividad e instalación eléctrica | Para montar o modificar el hardware |
+| [**HARDWARE.md**](HARDWARE.md) | Mapa de pines, PWM, RTC, etapa de potencia (control ↔ potencia), conectividad e instalación eléctrica | Para montar o modificar el hardware |
 | [**BACKEND.md**](BACKEND.md) | Diseño del backend y **referencia autoritativa** para implementarlo: stack, modelo de datos, contratos de API, despliegue | Para retomar el desarrollo del backend |
 | [**ROADMAP.md**](ROADMAP.md) | Plan de migración del firmware de Arduino-ESP32 a ESP-IDF, por fases entregables: motivación, clasificación del código, mapeo de APIs y criterios de verificación | Para planear o retomar la migración a ESP-IDF |
 

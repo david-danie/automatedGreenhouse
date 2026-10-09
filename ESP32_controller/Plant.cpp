@@ -29,7 +29,8 @@ void Plant::begin(){
   pinMode(whiteLedPin, OUTPUT);
   pinMode(waterPumpPin, OUTPUT);
   pinMode(fanPin, OUTPUT);
-  //pinMode(buzzerPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(buzzerPin, deviceOff);  // buzzer en silencio al arrancar
 
   // Estado inicial seguro: todo apagado antes de leer cualquier configuración.
   allDevicesOff();
@@ -402,6 +403,40 @@ void Plant::allDevicesOff() {
   ledcWrite(redChannel, zero);
   digitalWrite(waterPumpPin, deviceOff);
   digitalWrite(fanPin, deviceOff);
+}
+
+// ---- Buzzer no bloqueante ----
+// Modela N pitidos como una secuencia de semi-fases: ON, OFF, ON, OFF, ... La
+// cuenta _buzzerBeepsLeft lleva el nº de fases ON que faltan; entre ON hay una
+// fase OFF, salvo tras el último ON (no deja silencio final). buzzerUpdate()
+// avanza la máquina con millis(), igual que el throttling de loop().
+
+void Plant::buzzerBeep(uint8_t beeps) {
+  if (beeps == 0) return;
+  _buzzerBeepsLeft  = beeps;
+  _buzzerPhaseOn    = true;                 // arranca sonando
+  _buzzerPhaseStart = millis();
+  digitalWrite(buzzerPin, deviceOn);
+}
+
+void Plant::buzzerUpdate() {
+  if (_buzzerBeepsLeft == 0) return;        // inactivo: coste ~0
+
+  if (millis() - _buzzerPhaseStart < buzzerBeepMs) return;  // fase en curso
+
+  if (_buzzerPhaseOn) {
+    // Terminó una fase ON: consume un pitido y apaga.
+    _buzzerBeepsLeft--;
+    digitalWrite(buzzerPin, deviceOff);
+    if (_buzzerBeepsLeft == 0) return;      // era el último: sin silencio final
+    _buzzerPhaseOn    = false;              // intercala el silencio entre pitidos
+    _buzzerPhaseStart = millis();
+  } else {
+    // Terminó el silencio: empieza el siguiente pitido.
+    _buzzerPhaseOn    = true;
+    _buzzerPhaseStart = millis();
+    digitalWrite(buzzerPin, deviceOn);
+  }
 }
 
 void Plant::turnOnDevices(){

@@ -254,10 +254,25 @@ enum requestStatus {
 // intervalo > ~10 días exigiría ampliar este arreglo y _systemStatus a uint16_t.
 const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168};
 
-// Patrón de pitido del buzzer (ms encendido / apagado). Reservado: el buzzer está
-// cableado (GPIO 3) pero su control aún no se implementa.
-const uint8_t buzzerOn = 50;
-const uint8_t buzzerOff = 80;
+// Patrón de pitido del buzzer no bloqueante (ver Plant::buzzerBeep/buzzerUpdate).
+// El buzzer es ACTIVO (oscilador propio): solo se conmuta ON/OFF con la polaridad
+// de salida directa (deviceOn/deviceOff). buzzerBeepMs es la duración de cada
+// fase ON y de cada fase OFF del tren de pitidos de confirmación.
+const uint16_t buzzerBeepMs = 330;   // 330 ms ON / 330 ms OFF por pitido
+
+// ---- Vocabulario de eventos del buzzer ----
+// Nº de pitidos por evento, para que el sonido comunique QUÉ pasó, no solo "algo
+// pasó". Los eventos NO bloqueantes usan buzzerBeep(n) desde loop(); los que
+// terminan en reinmediato (OTA OK, reset) o son caminos de error excepcionales
+// suenan SÍNCRONOS en su handler (ver ESP32_controller.ino). El patrón sonoro
+// completo está documentado en docs/HARDWARE.md.
+const uint8_t buzzerBeepsBoot    = 1;   // sistema listo (fin de setup)
+const uint8_t buzzerBeepsParams  = 3;   // parámetros aplicados (/newparams OK)
+const uint8_t buzzerBeepsRtcFail = 4;   // arranque sin hora fiable (RTC inválido)
+const uint8_t buzzerBeepsError   = 2;   // error de usuario (login fallido/bloqueo)
+// OTA OK y reset de fábrica suenan como 1 pitido LARGO síncrono (antes del
+// reinicio); el fallo de OTA, como 2 cortos síncronos. No llevan constante de
+// conteo porque su duración difiere del tren estándar de buzzerBeepMs.
 
 // Cada cuánto se re-evalúa el control de luces/riego/ventilación en loop().
 // turnOnDevices() solo depende del reloj (hora/minuto), así que 1 s sobra; lo

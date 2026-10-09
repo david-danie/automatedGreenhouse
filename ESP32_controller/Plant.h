@@ -101,6 +101,16 @@ class Plant {
 
     void printSystemData();
 
+    // ---- Buzzer no bloqueante (activo, GPIO 3) ----
+    // Arranca un tren de `beeps` pitidos de buzzerBeepMs ON / buzzerBeepMs OFF.
+    // NO suena aquí: solo arma el estado; el sonido lo produce buzzerUpdate()
+    // llamado desde loop(). Un disparo nuevo reemplaza al patrón en curso.
+    void buzzerBeep(uint8_t beeps);
+    // Llamada en cada iteración de loop(): avanza la máquina de estados del
+    // buzzer según millis() y conmuta el pin sin bloquear. Coste ~0 cuando no
+    // hay pitidos pendientes. Mismo patrón que el throttling de dispositivos.
+    void buzzerUpdate();
+
     // Edad del cultivo en días (>=1) DERIVADA del RTC y del ancla _cropStartDay.
     // NO se incrementa en medianoche: se calcula del calendario real, así que es
     // correcta tras reboots/cortes de luz. Devuelve 0 si el cultivo no se ha
@@ -179,6 +189,14 @@ class Plant {
     // en NVS (namespace "system", clave "cropStart"). 0 = sin anclar. De aquí se
     // derivan el día y la semana del cultivo sin contadores ni lógica de medianoche.
     uint32_t _cropStartDay = 0;
+
+    // ---- Estado del reproductor de pitidos (no bloqueante) ----
+    // Fases ON y OFF restantes del tren en curso. Se cuenta por semi-fases: un
+    // pitido = 1 ON + 1 OFF, salvo el último, que no deja silencio final. 0 =
+    // buzzer inactivo (buzzerUpdate() no hace nada).
+    uint8_t  _buzzerBeepsLeft = 0;
+    bool     _buzzerPhaseOn   = false;  // true = fase sonando, false = silencio
+    uint32_t _buzzerPhaseStart = 0;     // millis() del inicio de la fase actual
 
     // La versión del firmware NO es un miembro: es la constante de compilación
     // firmwareVersion (Constants.h). Un miembro con ese nombre la sombrearía
