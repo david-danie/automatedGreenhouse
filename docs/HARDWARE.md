@@ -2,7 +2,7 @@
 
 Tarjeta de control, mapa de pines, periféricos y instalación eléctrica.
 
-El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo, que sirve el portal captivo desde su propia flash. El diseño eléctrico de potencia (SSR, contactores, gabinete) conmuta las cargas en CA.
+El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo, que sirve el portal captivo desde su propia flash. El diseño eléctrico de potencia (MOSFET, contactores, gabinete) conmuta las cargas en CA.
 
 ---
 
@@ -11,7 +11,6 @@ El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo,
 - [Mapa de pines (ESP32-C3)](#mapa-de-pines-esp32-c3)
 - [Control de potencia PWM](#control-de-potencia-pwm)
 - [Temporización con RTC](#temporización-con-rtc)
-- [Salidas digitales SSR](#salidas-digitales-ssr)
 - [Etapa de potencia: acoplamiento control ↔ potencia](#etapa-de-potencia-acoplamiento-control--potencia)
 - [Conectividad](#conectividad)
 - [Instalación eléctrica](#instalación-eléctrica)
@@ -29,8 +28,8 @@ Definido en `ESP32_controller/Constants.h`.
 | LED azul | 1 | PWM canal 1 | 0–100 % desde el portal |
 | LED rojo | 2 | PWM canal 2 | 0–100 % desde el portal |
 | Buzzer | 3 | Digital | Señalización sonora no bloqueante (ver [vocabulario de pitidos](#vocabulario-de-pitidos)) |
-| Ventilador / extractor | 7 | Relé | Lógica directa |
-| Bomba de agua | 10 | Relé | Lógica directa |
+| Ventilador / extractor | 7 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
+| Bomba de agua | 10 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
 | RTC DS3231 | I²C `0x68` | — | Bus `Wire`, para el scheduling |
 
 **Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `HIGH`/`LOW` (lógica directa). Si se cambia a módulos de relé activos en bajo, basta intercambiar esas dos líneas y todo el firmware queda coherente.
@@ -73,29 +72,6 @@ La hora **no** se configura con botones: se sincroniza desde el navegador del us
   <tr>
     <th><img src="./img/ds3231_wiri.png" alt="Diagrama típico RTC"/></th>
     <th><img src="./img/ds3231_sch.png" alt="Diagrama esquemático RTC"/></th>
-  </tr>
-</table>
-
----
-
-## Salidas digitales SSR
-
-> **En revisión.** El SSR AQH2213 fue la elección de la **primera iteración** (por
-> disponibilidad local en ese momento). Hoy es difícil de conseguir, así que la etapa de
-> acoplamiento está **en rediseño** hacia MOSFET lógico + contactor con bobina de CD; ver
-> [Etapa de potencia](#etapa-de-potencia-acoplamiento-control--potencia). Esta sección se
-> conserva como referencia de la iteración previa.
-
-Tres salidas digitales accionan los dispositivos (lámpara, bomba de agua y ventilador/extractor). Cada salida del MCU va a un SSR [AQH2213](https://b2b-api.panasonic.eu/file_stream/pids/fileversion/2787) con el circuito de protección que sugiere el fabricante para cargas inductivas, como la bobina de los contactores.
-
-<table align="center">
-  <tr>
-    <th>Diagrama típico de conexión.</th>
-    <th>Diagrama de conexión final.</th>
-  </tr>
-  <tr>
-    <th><a href="https://b2b-api.panasonic.eu/file_stream/pids/fileversion/2787"><img src="./img/pin_wiri.png" alt="Diagrama típico SSR"/></a></th>
-    <th><img src="./img/pin_sch.png" alt="Diagrama esquemático SSR"/></th>
   </tr>
 </table>
 
@@ -208,7 +184,7 @@ de la carga; su bobina es de **24 VCD**:
 ### Esquemático — buzzer (GPIO 3)
 
 Buzzer **activo** (oscilador integrado: suena con solo aplicarle DC, tono fijo 2.4 kHz).
-Control ON/OFF, igual que una salida digital. GPIO 3 ya está reservado para esto.
+Control ON/OFF, igual que una salida digital, en GPIO 3.
 
 ```
             +5 V  (riel del buck)
