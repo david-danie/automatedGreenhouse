@@ -2,21 +2,21 @@
 
 ## Purpose
 
-Provide practical guidance for developing, debugging, reviewing, and modifying embedded software.
+Provide practical guidance for developing, debugging, reviewing, and modifying embedded
+firmware, with a focus on ESP32-class devices and ESP-IDF.
 
 This skill applies primarily to:
 
-* ESP32 and similar microcontrollers
+* ESP32 and similar microcontrollers (exact variant matters: `esp32`, `esp32s3`, `esp32c3`, `esp32c6`, …)
 * C and C++
-* Arduino-based firmware
-* ESP-IDF
+* ESP-IDF (primary) and Arduino-ESP32
 * FreeRTOS
 * Bare-metal or RTOS-based embedded systems
 * Sensors and peripherals
-* I2C, SPI, UART, GPIO
+* I2C, SPI, UART, GPIO, ADC
 * PWM and timers
 * Non-volatile storage
-* Networking-capable embedded devices
+* Networking-capable embedded devices (Wi-Fi / BLE)
 
 The objective is to produce firmware that is:
 
@@ -28,6 +28,46 @@ The objective is to produce firmware that is:
 * Robust against hardware and communication failures
 
 Do not introduce unnecessary complexity or rewrite working firmware without a clear reason.
+Use the framework's native APIs and idioms first; avoid custom abstractions unless the project
+already uses them. Do not import STM32/HAL or generic register-level examples unless the user
+explicitly asks for a port or comparison.
+
+---
+
+# Non-Negotiable Blockers
+
+Before any hardware-facing implementation, debugging, or bring-up work, the hardware context
+must be explicit. If any of the following is missing or ambiguous, **stop and ask** — treat
+"almost clear" as not clear enough:
+
+* Target board and **exact ESP32 variant** (`esp32`, `esp32s3`, `esp32c3`, `esp32c6`, …).
+  Variants differ in cores, peripherals, memory, strapping pins, and low-power behavior;
+  guidance that assumes the wrong one is often wrong.
+* Peripheral list, pin mapping, electrical constraints, and connected devices.
+* For storage/OTA work: flash size, partition strategy, and rollback/update expectations.
+* For multi-framework stacks (e.g. ESP-IDF with ESP-ADF/ESP-SR, LVGL): concrete version
+  compatibility evidence before build/flash/debug.
+
+Exception: a pure code review or refactor with no hardware behavior change may proceed within
+the provided code scope — note the missing hardware context as a risk.
+
+When design intent or expected behavior is unclear, ask for a representative example or a
+minimal reproduction instead of guessing.
+
+---
+
+# Classify the Work First
+
+Before acting, classify the request as **write**, **review**, **debug**, or **bring-up**, then:
+
+1. Triage the request and resolve blocking context (hardware, exact variant, partitions/OTA,
+   key config constraints).
+2. Read the minimum relevant files first (main/entry, component code, headers, build files,
+   config, partition table, logs, scripts).
+3. For debugging, build a **failure model** before editing code.
+4. Implement the smallest appropriate change.
+5. Build and validate before claiming completion (see Validation).
+6. Describe remaining hardware-verification gaps honestly.
 
 ---
 
@@ -713,6 +753,17 @@ download → flash → reboot
 
 without considering failure recovery.
 
+For ESP-IDF OTA specifically, use the `esp_ota_ops` / `esp_https_ota` flow and design for:
+
+* **Dual OTA slots** + a partition layout that reserves room for app and data partitions.
+* **Rollback**: mark the new image valid only after it passes a self-test on first boot
+  (`esp_ota_mark_app_valid_cancel_rollback`); otherwise the bootloader reverts to the previous
+  working app. Never mark an image valid before confirming it actually runs.
+* **Anti-rollback** (security-critical fields): use a monotonic version counter so a signed but
+  older, vulnerable image cannot be reflashed.
+* Verify image **integrity and authenticity** (checksum + signature) before activating, not
+  just structural validity.
+
 ---
 
 # 25. Security
@@ -735,6 +786,17 @@ When communicating over a network, consider:
 * credential storage
 
 Do not disable certificate validation merely to make development communication work unless the change is explicitly isolated to a development environment.
+
+**ESP-IDF production hardening** (when preparing a device for the field):
+
+* **Secure Boot v2** so only signed bootloader/app images run.
+* **Flash encryption** so firmware and data at rest cannot be trivially dumped.
+* **NVS encryption** for stored credentials/secrets.
+* Disable or restrict **JTAG** and unused **UART download** paths.
+* If a service console/terminal exists, gate or disable it in production builds.
+
+Treat these as a checklist with explicit trade-offs (one-time efuse burns are irreversible);
+confirm the device is a production target before enabling irreversible options.
 
 ---
 
@@ -789,6 +851,49 @@ Not tested
 ```
 
 Never claim that firmware was compiled, flashed, or physically tested unless it actually was.
+
+---
+
+# Build, Flash, and Monitor
+
+Use the correct toolchain for the framework, and confirm it is actually usable before building:
+
+* **[ESP-IDF]** `idf.py build` / `idf.py flash` / `idf.py monitor` as the baseline. Confirm
+  `idf.py --version` succeeds (environment sourced), not just present on `PATH`. Prefer project
+  wrapper scripts (`build.sh`, etc.) if present. Mention when a clean rebuild
+  (`idf.py fullclean build`) is needed and why. Prefer editing `sdkconfig` /
+  `sdkconfig.defaults` directly for reproducible config over `menuconfig` instructions.
+* **[Arduino]** `arduino-cli compile --fqbn <variant> <sketch>` /
+  `arduino-cli upload -p <port> ...` / `arduino-cli monitor -p <port> -c baudrate=<n>`.
+
+In both cases:
+
+* State the exact commands and environment assumptions (port, baud, FQBN/target).
+* Do not report implementation work as done until the build passes.
+* When a plugin/framework stack is involved, verify version compatibility with concrete
+  evidence (official matrix, manifest dependency range, pinned lock file) before building.
+
+Distinguish clearly between build-time, flash-time, boot-time, and runtime failures.
+
+---
+
+# Panic / Reset Triage
+
+When a device panics, resets, or fails to boot, capture evidence before changing code:
+
+* The **exact reset reason** and, for crashes, the full panic output (**[ESP-IDF]** Guru
+  Meditation: exception cause, `PC`/`EXCVADDR`, backtrace).
+* The **preceding logs** leading up to the fault.
+* Whether it is reproducible and under what conditions.
+
+Common causes to consider: stack overflow, null/invalid pointer, watchdog timeout, blocking in
+the wrong context, heap exhaustion/fragmentation, interrupt-safety violations, and brownout
+(power). Decode backtraces against the built ELF rather than guessing from addresses.
+
+For boot loops, separate bootloader-stage failures (partition table, image signature, flash
+encryption) from app-stage failures (init order, failed asserts, early task crashes).
+
+Prefer instrumentation (targeted logs, counters, asserts) over speculative rewrites.
 
 ---
 
