@@ -1825,14 +1825,6 @@
         $("btnOtaBack").addEventListener("click", () => { clearMsg(); setEstado("view"); });
         $("btnExitBack").addEventListener("click", () => window.location.reload());
 
-        $("btnTogglePass").addEventListener("click", () => {
-            const input = $("pass");
-            const oculto = input.type === "password";
-            input.type = oculto ? "text" : "password";
-            $("btnTogglePass").textContent = oculto ? "Ocultar" : "Ver";
-            $("btnTogglePass").setAttribute("aria-label", oculto ? "Ocultar contraseña" : "Mostrar contraseña");
-        });
-
         $("ledAzul").addEventListener("input", sincronizarSliders);
         $("ledRojo").addEventListener("input", sincronizarSliders);
 
