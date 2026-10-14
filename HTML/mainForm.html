@@ -1497,6 +1497,15 @@
             btn.innerHTML = type === 'password' ? EYE_ICON : EYE_OFF_ICON;
             btn.setAttribute('aria-label', type === 'password' ? 'Mostrar contraseña' : 'Ocultar contraseña');
         }
+
+        // Evita que el botón del ojo robe el foco del input al tocarlo: sin esto,
+        // en móvil el campo pierde el foco y el teclado virtual se cierra, obligando
+        // a volver a tocar el input para seguir escribiendo. preventDefault en
+        // pointerdown mantiene el foco en el campo; el click (toggle) sigue funcionando.
+        ['toggleBtn', 'wifiToggleBtn'].forEach(function (id) {
+            const b = document.getElementById(id);
+            if (b) b.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+        });
         function actualizarStepper(n) {
             document.querySelectorAll(".step-dot").forEach((dot) => {
                 dot.classList.toggle("active", Number(dot.dataset.step) <= n);
