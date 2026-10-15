@@ -3,11 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SmartPlant V2 — Comparador de paletas claras</title>
+<title>SmartPlant V2 — Comparador de paletas</title>
 <style>
-    /* ---- Las 3 paletas candidatas (copiadas de paletas-guardadas.css) ---- */
+    /* ---- Paletas candidatas (copiadas de paletas-guardadas.css) ---- */
     [data-theme="invernadero"] {
         --bg:#eef3ec; --surface:#ffffff; --surface-2:#f4f8f2; --border:#d3e2cf;
+        --text:#1f2d20; --text-dim:#5c6f5a; --primary:#2e7d32; --primary-2:#256628;
+        --on-primary:#ffffff; --secondary:#e5533d; --secondary-2:#c8412e; --on-secondary:#ffffff;
+        --accent:#2196f3; --ok-bg:#e6f4ea; --ok-text:#1b5e20; --err-bg:#fdecea; --err-text:#b3261e;
+        --shadow:0 6px 24px rgba(46,125,50,.12);
+    }
+    /* invernadero-contraste: igual que invernadero pero con MÁS contraste en el
+       fondo y los bordes (acercándose al verde del form de producción, #c8e6c9),
+       para que la tarjeta blanca resalte. Solo cambian --bg, --surface-2 y --border;
+       el resto es idéntico a invernadero. */
+    [data-theme="invernadero-contraste"] {
+        --bg:#c8e6c9; --surface:#ffffff; --surface-2:#eef5ec; --border:#b7d3b3;
         --text:#1f2d20; --text-dim:#5c6f5a; --primary:#2e7d32; --primary-2:#256628;
         --on-primary:#ffffff; --secondary:#e5533d; --secondary-2:#c8412e; --on-secondary:#ffffff;
         --accent:#2196f3; --ok-bg:#e6f4ea; --ok-text:#1b5e20; --err-bg:#fdecea; --err-text:#b3261e;
@@ -83,6 +94,30 @@
     <!-- Cambia/duplica columnas para comparar. Cada .demo lleva su data-theme. -->
     <div class="demo" data-theme="invernadero">
         <div class="theme-name">1 · invernadero</div>
+        <div class="card">
+            <h1>SmartPlant 🌱</h1>
+            <p style="color:var(--text-dim);font-size:13px">Albahaca · Semana 5 · Día 34</p>
+            <div class="msg ok">Parámetros actualizados correctamente.</div>
+            <div class="msg err">La sesión expiró. Inicia sesión y reintenta.</div>
+            <h3>General</h3>
+            <label>Nombre de la planta</label>
+            <input type="text" value="Albahaca">
+            <label>Frecuencia de riego</label>
+            <select><option>3 veces al día</option></select>
+            <h3>Espectros</h3>
+            <div class="spectrum"><span class="dot white"></span><span class="dot blue"></span><span class="dot red"></span></div>
+            <span class="chip">☁ Actualizar firmware</span>
+            <h3>Acciones</h3>
+            <div class="row">
+                <button class="primary">Guardar</button>
+                <button class="secondary">Cancelar</button>
+            </div>
+            <div class="footer">SmartPlant · versión 1.0.0</div>
+        </div>
+    </div>
+
+    <div class="demo" data-theme="invernadero-contraste">
+        <div class="theme-name">2 · invernadero (+contraste)</div>
         <div class="card">
             <h1>SmartPlant 🌱</h1>
             <p style="color:var(--text-dim);font-size:13px">Albahaca · Semana 5 · Día 34</p>

@@ -73,6 +73,35 @@
 }
 
 /* ---------------------------------------------------------------------------
+   "invernadero-contraste" — invernadero con MÁS contraste. Igual que invernadero
+   salvo el fondo y los bordes: el fondo adopta el verde con cuerpo del form de
+   producción (#c8e6c9) para que la tarjeta blanca resalte, y los bordes se
+   definen un poco más. Solo cambian --bg, --surface-2 y --border; el resto es
+   idéntico a invernadero.
+   --------------------------------------------------------------------------- */
+[data-theme="invernadero-contraste"] {
+    --bg:            #c8e6c9;
+    --surface:       #ffffff;
+    --surface-2:     #eef5ec;
+    --border:        #b7d3b3;
+    --text:          #1f2d20;
+    --text-dim:      #5c6f5a;
+    --primary:       #2e7d32;
+    --primary-2:     #256628;
+    --primary-soft:  #cfe6d0;
+    --on-primary:    #ffffff;
+    --secondary:     #e5533d;   /* acción de riesgo / espectro rojo */
+    --secondary-2:   #c8412e;
+    --on-secondary:  #ffffff;
+    --accent:        #2196f3;   /* espectro azul */
+    --ok-bg:         #e6f4ea;
+    --ok-text:       #1b5e20;
+    --err-bg:        #fdecea;
+    --err-text:      #b3261e;
+    --shadow:        0 6px 24px rgba(46, 125, 50, .12);
+}
+
+/* ---------------------------------------------------------------------------
    "tierra" — Cálido botánico: crema/arena + verde salvia + terracota.
    Sensación orgánica, artesanal. Acento azul apagado para el espectro azul.
    --------------------------------------------------------------------------- */
