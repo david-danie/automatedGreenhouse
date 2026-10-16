@@ -18,6 +18,7 @@
 #include "storage.h"
 #include "rtc.h"
 #include "actuators.h"
+#include "control.h"
 
 static const char *TAG = "smartplant";
 
@@ -45,34 +46,25 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Actuadores inicializados (todo apagado)");
 
     // NVS: subsistema de persistencia (reemplaza a Preferences de Arduino).
-    if (storage::begin()) {
-        CropConfig cfg;
-        bool has = storage::loadConfig(cfg);
-        ESP_LOGI(TAG, "NVS OK — config de cultivo %s",
-                 has ? "cargada" : "no configurada (defaults)");
-    } else {
+    if (!storage::begin()) {
         ESP_LOGE(TAG, "NVS no disponible");
     }
 
-    // RTC DS3231 (I²C): lectura inicial. Si el OSF indica reloj no fijado, la
-    // hora no es fiable hasta que el usuario la sincronice desde el portal.
-    if (rtc::begin()) {
-        uint8_t t[currentTimeCount] = {0};
-        if (rtc::getCurrentTime(t)) {
-            ESP_LOGI(TAG, "RTC OK — 20%02u-%02u-%02u %02u:%02u:%02u",
-                     t[year], t[month], t[day], t[hour], t[minute], t[second]);
-        } else {
-            ESP_LOGW(TAG, "RTC sin hora fiable (OSF o fuera de rango)");
-        }
-    } else {
-        ESP_LOGE(TAG, "RTC/I2C no disponible");
-    }
+    // RTC DS3231 (I²C).
+    bool rtcReady = rtc::begin();
+    if (!rtcReady) ESP_LOGE(TAG, "RTC/I2C no disponible");
 
-    // Latido: confirma que el firmware corre y cede CPU al IDLE (alimenta el WDT).
-    // Se reemplazará por la inicialización real (begin()) y el control periódico
-    // de actuadores/RTC conforme avance la migración.
+    // Bucle de control: re-evalúa luces/riego/ventilación cada
+    // deviceUpdateInterval, leyendo RTC + config (equivalente al loop() del
+    // firmware Arduino, sin la capa HTTP que llega en el hito de red).
+    uint8_t t[currentTimeCount] = {0};
     while (true) {
-        ESP_LOGI(TAG, "latido");
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        CropConfig cfg;
+        storage::loadConfig(cfg);                 // defaults si no hay config
+
+        bool rtcValid = rtcReady && rtc::getCurrentTime(t);
+        control::update(cfg, t, rtcValid);
+
+        vTaskDelay(pdMS_TO_TICKS(deviceUpdateInterval));
     }
 }

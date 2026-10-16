@@ -9,6 +9,7 @@ idf_component_register(
         "storage.cpp"
         "rtc.cpp"
         "actuators.cpp"
+        "control.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
