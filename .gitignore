@@ -69,3 +69,11 @@ NOTAS_TECNICAS.txt
 
 .DS_Store
 .kiro/
+
+# --- ESP-IDF (firmware/) ---
+# build/ ya está ignorado arriba. El sdkconfig se regenera desde sdkconfig.defaults,
+# así que no se versiona; sí se versionan sdkconfig.defaults y partitions.csv.
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+firmware/dependencies.lock

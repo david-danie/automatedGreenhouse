@@ -51,30 +51,45 @@ Inventario de los 4 archivos del firmware según el esfuerzo de migración.
 
 ---
 
-## Estrategia: incremental, no big-bang
+## Estrategia: reescritura a ESP-IDF puro, por hitos
 
-Arduino-ESP32 puede compilarse **como componente dentro de un proyecto ESP-IDF**. Eso permite adoptar el tooling profesional (`idf.py`, `menuconfig`, `partitions.csv`, OTA, TLS) **sin reescribir todavía** `WebServer`/`String`. Cada fase queda funcional y verificable en hardware por separado; no hay un periodo largo con el portal roto.
+El firmware se reimplementa directamente en **ESP-IDF nativo**, módulo por módulo. El firmware
+Arduino de [`ESP32_controller/`](../ESP32_controller) se conserva como **especificación de
+referencia** (contrato de la API, reglas de validación, scheduling stateless, manejo del bit
+OSF del RTC, sesión con token): cada hito reimplementa un módulo consultando ese original y se
+verifica en hardware antes de pasar al siguiente.
+
+El trabajo vive en la rama `esp-idf-migration`; `main` conserva el firmware Arduino funcional
+como respaldo flasheable. La lógica de negocio (`Plant`, `utils`) es portable casi sin cambios
+—no depende de Arduino—; el esfuerzo real está en la capa de framework (Wi-Fi, HTTP, NVS, I²C,
+PWM) y en sustituir `String`.
 
 ---
 
 ## Fases
 
-### Fase 0 — Build ESP-IDF con Arduino como componente
+### Fase 0 — Esqueleto ESP-IDF que arranca
 
-**Objetivo:** convertir el proyecto en un proyecto ESP-IDF sin reescribir lógica. Es el paso que desbloquea OTA y TLS con el mínimo riesgo.
+**Objetivo:** levantar un proyecto ESP-IDF puro mínimo que compile, arranque y registre info
+del sistema por el log. Establece el tooling (`idf.py`, `menuconfig`, particiones) antes de
+portar lógica.
 
-- [ ] Estructura de proyecto IDF: `CMakeLists.txt` raíz, `main/CMakeLists.txt`, `sdkconfig.defaults`
-- [ ] Integrar `arduino-esp32` como componente (managed component o submódulo)
-- [ ] Mover el sketch a `main/` y adaptar `setup()`/`loop()` al `app_main()` (o `initArduino()` + task)
-- [ ] `partitions.csv` con **dos slots OTA** (`ota_0`, `ota_1`) + `otadata` + `nvs`
-- [ ] Compilar con `idf.py build` y flashear con `idf.py flash`
+- [x] Estructura de proyecto IDF: `firmware/CMakeLists.txt`, `firmware/main/CMakeLists.txt`, `firmware/sdkconfig.defaults`
+- [x] `app_main()` mínimo que arranca y loguea chip/flash/heap + latido
+- [x] `partitions.csv` con **dos slots OTA** (`ota_0`, `ota_1`) + `otadata` + `nvs` (4 MB)
+- [ ] Compilar con `idf.py set-target esp32c3 && idf.py build`
+- [ ] Flashear con `idf.py erase-flash && idf.py flash monitor` y confirmar el arranque
 - [ ] Recorte inicial de componentes en `menuconfig`
 
-**Verificación:** el portal arranca y funciona idéntico al build de Arduino (registro, login, edición, Wi-Fi, RTC). Medir flash/RAM antes y después.
+**Verificación:** el firmware compila, arranca y el monitor muestra la info del sistema y el
+latido. (Primer flasheo con `erase-flash` para limpiar otadata residual de layouts previos.)
 
-**Criticidad de `partitions.csv`:** OTA de doble slot exige dos particiones de app del mismo tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTURE.md § requisito de particiones](ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota).
+**Criticidad de `partitions.csv`:** OTA de doble slot exige dos particiones de app del mismo
+tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTURE.md § requisito de particiones](ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota).
 
-> El proyecto **Arduino actual ya incluye** `ESP32_controller/partitions.csv` con dos slots OTA (4 MB: `nvs` 20 KB, `otadata`, dos slots de ~1.94 MB con `ota_0` en el offset estándar `0x10000`), creado para el OTA local. La migración a IDF puede reutilizar ese layout como punto de partida.
+> `firmware/partitions.csv` (4 MB): `nvs` 20 KB, `otadata`, `phy_init`, y dos slots OTA de
+> ~1.9 MB (`ota_0` en `0x20000`). El offset exacto de la primera app se confirma con el primer
+> `idf.py build` en hardware.
 
 ---
 
@@ -162,7 +177,7 @@ Arduino-ESP32 puede compilarse **como componente dentro de un proyecto ESP-IDF**
 
 ## Orden recomendado y criterios de avance
 
-1. **Fase 0 primero** — desbloquea OTA/TLS con el mínimo riesgo y valida el tooling antes de reescribir nada crítico.
+1. **Fase 0 primero** — valida el tooling (`idf.py`, particiones, flasheo) con un esqueleto que arranca, antes de portar nada crítico.
 2. Fases 1 y 2 a ritmo propio; son cambios acotados y verificables.
 3. **Fase 3 sincronizada con el Portal V2** — no duplicar el trabajo de la capa de servido.
 4. Fases 4 y 5 al final.
@@ -175,7 +190,7 @@ Arduino-ESP32 puede compilarse **como componente dentro de un proyecto ESP-IDF**
 
 | Fase | Descripción | Estado |
 |---|---|---|
-| 0 | Build IDF + Arduino como componente + `partitions.csv` doble slot | No iniciada |
+| 0 | Esqueleto ESP-IDF que arranca + `partitions.csv` doble slot | Estructura creada; falta build/flash en hardware |
 | 1 | Periféricos a IDF nativo (NVS, I²C, LEDC/GPIO) | No iniciada |
 | 2 | Wi-Fi a `esp_wifi` / `esp_netif` | No iniciada |
 | 3 | HTTP a `esp_http_server` + DNS captivo + OTA local | No iniciada |

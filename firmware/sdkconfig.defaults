@@ -1,0 +1,17 @@
+# Configuración por defecto reproducible (se aplica al generar sdkconfig).
+# Editar aquí en vez de depender de menuconfig interactivo, para que el build sea
+# reproducible entre máquinas. El target se fija con `idf.py set-target esp32c3`.
+
+# ---- Tabla de particiones personalizada (doble slot OTA, ver partitions.csv) ----
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# ---- Flash 4 MB ----
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# ---- OTA: habilitar rollback por app válida (se usará en el hito de OTA) ----
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# ---- Consola serie (log por USB-Serial-JTAG en el C3) ----
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y

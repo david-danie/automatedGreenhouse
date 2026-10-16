@@ -1,0 +1,17 @@
+# Tabla de particiones — SmartPlant ESP-IDF (ESP32-C3, flash 4 MB).
+# Doble slot OTA (ota_0 / ota_1) para actualización con rollback. Basada en el
+# layout oficial `partitions_two_ota.csv` de ESP-IDF, ajustada a 4 MB:
+#   - factory NO se usa: con doble OTA, el bootloader arranca el slot que indique
+#     otadata; el primer arranque cae en ota_0.
+#   - nvs: config del proyecto (usuario, Wi-Fi, systemStatus, cropStart) + margen.
+#   - ota_0/ota_1: ~1.9 MB cada uno, idénticos, el firmware alterna entre ambos.
+#
+# Primer flasheo tras cambiar de layout: `idf.py erase-flash` para limpiar un
+# otadata residual (causa típica de "escribe pero no arranca").
+#
+# Name,     Type, SubType,  Offset,    Size,     Flags
+nvs,        data, nvs,      0x9000,    0x5000,
+otadata,    data, ota,      0xe000,    0x2000,
+phy_init,   data, phy,      0x10000,   0x1000,
+ota_0,      app,  ota_0,    0x20000,   0x1E0000,
+ota_1,      app,  ota_1,    0x200000,  0x1E0000,
