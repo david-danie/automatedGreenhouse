@@ -17,6 +17,7 @@
 #include "esp_log.h"
 #include "storage.h"
 #include "rtc.h"
+#include "actuators.h"
 
 static const char *TAG = "smartplant";
 
@@ -37,6 +38,11 @@ static void log_system_info(void)
 extern "C" void app_main(void)
 {
     log_system_info();
+
+    // Actuadores (PWM + GPIO): estado inicial seguro (todo apagado) antes de
+    // leer configuración, igual que allDevicesOff() en el firmware Arduino.
+    actuators::begin();
+    ESP_LOGI(TAG, "Actuadores inicializados (todo apagado)");
 
     // NVS: subsistema de persistencia (reemplaza a Preferences de Arduino).
     if (storage::begin()) {
