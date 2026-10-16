@@ -119,19 +119,21 @@ bool hasTooManyRepeatedChars(const std::string& s) {
   return false;
 }
 
-bool isValidFrequency(uint8_t f) {
-  for (uint8_t v : validFrequencies)
+bool isValidFrequency(uint16_t f) {
+  for (uint16_t v : validFrequencies)
     if (f == v) return true;
   return false;
 }
 
 // Intervalo en horas -> etiqueta legible (ver validFrequencies). No incluye la duración.
-std::string frequencyToText(uint8_t hours) {
-  if (hours == 0)         return "Apagado";
-  if (hours < 24)         return "Cada " + std::to_string(hours) + "h";
-  if (hours == 24)        return "Diario";
-  if (hours == 168)       return "Semanal";
-  if (hours % 24 == 0)    return "Cada " + std::to_string(hours / 24) + " dias";
+std::string frequencyToText(uint16_t hours) {
+  if (hours == 0)          return "Apagado";
+  if (hours < 24)          return "Cada " + std::to_string(hours) + "h";
+  if (hours == 24)         return "Diario";
+  if (hours == 168)        return "Semanal";
+  if (hours == 336)        return "Cada 2 semanas";
+  if (hours % 168 == 0)    return "Cada " + std::to_string(hours / 168) + " semanas";
+  if (hours % 24 == 0)     return "Cada " + std::to_string(hours / 24) + " dias";
   return "Cada " + std::to_string(hours) + "h";
 }
 

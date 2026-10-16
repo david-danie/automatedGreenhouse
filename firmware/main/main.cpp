@@ -15,6 +15,7 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_log.h"
+#include "storage.h"
 
 static const char *TAG = "smartplant";
 
@@ -35,6 +36,16 @@ static void log_system_info(void)
 extern "C" void app_main(void)
 {
     log_system_info();
+
+    // NVS: subsistema de persistencia (reemplaza a Preferences de Arduino).
+    if (storage::begin()) {
+        CropConfig cfg;
+        bool has = storage::loadConfig(cfg);
+        ESP_LOGI(TAG, "NVS OK — config de cultivo %s",
+                 has ? "cargada" : "no configurada (defaults)");
+    } else {
+        ESP_LOGE(TAG, "NVS no disponible");
+    }
 
     // Latido: confirma que el firmware corre y cede CPU al IDLE (alimenta el WDT).
     // Se reemplazará por la inicialización real (begin()) y el control periódico

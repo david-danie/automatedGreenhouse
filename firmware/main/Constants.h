@@ -48,12 +48,14 @@ enum SystemStatus : uint8_t {
     blueDutyCycle,
     redDutyCycle,
     whiteLedOn,               // LED blanco digital (GPIO 0): 0/1, >0 enciende
-    irrigationFrequency,
-    irrigationDuration,
-    ventilationFrequency,
-    ventilationDuration,
+    irrigationDuration,       // minutos de riego por activación (0-59)
+    ventilationDuration,      // minutos de ventilación por activación (0-59)
     systemStatusCount         // centinela: marca el tamaño necesario
 };
+
+// Las FRECUENCIAS de riego y ventilación NO viven en el blob de _systemStatus:
+// son uint16_t propios (ver storage), para admitir intervalos > 255 h —p. ej.
+// 336 h = cada 2 semanas— que no caben en un byte. Rango válido: validFrequencies.
 
 enum currentTime : uint8_t {
     second = 1,
@@ -157,8 +159,11 @@ enum requestStatus {
 };
 
 // Intervalos válidos entre activaciones, EN HORAS. 0=apagado, 24=diario,
-// 168=semanal. Tope 255 (uint8_t).
-const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168};
+// 168=semanal, 336=cada 2 semanas. Tipo uint16_t: a diferencia del firmware
+// Arduino (uint8_t, tope 255 h ≈ 10 días), aquí las frecuencias se guardan en
+// 16 bits (ver storage: campo propio, fuera del blob de _systemStatus), así que
+// admiten intervalos mayores.
+const uint16_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168, 336};
 
 // ===== Buzzer (activo, GPIO 3) =====
 const uint16_t buzzerBeepMs = 330;   // 330 ms ON / 330 ms OFF por pitido

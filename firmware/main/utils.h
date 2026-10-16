@@ -34,8 +34,8 @@ int  utf8CharLen(unsigned char c);
 bool isSpanishAccentUtf8(unsigned char lead, unsigned char cont);
 
 // ---- Riego/ventilación ----
-bool isValidFrequency(uint8_t f);
-std::string frequencyToText(uint8_t hours);
+bool isValidFrequency(uint16_t f);
+std::string frequencyToText(uint16_t hours);
 
 // ---- Fecha ----
 // Contador continuo de días desde una referencia fija (puro, monótono).
