@@ -16,6 +16,7 @@
 #include "esp_flash.h"
 #include "esp_log.h"
 #include "storage.h"
+#include "rtc.h"
 
 static const char *TAG = "smartplant";
 
@@ -45,6 +46,20 @@ extern "C" void app_main(void)
                  has ? "cargada" : "no configurada (defaults)");
     } else {
         ESP_LOGE(TAG, "NVS no disponible");
+    }
+
+    // RTC DS3231 (I²C): lectura inicial. Si el OSF indica reloj no fijado, la
+    // hora no es fiable hasta que el usuario la sincronice desde el portal.
+    if (rtc::begin()) {
+        uint8_t t[currentTimeCount] = {0};
+        if (rtc::getCurrentTime(t)) {
+            ESP_LOGI(TAG, "RTC OK — 20%02u-%02u-%02u %02u:%02u:%02u",
+                     t[year], t[month], t[day], t[hour], t[minute], t[second]);
+        } else {
+            ESP_LOGW(TAG, "RTC sin hora fiable (OSF o fuera de rango)");
+        }
+    } else {
+        ESP_LOGE(TAG, "RTC/I2C no disponible");
     }
 
     // Latido: confirma que el firmware corre y cede CPU al IDLE (alimenta el WDT).

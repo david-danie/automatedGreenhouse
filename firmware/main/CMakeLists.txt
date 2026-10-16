@@ -7,9 +7,11 @@ idf_component_register(
         "main.cpp"
         "utils.cpp"
         "storage.cpp"
+        "rtc.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
         mbedtls
         nvs_flash
+        driver
 )
