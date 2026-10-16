@@ -30,17 +30,20 @@ idf.py -p <puerto> flash monitor
 
 ## Estado de la migración
 
-Hito 1 — **esqueleto que arranca**: `app_main` inicializa, registra info del
-sistema por el log y entra en un latido. Sin periféricos ni red todavía.
-
-Próximos hitos (ver [`../docs/ROADMAP.md`](../docs/ROADMAP.md)):
+Ver [`../docs/ROADMAP.md`](../docs/ROADMAP.md) para el detalle.
 
 1. ✅ Esqueleto IDF que compila y arranca.
-2. Periféricos: NVS, I²C/DS3231, LEDC/GPIO + portar la lógica de negocio
-   (`Plant`, `utils`, `Constants`).
-3. Wi-Fi AP+STA (`esp_wifi` / `esp_netif`).
-4. HTTP (`esp_http_server`) + DNS captivo + servir el portal gzip + OTA local.
-5. OTA segura sobre TLS (pinning + firma + rollback).
+2. ✅ Periféricos + lógica de control: NVS (`storage`), I²C/DS3231 (`rtc`),
+   LEDC/GPIO (`actuators`) y control (`control`, con `utils`/`Constants` portados).
+   El `app_main` ya corre el bucle de control periódico (luces/riego/ventilación).
+   Pendiente: build/flash y prueba en hardware.
+3. ⬜ Wi-Fi AP+STA (`esp_wifi` / `esp_netif`).
+4. ⬜ HTTP (`esp_http_server`) + DNS captivo + servir el portal gzip + OTA local.
+5. ⬜ OTA segura sobre TLS (pinning + firma + rollback).
+
+> La lógica portable (fechas, UTF-8, escalado PWM, fotoperiodo y scheduling,
+> incluido el nuevo intervalo de 336 h = cada 2 semanas) está verificada con
+> tests en el host; el build C++ completo se valida con `idf.py build`.
 
 ## Estructura
 
@@ -51,5 +54,12 @@ firmware/
 ├── partitions.csv        # doble slot OTA (4 MB)
 └── main/
     ├── CMakeLists.txt     # fuentes + REQUIRES del componente principal
+    ├── main.cpp           # app_main: init + bucle de control
+    ├── Constants.h        # pines, PWM, enums, límites (sin Arduino)
+    ├── utils.h/.cpp       # helpers puros (BCD, UTF-8, PBKDF2, hex, fechas)
+    ├── storage.h/.cpp     # persistencia NVS (CropConfig versionado)
+    ├── rtc.h/.cpp         # DS3231 por i2c_master (modo seguro OSF)
+    ├── actuators.h/.cpp   # PWM (LEDC) + salidas digitales (GPIO)
+    └── control.h/.cpp     # fotoperiodo + scheduling stateless
     └── main.cpp           # app_main (punto de entrada)
 ```

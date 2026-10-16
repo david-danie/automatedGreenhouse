@@ -95,15 +95,19 @@ tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTU
 
 ### Fase 1 — Periféricos a IDF nativo
 
-**Objetivo:** migrar los periféricos de bajo acoplamiento. No toca la capa HTTP.
+**Objetivo:** migrar los periféricos de bajo acoplamiento y la lógica de control. No toca la capa HTTP.
 
-- [ ] NVS: `Preferences` → API `nvs` (namespaces `system`, `plantData`, `config`, `wifi`)
-- [ ] I²C DS3231: `Wire` → `driver/i2c_master.h` (lectura de 7 bytes, registro OSF `0x0F`)
-- [ ] PWM/GPIO: `ledcAttachChannel` → `driver/ledc.h`; `pinMode`/`digitalWrite` → `driver/gpio.h`
+- [x] NVS: `Preferences` → API `nvs` (módulo `storage`). Esquema **compacto**: un solo
+      namespace `smartplant`, config del cultivo en un blob versionado (`CropConfig`,
+      `schemaVersion`), credenciales de usuario y Wi-Fi aparte por su distinto ciclo de vida.
+- [x] I²C DS3231: `Wire` → `driver/i2c_master.h` (módulo `rtc`; lectura de 7 bytes, enmascarado, registro OSF `0x0F`). Bus en GPIO 8 (SDA) / 9 (SCL).
+- [x] PWM/GPIO: `ledcAttachChannel` → `driver/ledc.h`; `pinMode`/`digitalWrite` → `driver/gpio.h` (módulo `actuators`; estado inicial seguro).
+- [x] Lógica de control (módulo `control`): fotoperiodo con cruce de medianoche, scheduling stateless (`epochHours % intervalo`), fail-safe por RTC e interruptor general.
+- [x] **Frecuencias de riego/ventilación a `uint16_t`**: admiten intervalos > 255 h. Se añadió **336 h = cada 2 semanas** a `validFrequencies` (pendiente exponer la opción en el portal, hito HTTP).
 
-**Verificación:** luces (PWM azul/rojo + blanco ON/OFF), bomba y ventilador responden igual; la hora del RTC se lee y el modo seguro por OSF sigue activo; la config persiste tras reinicio.
+**Verificación:** lógica portable (BCD, fechas, UTF-8, escalado PWM, fotoperiodo y scheduling incl. 336 h) validada con tests en el host; el build C++ y la prueba en hardware (luces, bomba, ventilador, RTC, persistencia) se cierran con `idf.py build`/flash.
 
-> Al cambiar el esquema de persistencia, respetar la nota de `Constants.h`: `_systemStatus` se guarda por índice; borrar la flash antes de cargar el firmware nuevo si cambia el layout.
+> El esquema NVS se reescribió desde cero (no se reutiliza el layout `_systemStatus` por índice del firmware Arduino). El blob `CropConfig` lleva `schemaVersion` para evolucionar sin corromper datos previos.
 
 ---
 
@@ -191,7 +195,7 @@ tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTU
 | Fase | Descripción | Estado |
 |---|---|---|
 | 0 | Esqueleto ESP-IDF que arranca + `partitions.csv` doble slot | Estructura creada; falta build/flash en hardware |
-| 1 | Periféricos a IDF nativo (NVS, I²C, LEDC/GPIO) | No iniciada |
+| 1 | Periféricos a IDF nativo (NVS, I²C, LEDC/GPIO) + lógica de control | Código completo; falta build/flash en hardware |
 | 2 | Wi-Fi a `esp_wifi` / `esp_netif` | No iniciada |
 | 3 | HTTP a `esp_http_server` + DNS captivo + OTA local | No iniciada |
 | 4 | Eliminar `String` (IDF puro) | No iniciada |

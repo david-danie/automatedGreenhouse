@@ -30,7 +30,9 @@ Definido en `ESP32_controller/Constants.h`.
 | Buzzer | 3 | Digital | Señalización sonora no bloqueante (ver [vocabulario de pitidos](#vocabulario-de-pitidos)) |
 | Ventilador / extractor | 7 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
 | Bomba de agua | 10 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
-| RTC DS3231 | I²C `0x68` | — | Bus `Wire`, para el scheduling |
+| I²C SDA | 8 | I²C | Datos del bus I²C (DS3231) |
+| I²C SCL | 9 | I²C | Reloj del bus I²C (DS3231) |
+| RTC DS3231 | I²C `0x68` | — | Reloj externo para el scheduling (bus I²C en GPIO 8/9) |
 
 **Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `HIGH`/`LOW` (lógica directa). Si se cambia a módulos de relé activos en bajo, basta intercambiar esas dos líneas y todo el firmware queda coherente.
 
