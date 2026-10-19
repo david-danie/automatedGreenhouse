@@ -20,6 +20,7 @@
 #include "actuators.h"
 #include "control.h"
 #include "wifi.h"
+#include "httpserver.h"
 
 static const char *TAG = "smartplant";
 
@@ -64,6 +65,11 @@ extern "C" void app_main(void)
         if (!wifimod::begin(ssid, pass)) {
             ESP_LOGE(TAG, "Wi-Fi no disponible");
         }
+    }
+
+    // Servidor HTTP: sirve el portal (gzip) y la API del dispositivo.
+    if (!httpserver::begin()) {
+        ESP_LOGE(TAG, "Servidor HTTP no disponible");
     }
 
     // Bucle de control: re-evalúa luces/riego/ventilación cada
