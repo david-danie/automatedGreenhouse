@@ -12,6 +12,7 @@ idf_component_register(
         "control.cpp"
         "wifi.cpp"
         "httpserver.cpp"
+        "captivedns.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
@@ -22,4 +23,5 @@ idf_component_register(
         esp_netif
         esp_event
         esp_http_server
+        lwip
 )

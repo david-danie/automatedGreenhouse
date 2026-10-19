@@ -21,6 +21,7 @@
 #include "control.h"
 #include "wifi.h"
 #include "httpserver.h"
+#include "captivedns.h"
 
 static const char *TAG = "smartplant";
 
@@ -70,6 +71,12 @@ extern "C" void app_main(void)
     // Servidor HTTP: sirve el portal (gzip) y la API del dispositivo.
     if (!httpserver::begin()) {
         ESP_LOGE(TAG, "Servidor HTTP no disponible");
+    }
+
+    // DNS captivo: responde la IP del AP a toda consulta, para que el portal
+    // captivo abra solo en el cliente.
+    if (!captivedns::begin()) {
+        ESP_LOGE(TAG, "DNS captivo no disponible");
     }
 
     // Bucle de control: re-evalúa luces/riego/ventilación cada
