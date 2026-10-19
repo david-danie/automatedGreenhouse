@@ -5,6 +5,7 @@
 // ===========================================================================
 #include "wifi.h"
 #include <cstring>
+#include <string>
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "esp_event.h"
@@ -12,8 +13,20 @@
 #include "nvs_flash.h"
 #include "freertos/event_groups.h"
 #include "sensible.h"      // apSsid, apPassword (no versionado; ver plantilla)
+#include "storage.h"       // persistencia diferida de credenciales
+#include "Constants.h"     // límites de SSID/pass
 
 static const char* TAG = "wifi";
+
+// Escapa comillas y barras invertidas para que un SSID no rompa el JSON.
+static std::string jsonEscape(const char* s) {
+    std::string o;
+    for (const char* p = s; *p; ++p) {
+        if (*p == '"' || *p == '\\') o += '\\';
+        o += *p;
+    }
+    return o;
+}
 
 // Grupo de eventos para reflejar el estado del STA.
 static EventGroupHandle_t s_events = nullptr;
@@ -21,6 +34,15 @@ static const int STA_CONNECTED_BIT = BIT0;
 
 static esp_netif_t* s_ap_netif  = nullptr;
 static esp_netif_t* s_sta_netif = nullptr;
+
+// Credenciales en RAM aún NO persistidas: entre connectSta() y la confirmación
+// de conexión. Se guardan en NVS solo al conectar con éxito (updateWifiPersist).
+static bool s_wifiPending = false;
+static char s_pendSsid[33] = {0};
+static char s_pendPass[64] = {0};
+
+// Estado del escaneo asíncrono ("arranca y consulta").
+static bool s_scanRunning = false;
 
 // Manejador de eventos Wi-Fi/IP. Reconexión automática del STA (equivalente a
 // setAutoReconnect del firmware Arduino) y seguimiento del bit de conexión.
@@ -97,8 +119,99 @@ bool isStaConnected() {
 void connectSta(const char* ssid, const char* pass) {
     esp_wifi_disconnect();
     applyStaConfig(ssid, pass);
+    // Recuerda las credenciales como "pendientes": se persisten solo al conectar.
+    strncpy(s_pendSsid, ssid, sizeof(s_pendSsid) - 1);
+    strncpy(s_pendPass, pass, sizeof(s_pendPass) - 1);
+    s_pendSsid[sizeof(s_pendSsid) - 1] = '\0';
+    s_pendPass[sizeof(s_pendPass) - 1] = '\0';
+    s_wifiPending = true;
     esp_wifi_connect();
     ESP_LOGI(TAG, "STA: nuevo intento de conexión a %s", ssid);
+}
+
+bool updateWifiPersist() {
+    if (!s_wifiPending) return false;
+    if (!isStaConnected()) return false;     // aún no conecta: no persistir
+    s_wifiPending = false;
+    bool ok = storage::saveWifi(s_pendSsid, s_pendPass);
+    ESP_LOGI(TAG, "STA conectado — credenciales %s", ok ? "guardadas" : "NO guardadas");
+    return ok;
+}
+
+// Escaneo asíncrono. Devuelve JSON construido a mano (lista pequeña y controlada).
+std::string scanNetworks() {
+    if (!s_scanRunning) {
+        wifi_scan_config_t sc = {};             // escaneo activo en todos los canales
+        if (esp_wifi_scan_start(&sc, false /*no bloquear*/) == ESP_OK) {
+            s_scanRunning = true;
+        }
+        return "{\"scanning\":true,\"networks\":[]}";
+    }
+
+    // ¿Terminó? Si aún no hay registros, sigue corriendo.
+    uint16_t num = 0;
+    esp_wifi_scan_get_ap_num(&num);
+    if (num == 0) {
+        return "{\"scanning\":true,\"networks\":[]}";
+    }
+
+    // Trae los resultados (hasta un tope razonable para no gastar RAM).
+    const uint16_t CAP = 20;
+    wifi_ap_record_t recs[CAP];
+    uint16_t got = CAP;
+    if (esp_wifi_scan_get_ap_records(&got, recs) != ESP_OK) {
+        s_scanRunning = false;
+        return "{\"scanning\":false,\"networks\":[]}";
+    }
+    s_scanRunning = false;                       // resultados consumidos
+
+    // Top-5 por RSSI, deduplicado por SSID (conserva la señal más fuerte).
+    const uint8_t MAX = 5;
+    char    bestSsid[MAX][maxWifiSsidChars + 1];
+    int8_t  bestRssi[MAX];
+    bool    bestOpen[MAX];
+    uint8_t count = 0;
+
+    for (uint16_t i = 0; i < got; i++) {
+        const char* ssid = (const char*)recs[i].ssid;
+        if (ssid[0] == '\0') continue;           // red oculta
+        int8_t rssi = recs[i].rssi;
+        bool open = (recs[i].authmode == WIFI_AUTH_OPEN);
+
+        int found = -1;
+        for (uint8_t k = 0; k < count; k++)
+            if (strncmp(ssid, bestSsid[k], maxWifiSsidChars) == 0) { found = k; break; }
+
+        if (found >= 0) {
+            if (rssi > bestRssi[found]) { bestRssi[found] = rssi; bestOpen[found] = open; }
+            continue;
+        }
+        if (count < MAX) {
+            strncpy(bestSsid[count], ssid, maxWifiSsidChars); bestSsid[count][maxWifiSsidChars] = '\0';
+            bestRssi[count] = rssi; bestOpen[count] = open; count++;
+        } else {
+            uint8_t weakest = 0;
+            for (uint8_t k = 1; k < MAX; k++) if (bestRssi[k] < bestRssi[weakest]) weakest = k;
+            if (rssi > bestRssi[weakest]) {
+                strncpy(bestSsid[weakest], ssid, maxWifiSsidChars); bestSsid[weakest][maxWifiSsidChars] = '\0';
+                bestRssi[weakest] = rssi; bestOpen[weakest] = open;
+            }
+        }
+    }
+
+    std::string out = "{\"scanning\":false,\"networks\":[";
+    for (uint8_t k = 0; k < count; k++) {
+        if (k) out += ',';
+        out += "{\"ssid\":\"";
+        out += jsonEscape(bestSsid[k]);
+        out += "\",\"rssi\":";
+        out += std::to_string(bestRssi[k]);
+        out += ",\"secure\":";
+        out += (bestOpen[k] ? "false" : "true");
+        out += '}';
+    }
+    out += "]}";
+    return out;
 }
 
 } // namespace wifimod

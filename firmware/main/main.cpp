@@ -77,6 +77,9 @@ extern "C" void app_main(void)
         bool rtcValid = rtcReady && rtc::getCurrentTime(t);
         control::update(cfg, t, rtcValid);
 
+        // Persiste las credenciales Wi-Fi si un intento pendiente acaba de conectar.
+        wifimod::updateWifiPersist();
+
         vTaskDelay(pdMS_TO_TICKS(deviceUpdateInterval));
     }
 }

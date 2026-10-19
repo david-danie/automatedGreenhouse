@@ -32,6 +32,18 @@ bool isStaConnected();
 // el resultado se observa con isStaConnected()). Usado por la config de red.
 void connectSta(const char* ssid, const char* pass);
 
+// Escaneo ASÍNCRONO de redes ("arranca y consulta"): la primera llamada lanza el
+// escaneo y devuelve scanning=true; las siguientes devuelven scanning=true
+// mientras corre, y al terminar la lista JSON de las 5 más fuertes sin SSID
+// repetidos: {"scanning":false,"networks":[{"ssid","rssi","secure"}]}.
+std::string scanNetworks();
+
+// Persistencia diferida: llamar periódicamente. Si hay un intento pendiente
+// (connectSta) y el STA quedó conectado, guarda las credenciales en NVS y marca
+// hasWifiCredentials. Así una contraseña incorrecta nunca queda persistida.
+// Devuelve true la primera vez que persiste (para que el llamador registre el flag).
+bool updateWifiPersist();
+
 } // namespace wifimod
 
 #endif
