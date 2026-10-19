@@ -19,6 +19,7 @@
 #include "rtc.h"
 #include "actuators.h"
 #include "control.h"
+#include "wifi.h"
 
 static const char *TAG = "smartplant";
 
@@ -53,6 +54,17 @@ extern "C" void app_main(void)
     // RTC DS3231 (I²C).
     bool rtcReady = rtc::begin();
     if (!rtcReady) ESP_LOGE(TAG, "RTC/I2C no disponible");
+
+    // Wi-Fi AP+STA: SoftAP siempre arriba; STA condicional si hay credenciales
+    // guardadas en NVS (persistencia diferida de la fase de red).
+    {
+        char ssid[maxWifiSsidChars + 1] = {0};
+        char pass[maxWifiPassChars + 1] = {0};
+        storage::loadWifi(ssid, sizeof(ssid), pass, sizeof(pass));
+        if (!wifimod::begin(ssid, pass)) {
+            ESP_LOGE(TAG, "Wi-Fi no disponible");
+        }
+    }
 
     // Bucle de control: re-evalúa luces/riego/ventilación cada
     // deviceUpdateInterval, leyendo RTC + config (equivalente al loop() del

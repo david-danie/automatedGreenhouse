@@ -1,0 +1,12 @@
+#ifndef _SENSIBLE
+#define _SENSIBLE
+// Plantilla de credenciales del SoftAP. COPIA este archivo a sensible.h (sin
+// .example) en firmware/main/ y pon tus valores. sensible.h NO se versiona
+// (está en .gitignore): cada máquina recrea el suyo.
+
+// SSID del punto de acceso que crea el ESP32 (la red "SmartPlant").
+const char* apSsid = "SmartPlant";
+// Passphrase WPA2 del AP: 8-63 caracteres. CÁMBIALA.
+const char* apPassword = "cambia-esta-clave";
+
+#endif

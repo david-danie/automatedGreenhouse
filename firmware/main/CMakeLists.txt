@@ -10,10 +10,14 @@ idf_component_register(
         "rtc.cpp"
         "actuators.cpp"
         "control.cpp"
+        "wifi.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
         mbedtls
         nvs_flash
         driver
+        esp_wifi
+        esp_netif
+        esp_event
 )
