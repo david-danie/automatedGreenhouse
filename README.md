@@ -267,13 +267,17 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 
 ```
 .
-├── ESP32_controller/          # Firmware (sketch de Arduino)
+├── ESP32_controller/          # Firmware ESTABLE (Arduino): sketch en producción
 │   ├── ESP32_controller.ino   # AP Wi-Fi, DNS captivo, rutas HTTP y handlers
 │   ├── Plant.h / .cpp         # Lógica del cultivo: validación, PWM/relés, RTC, sesión, Wi-Fi
 │   ├── Constants.h            # Pines, PWM, límites de validación, enums de estado/error
 │   ├── utils.h / .cpp         # Helpers: validación de strings/UTF-8, BCD, fecha
 │   ├── sensible.h             # Secretos del AP (no versionado)
 │   └── mainForm.h             # Artefacto generado: el HTML que sirve el ESP32
+├── firmware/                  # Firmware en MIGRACIÓN a ESP-IDF puro (ver nota abajo)
+│   ├── CMakeLists.txt         # Proyecto ESP-IDF
+│   ├── partitions.csv         # Doble slot OTA (4 MB)
+│   └── main/                  # Módulos IDF: storage (NVS), rtc (I²C), actuators, control…
 ├── HTML/
 │   ├── mainForm.html          # Pista ESTABLE (producción): fuente del portal
 │   ├── mainForm.preview.html  # Preview de la estable (generado, con mock)
@@ -294,6 +298,24 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 ```
 
 <div align="justify">
+
+**Dos bases de firmware (una en migración).** El firmware existe en dos formas, y es importante
+no confundirlas:
+
+- **`ESP32_controller/` — estable, Arduino-ESP32.** Es el firmware **en producción y
+  funcional**, el que se flashea hoy. Vive en la rama `main`.
+- **`firmware/` — migración a ESP-IDF puro, en curso.** Reescritura del firmware a ESP-IDF
+  nativo por hitos, para profesionalizar tooling, OTA de doble slot y TLS. Vive en la rama
+  `esp-idf-migration`. Usa `ESP32_controller/` como especificación de referencia y lo
+  **reemplazará** cuando la migración termine. El plan por fases está en
+  [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+El **portal web (`HTML/`), el backend (`pythonServer/`), el hardware (`ESP32_Board/`) y la
+documentación (`docs/`) son comunes** a ambas: no dependen de qué framework use el firmware.
+
+</div>
+
+---
 
 **Convención del portal — dos pistas.** El formulario se mantiene en **dos pistas** permanentes, cada una con su fuente legible y comentada:
 

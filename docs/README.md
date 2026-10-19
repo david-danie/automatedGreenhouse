@@ -14,6 +14,13 @@
 | [**HARDWARE.md**](HARDWARE.md) | Mapa de pines, PWM, RTC, etapa de potencia (control ↔ potencia), conectividad e instalación eléctrica | Para montar o modificar el hardware |
 | [**BACKEND.md**](BACKEND.md) | Diseño del backend y **referencia autoritativa** para implementarlo: stack, modelo de datos, contratos de API, despliegue | Para retomar el desarrollo del backend |
 | [**ROADMAP.md**](ROADMAP.md) | Plan de migración del firmware de Arduino-ESP32 a ESP-IDF, por fases entregables: motivación, clasificación del código, mapeo de APIs y criterios de verificación | Para planear o retomar la migración a ESP-IDF |
+| [**firmware/README.md**](../firmware/README.md) | Proyecto ESP-IDF (migración en curso): cómo compilar/flashear con `idf.py`, estado por hitos y estructura de módulos | Para trabajar en el firmware ESP-IDF |
+
+> **Dos bases de firmware.** El repositorio contiene el firmware en dos formas: `ESP32_controller/`
+> es el **estable en Arduino-ESP32** (producción, rama `main`), y `firmware/` es la **migración a
+> ESP-IDF puro** en curso (rama `esp-idf-migration`), que lo reemplazará al terminar. El portal,
+> el backend, el hardware y esta documentación son **comunes** a ambas. Ver
+> [README § Estructura](../README.md#estructura-del-repositorio) y [ROADMAP.md](ROADMAP.md).
 
 ## Por tarea
 
