@@ -15,6 +15,12 @@
 | [**BACKEND.md**](BACKEND.md) | Diseño del backend y **referencia autoritativa** para implementarlo: stack, modelo de datos, contratos de API, despliegue | Para retomar el desarrollo del backend |
 | [**ROADMAP.md**](ROADMAP.md) | Plan de migración del firmware de Arduino-ESP32 a ESP-IDF, por fases entregables: motivación, clasificación del código, mapeo de APIs y criterios de verificación | Para planear o retomar la migración a ESP-IDF |
 
+> **Dos bases de firmware.** El firmware existe en dos formas: `ESP32_controller/` es el
+> **estable en Arduino-ESP32** (producción, rama `main`), y la **migración a ESP-IDF puro** vive
+> en la rama `esp-idf-migration` (carpeta `firmware/`, no presente en `main`), que lo reemplazará
+> al terminar. El portal, el backend, el hardware y esta documentación son **comunes** a ambas.
+> Ver [README § Estructura](../README.md#estructura-del-repositorio) y [ROADMAP.md](ROADMAP.md).
+
 ## Por tarea
 
 **Quiero flashear el dispositivo y usarlo** → [README § Compilar y flashear](../README.md#compilar-y-flashear), luego [HARDWARE.md](HARDWARE.md) para el conexionado.

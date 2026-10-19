@@ -267,7 +267,7 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 
 ```
 .
-├── ESP32_controller/          # Firmware (sketch de Arduino)
+├── ESP32_controller/          # Firmware ESTABLE (Arduino-ESP32): sketch en producción
 │   ├── ESP32_controller.ino   # AP Wi-Fi, DNS captivo, rutas HTTP y handlers
 │   ├── Plant.h / .cpp         # Lógica del cultivo: validación, PWM/relés, RTC, sesión, Wi-Fi
 │   ├── Constants.h            # Pines, PWM, límites de validación, enums de estado/error
@@ -292,6 +292,26 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 ├── README.md
 └── README.en.md
 ```
+
+<div align="justify">
+
+**Dos bases de firmware (una en migración).** El firmware existe en dos formas, y es importante
+no confundirlas:
+
+- **`ESP32_controller/` — estable, Arduino-ESP32.** Es el firmware **en producción y
+  funcional**, el que se flashea hoy. Vive en esta rama (`main`).
+- **`firmware/` — migración a ESP-IDF puro, en curso.** Reescritura del firmware a ESP-IDF
+  nativo por hitos, para profesionalizar tooling, OTA de doble slot y TLS. Vive en la rama
+  `esp-idf-migration` (no aparece en `main`). Usa `ESP32_controller/` como especificación de
+  referencia y lo **reemplazará** cuando la migración termine. El plan por fases está en
+  [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+El **portal web (`HTML/`), el backend (`pythonServer/`), el hardware (`ESP32_Board/`) y la
+documentación (`docs/`) son comunes** a ambas: no dependen de qué framework use el firmware.
+
+</div>
+
+---
 
 <div align="justify">
 
