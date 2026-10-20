@@ -14,6 +14,7 @@ idf_component_register(
         "httpserver.cpp"
         "captivedns.cpp"
         "session.cpp"
+        "auth.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
