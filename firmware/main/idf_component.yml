@@ -1,0 +1,7 @@
+# Dependencias gestionadas del componente principal (idf-component-manager).
+# ArduinoJson: librería JSON header-only de C++ (NO es el framework Arduino).
+# Se fija la v6 para portar el parseo/serialización 1:1 desde el firmware Arduino
+# (la v7 cambió la API: StaticJsonDocument/containsKey ya no existen igual).
+dependencies:
+  bblanchon/arduinojson:
+    version: "~6.21.0"
