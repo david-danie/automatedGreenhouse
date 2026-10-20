@@ -15,6 +15,7 @@ idf_component_register(
         "captivedns.cpp"
         "session.cpp"
         "auth.cpp"
+        "cropparams.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
