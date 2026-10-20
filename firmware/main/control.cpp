@@ -65,4 +65,14 @@ void update(const CropConfig& cfg, const uint8_t* t, bool rtcValid) {
                                    epochHours, t[minute]));
 }
 
+// Edad del cultivo en días (>=1), derivada del RTC y del ancla. STATELESS: se
+// calcula del calendario, no de un contador, así es correcta tras cortes de luz.
+int cropDayFromRtc(const CropConfig& cfg, const uint8_t* t, bool rtcValid) {
+    if (!rtcValid) return 0;                 // sin hora fiable: no inventes edad
+    if (cfg.cropStartDay == 0) return 0;     // cultivo sin anclar
+    uint32_t today = daysSinceEpoch(2000 + t[year], t[month], t[day]);
+    if (today < cfg.cropStartDay) return 0;  // RTC retrocedió: evita negativos
+    return (int)(today - cfg.cropStartDay) + 1;  // día del ancla = día 1
+}
+
 } // namespace control

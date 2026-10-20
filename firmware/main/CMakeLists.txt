@@ -13,6 +13,7 @@ idf_component_register(
         "wifi.cpp"
         "httpserver.cpp"
         "captivedns.cpp"
+        "session.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES

@@ -26,6 +26,10 @@ namespace control {
 //   rtcValid  : ¿la última lectura del RTC es fiable? (fail-safe si false).
 void update(const CropConfig& cfg, const uint8_t* t, bool rtcValid);
 
+// Edad del cultivo en días (>=1), derivada del RTC y del ancla cfg.cropStartDay.
+// Devuelve 0 si no hay hora fiable, el cultivo no está anclado, o el RTC retrocedió.
+int cropDayFromRtc(const CropConfig& cfg, const uint8_t* t, bool rtcValid);
+
 } // namespace control
 
 #endif
