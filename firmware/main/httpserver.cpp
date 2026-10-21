@@ -14,6 +14,15 @@
 #include "control.h"
 #include "session.h"
 #include "wifi.h"
+#include "auth.h"
+#include "cropparams.h"
+#include "httpresp.h"
+#include "actuators.h"
+#include "esp_timer.h"
+#include "lwip/sockets.h"
+#include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char* TAG = "http";
 static httpd_handle_t s_server = nullptr;
@@ -110,12 +119,108 @@ static esp_err_t wifiScanHandler(httpd_req_t* req) {
     return httpd_resp_send(req, json.c_str(), json.size());
 }
 
+// Lee el cuerpo del request a un std::string (límite defensivo de tamaño).
+static bool readBody(httpd_req_t* req, std::string& out) {
+    int total = req->content_len;
+    if (total <= 0 || total > 2048) return false;   // payloads del portal son pequeños
+    out.resize(total);
+    int received = 0;
+    while (received < total) {
+        int r = httpd_req_recv(req, &out[received], total - received);
+        if (r <= 0) return false;
+        received += r;
+    }
+    return true;
+}
+
+// ¿La petición entró por la interfaz del AP? Se compara la IP local del socket
+// con la IP del SoftAP (192.168.4.1). No es un dato que el cliente pueda
+// falsificar (igual que el fromAP del firmware Arduino).
+static bool fromAP(httpd_req_t* req) {
+    int fd = httpd_req_to_sockfd(req);
+    if (fd < 0) return false;
+    sockaddr_in local = {};
+    socklen_t len = sizeof(local);
+    if (getsockname(fd, (sockaddr*)&local, &len) != 0) return false;
+    return local.sin_addr.s_addr == htonl(0xC0A80401);   // 192.168.4.1
+}
+
+// Emite respuesta de login/registro OK con el token de sesión.
+static esp_err_t sendAuthOk(httpd_req_t* req, const char* msg) {
+    std::string token = session::issueToken();
+    std::string body = std::string("{\"status\":true,\"message\":\"") + msg +
+                       "\",\"token\":\"" + token + "\"}";
+    httpd_resp_set_status(req, "200 OK");
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_send(req, body.c_str(), body.size());
+}
+
+// POST /usercredentials — registro. En éxito emite token.
+static esp_err_t userCredHandler(httpd_req_t* req) {
+    std::string body;
+    if (!readBody(req, body)) return httpresp::send(req, INVALID_JSON);
+    requestStatus st = auth::registerUser(body);
+    if (st == STATUS_OK) return sendAuthOk(req, "Usuario registrado.");
+    return httpresp::send(req, st);
+}
+
+// POST /authusercredentials — login (o reset con "**reset**").
+static esp_err_t authHandler(httpd_req_t* req) {
+    std::string body;
+    if (!readBody(req, body)) return httpresp::send(req, INVALID_JSON);
+    requestStatus st = auth::loginUser(body, fromAP(req));
+    if (st == STATUS_OK) return sendAuthOk(req, "Acceso concedido.");
+    esp_err_t r = httpresp::send(req, st);
+    if (st == HARD_RESET) {                 // reset: responde y reinicia
+        actuators::setBuzzer(true); vTaskDelay(pdMS_TO_TICKS(600)); actuators::setBuzzer(false);
+        vTaskDelay(pdMS_TO_TICKS(400));
+        esp_restart();
+    } else if (st == MISMATCH_CREDENTIALS || st == TOO_MANY_ATTEMPTS) {
+        // (patrón de error sonoro no bloqueante se gestiona en el bucle de control
+        //  en una futura mejora; aquí basta la respuesta HTTP)
+    }
+    return r;
+}
+
+// POST /newparams — valida y guarda parámetros. En éxito, 3 pitidos.
+static esp_err_t newParamsHandler(httpd_req_t* req) {
+    std::string body;
+    if (!readBody(req, body)) return httpresp::send(req, INVALID_JSON);
+    requestStatus st = cropparams::validateAndSave(body);
+    esp_err_t r = httpresp::send(req, st);
+    return r;
+}
+
+// POST /wificredentials — valida y arranca la conexión STA.
+static esp_err_t wifiCredHandler(httpd_req_t* req) {
+    std::string body;
+    if (!readBody(req, body)) return httpresp::send(req, INVALID_JSON);
+    return httpresp::send(req, wifimod::saveCredentials(body));
+}
+
+// POST /newcrop — cierra el cultivo actual.
+static esp_err_t newCropHandler(httpd_req_t* req) {
+    std::string body;
+    if (!readBody(req, body)) return httpresp::send(req, INVALID_JSON);
+    return httpresp::send(req, cropparams::startNewCrop(body));
+}
+
+// /exit — logout: invalida la sesión.
+static esp_err_t exitHandler(httpd_req_t* req) {
+    session::clear();
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_send(req,
+        "{\"status\":true,\"message\":\"Desconectado correctamente. Ya puedes cerrar esta ventana y desconectarte de la red SmartPlant.\"}",
+        HTTPD_RESP_USE_STRLEN);
+}
+
 namespace httpserver {
 
 bool begin() {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.uri_match_fn = httpd_uri_match_wildcard;   // permite el catch-all '/*'
     cfg.lru_purge_enable = true;
+    cfg.max_uri_handlers = 16;                      // 11 rutas registradas (> 8 por defecto)
 
     if (httpd_start(&s_server, &cfg) != ESP_OK) {
         ESP_LOGE(TAG, "httpd_start falló");
@@ -130,6 +235,19 @@ bool begin() {
 
     httpd_uri_t wifiscan = { "/wifiscan", HTTP_GET, wifiScanHandler, nullptr };
     httpd_register_uri_handler(s_server, &wifiscan);
+
+    httpd_uri_t ucred = { "/usercredentials", HTTP_POST, userCredHandler, nullptr };
+    httpd_register_uri_handler(s_server, &ucred);
+    httpd_uri_t aauth = { "/authusercredentials", HTTP_POST, authHandler, nullptr };
+    httpd_register_uri_handler(s_server, &aauth);
+    httpd_uri_t nparams = { "/newparams", HTTP_POST, newParamsHandler, nullptr };
+    httpd_register_uri_handler(s_server, &nparams);
+    httpd_uri_t wcred = { "/wificredentials", HTTP_POST, wifiCredHandler, nullptr };
+    httpd_register_uri_handler(s_server, &wcred);
+    httpd_uri_t ncrop = { "/newcrop", HTTP_POST, newCropHandler, nullptr };
+    httpd_register_uri_handler(s_server, &ncrop);
+    httpd_uri_t exit = { "/exit", HTTP_GET, exitHandler, nullptr };
+    httpd_register_uri_handler(s_server, &exit);
 
     httpd_uri_t any = { "/*", HTTP_GET, captiveHandler, nullptr };
     httpd_register_uri_handler(s_server, &any);

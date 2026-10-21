@@ -16,6 +16,7 @@ idf_component_register(
         "session.cpp"
         "auth.cpp"
         "cropparams.cpp"
+        "httpresp.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
