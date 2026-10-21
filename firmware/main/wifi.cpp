@@ -15,6 +15,8 @@
 #include "sensible.h"      // apSsid, apPassword (no versionado; ver plantilla)
 #include "storage.h"       // persistencia diferida de credenciales
 #include "Constants.h"     // límites de SSID/pass
+#include <ArduinoJson.h>
+#include "session.h"
 
 static const char* TAG = "wifi";
 
@@ -134,6 +136,17 @@ bool updateWifiPersist() {
     if (!isStaConnected()) return false;     // aún no conecta: no persistir
     s_wifiPending = false;
     bool ok = storage::saveWifi(s_pendSsid, s_pendPass);
+
+    // Marca hasWifiCredentials (bit1) en la config, para que el próximo arranque
+    // intente el STA. Igual que _systemStatus[hasWifiCredentials] en Arduino.
+    if (ok) {
+        CropConfig cfg;
+        storage::loadConfig(cfg);
+        if (!(cfg.flags & 0x02)) {
+            cfg.flags |= 0x02;
+            storage::saveConfig(cfg);
+        }
+    }
     ESP_LOGI(TAG, "STA conectado — credenciales %s", ok ? "guardadas" : "NO guardadas");
     return ok;
 }
@@ -212,6 +225,32 @@ std::string scanNetworks() {
     }
     out += "]}";
     return out;
+}
+
+requestStatus saveCredentials(const std::string& body) {
+    StaticJsonDocument<384> doc;
+    if (deserializeJson(doc, body)) return INVALID_JSON;
+
+    // Autorización por token (misma puerta que /newparams).
+    if (!doc.containsKey("token")) return INVALID_SESSION;
+    const char* tok = doc["token"] | "";
+    if (!session::isValid(std::string(tok))) return INVALID_SESSION;
+
+    if (!doc.containsKey("ssid")) return MISSING_WIFI_FIELDS;
+
+    std::string ssid = doc["ssid"] | "";
+    // trim
+    { size_t a=ssid.find_first_not_of(" \t\r\n"), b=ssid.find_last_not_of(" \t\r\n");
+      ssid = (a==std::string::npos)? "" : ssid.substr(a, b-a+1); }
+    if (ssid.empty() || ssid.length() > maxWifiSsidChars) return INVALID_SSID;
+
+    // Contraseña: vacía = red abierta (válido); si viene, WPA2 8–63.
+    std::string pass = doc["pass"] | "";
+    if (!pass.empty() && (pass.length() < minWifiPassChars || pass.length() > maxWifiPassChars))
+        return INVALID_WIFI_PASS;
+
+    connectSta(ssid.c_str(), pass.c_str());   // marca pendiente + arranca el intento
+    return STATUS_OK;
 }
 
 } // namespace wifimod

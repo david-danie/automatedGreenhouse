@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <string>
+#include "Constants.h"   // requestStatus
 
 namespace wifimod {
 
@@ -43,6 +44,11 @@ std::string scanNetworks();
 // hasWifiCredentials. Así una contraseña incorrecta nunca queda persistida.
 // Devuelve true la primera vez que persiste (para que el llamador registre el flag).
 bool updateWifiPersist();
+
+// POST /wificredentials: valida (token + ssid + pass WPA2 u open) y ARRANCA la
+// conexión sin bloquear ni persistir (eso lo hace updateWifiPersist al conectar).
+// Devuelve STATUS_OK = "intento iniciado", o un error de validación.
+requestStatus saveCredentials(const std::string& body);
 
 } // namespace wifimod
 
