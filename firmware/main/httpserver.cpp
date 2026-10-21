@@ -8,6 +8,7 @@
 #include "mainForm.h"      // mainForm_gz[], mainForm_gz_len
 #include <ArduinoJson.h>
 #include <string>
+#include <cstring>
 #include "Constants.h"
 #include "storage.h"
 #include "rtc.h"
@@ -18,6 +19,7 @@
 #include "cropparams.h"
 #include "httpresp.h"
 #include "actuators.h"
+#include "ota.h"
 #include "esp_timer.h"
 #include "lwip/sockets.h"
 #include "esp_system.h"
@@ -214,6 +216,71 @@ static esp_err_t exitHandler(httpd_req_t* req) {
         HTTPD_RESP_USE_STRLEN);
 }
 
+// POST /otaupdate — sube el .bin y lo escribe en el slot OTA inactivo.
+// Autoriza ANTES de escribir un solo byte: token de sesión (header
+// Authorization: Bearer) + petición por la interfaz del AP. Fail-closed.
+static esp_err_t otaUpdateHandler(httpd_req_t* req) {
+    // Token del header Authorization: Bearer <token>.
+    char auth[64] = {0};
+    httpd_req_get_hdr_value_str(req, "Authorization", auth, sizeof(auth));
+    const char* tok = (strncmp(auth, "Bearer ", 7) == 0) ? auth + 7 : "";
+    if (!session::isValid(std::string(tok))) {
+        httpd_resp_set_status(req, "401 Unauthorized");
+        httpd_resp_set_type(req, "application/json");
+        return httpd_resp_send(req,
+            "{\"status\":false,\"message\":\"Tu sesión expiró. Inicia sesión y reintenta.\"}",
+            HTTPD_RESP_USE_STRLEN);
+    }
+    if (!fromAP(req)) {
+        httpd_resp_set_status(req, "403 Forbidden");
+        httpd_resp_set_type(req, "application/json");
+        return httpd_resp_send(req,
+            "{\"status\":false,\"message\":\"La actualización solo se permite desde la red del equipo (AP).\"}",
+            HTTPD_RESP_USE_STRLEN);
+    }
+
+    if (!ota::begin()) {
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        httpd_resp_set_type(req, "application/json");
+        return httpd_resp_send(req,
+            "{\"status\":false,\"message\":\"No se pudo iniciar la actualización.\"}",
+            HTTPD_RESP_USE_STRLEN);
+    }
+
+    // Escribe el cuerpo (el binario) por trozos.
+    char chunk[1024];
+    int remaining = req->content_len;
+    bool ok = true;
+    while (remaining > 0) {
+        int r = httpd_req_recv(req, chunk, (remaining < (int)sizeof(chunk)) ? remaining : (int)sizeof(chunk));
+        if (r <= 0) { ok = false; break; }
+        if (!ota::write((const uint8_t*)chunk, r)) { ok = false; break; }
+        remaining -= r;
+    }
+
+    if (!ok || !ota::finish()) {
+        ota::abort();
+        actuators::setBuzzer(true); vTaskDelay(pdMS_TO_TICKS(150)); actuators::setBuzzer(false);
+        vTaskDelay(pdMS_TO_TICKS(150));
+        actuators::setBuzzer(true); vTaskDelay(pdMS_TO_TICKS(150)); actuators::setBuzzer(false);
+        httpd_resp_set_status(req, "500 Internal Server Error");
+        httpd_resp_set_type(req, "application/json");
+        return httpd_resp_send(req,
+            "{\"status\":false,\"message\":\"No se pudo instalar el firmware. El equipo conserva el anterior.\"}",
+            HTTPD_RESP_USE_STRLEN);
+    }
+
+    // Éxito: responde, pita (1 largo) y reinicia al firmware nuevo.
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req,
+        "{\"status\":true,\"message\":\"Firmware instalado. El equipo se reinicia.\"}",
+        HTTPD_RESP_USE_STRLEN);
+    actuators::setBuzzer(true); vTaskDelay(pdMS_TO_TICKS(600)); actuators::setBuzzer(false);
+    vTaskDelay(pdMS_TO_TICKS(400));
+    esp_restart();
+    return ESP_OK;   // no se alcanza
+}
+
 namespace httpserver {
 
 bool begin() {
@@ -248,6 +315,9 @@ bool begin() {
     httpd_register_uri_handler(s_server, &ncrop);
     httpd_uri_t exit = { "/exit", HTTP_GET, exitHandler, nullptr };
     httpd_register_uri_handler(s_server, &exit);
+
+    httpd_uri_t ota = { "/otaupdate", HTTP_POST, otaUpdateHandler, nullptr };
+    httpd_register_uri_handler(s_server, &ota);
 
     httpd_uri_t any = { "/*", HTTP_GET, captiveHandler, nullptr };
     httpd_register_uri_handler(s_server, &any);

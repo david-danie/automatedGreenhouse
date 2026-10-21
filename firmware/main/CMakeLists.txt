@@ -17,6 +17,7 @@ idf_component_register(
         "auth.cpp"
         "cropparams.cpp"
         "httpresp.cpp"
+        "ota.cpp"
     INCLUDE_DIRS
         "."
     REQUIRES
@@ -28,4 +29,5 @@ idf_component_register(
         esp_event
         esp_http_server
         lwip
+        app_update
 )
