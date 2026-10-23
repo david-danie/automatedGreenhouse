@@ -108,7 +108,7 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 |---|---|---|
 | MOSFET canal PWM (azul/rojo) | **IRLZ44N** (TO-220) o **AOD4184** (DPAK, SMD) | Logic-level, margen de V y RDS(on) para el canal azul ~4.2 A @ 24 V. El AO3400A (30 V, ~5.7 A) se queda **justo** a 24 V y a 3.3 V de gate su RDS(on) sube: solo para cargas pequeñas. |
 | MOSFET bobina de contactor | **AO3400A** (SOT-23) | La bobina tira poco (<0.2 A típico); aquí el AO3400A sobra. Lo excita el opto (lado potencia). |
-| Optoacoplador (salidas digitales) | **PC817** (DIP-4 / SOP-4) | Aísla galvánicamente el GPIO (3.3 V) del dominio de 24 V. Entrada: `3.3V → R 330Ω → ánodo`, GPIO al cátodo. Salida: fototransistor + pull-up 10 kΩ al gate del MOSFET. **Requiere `GND_control` y `GND_potencia` separadas.** |
+| Optoacoplador (salidas digitales) | **PC817** (DIP-4 / SOP-4) | Aísla el GPIO (3.3 V) del dominio de 24 V. **Activo en alto**: `GPIO → R 330Ω → ánodo`, `cátodo → GND_control`, con **pull-down 10 kΩ** en el GPIO (apagado seguro en el boot). Salida: fototransistor + pull-up 10 kΩ al gate del MOSFET. **Requiere `GND_control` y `GND_potencia` separadas.** |
 | Diodo flyback (bobina CD) | **SS14** (Schottky SMD) o **1N4007** | **Obligatorio** en antiparalelo con la bobina CD: absorbe el pico inductivo (V=−L·di/dt) al cortar. |
 | Snubber RC (contactos CA) | **100 Ω ≥2 W + 0.1 µF X2 275 VCA** (en serie) | En paralelo con los contactos del contactor / la carga. Protege los contactos del arco al abrir el motor inductivo (≤1 HP, 120 VCA) y reduce EMI. |
 | Resistencia de gate | **100 Ω** | En serie GPIO→gate. |
@@ -159,10 +159,11 @@ separa el dominio de control (3.3 V, `GND_control`) del de potencia (24 V, `GND_
 LADO CONTROL (3.3 V, GND_control)          LADO POTENCIA (24 V, GND_potencia)
 -----------------------------------        --------------------------------------
                                            +24V ──[ BOBINA CONTACTOR 24VCD ]── Drain
- 3.3V ─[330Ω]─► ánodo(1)   PC817                       (flyback SS14/1N4007 ∥ bobina:
- GPIO ────────► cátodo(2)                               cátodo→+24V, ánodo→Drain)
-                 · · · · · · · · · · · · ·
-                 (aislamiento óptico)      +24V ─[10kΩ]─┬─► Gate   AO3400A
+ GPIO ─[330Ω]─► ánodo(1)   PC817                       (flyback SS14/1N4007 ∥ bobina:
+   │                                                    cátodo→+24V, ánodo→Drain)
+ [10kΩ]        cátodo(2) ── GND_control
+   │             · · · · · · · · · · · · ·
+ GND_control     (aislamiento óptico)      +24V ─[10kΩ]─┬─► Gate   AO3400A
                                      colector(4) ───────┘   Source ── GND_potencia
                                      emisor(3) ── GND_potencia   [100kΩ] Gate→GND_potencia
 
@@ -170,10 +171,16 @@ LADO CONTROL (3.3 V, GND_control)          LADO POTENCIA (24 V, GND_potencia)
       └──[ R 100Ω 2W ]──[ C 0.1µF X2 275VCA ]──┘   snubber RC (∥ contactos/carga)
 ```
 
-Lectura: el GPIO enciende el LED interno del opto (pines 1-2). El fototransistor del opto
-(pines 3-4), con el pull-up de 10 kΩ, pone el gate del MOSFET a 24 V → el MOSFET conduce y
-energiza la bobina del contactor. Todo el lado derecho está en `GND_potencia`, separada de
-`GND_control`.
+Lectura: **activo en ALTO** — `GPIO = 1` entrega corriente por el LED del opto (pines 1-2) y
+lo enciende; `GPIO = 0` lo apaga. El fototransistor (pines 3-4), con el pull-up de 10 kΩ, pone
+el gate del MOSFET a 24 V → conduce y energiza la bobina del contactor. Todo el lado derecho
+está en `GND_potencia`, separada de `GND_control`.
+
+- **Por qué activo en alto + pull-down:** durante el boot/reset los GPIO del C3 quedan
+  indefinidos. El **pull-down de 10 kΩ** fija el pin en bajo → opto apagado → actuador apagado
+  (seguro por defecto): la bomba/ventilador no pueden arrancar solos en el arranque. Además
+  mantiene la polaridad uniforme con `deviceOn = 1` (lógica directa, igual que el PWM).
+- **Corriente del LED del opto:** `(3.3 − 1.2) / 330 ≈ 6 mA`, que el GPIO entrega sin problema.
 
 - **Aislamiento:** el PC817 traslada la señal del GPIO al lado de 24 V sin unir tierras. Para
   que aísle de verdad, `GND_control` y `GND_potencia` deben quedar **separadas** en el layout
@@ -186,6 +193,43 @@ energiza la bobina del contactor. Todo el lado derecho está en `GND_potencia`, 
   la bobina está realmente energizada.
 - **Contactor**: dimensionar para 1 HP a 120 VCA en categoría **AC-3** (inrush ~40–60 A), con
   bobina de **24 VCD**.
+
+### Esquema de conexión final — una salida digital completa
+
+Cadena completa de una salida (p. ej. la bomba, GPIO 10), extremo a extremo, con los dos
+dominios de alimentación y todos los componentes. Las otras dos salidas digitales
+(ventilador GPIO 7, blanco GPIO 0) son idénticas.
+
+```
+   ┌─────────────── DOMINIO CONTROL (3.3 V · GND_control) ───────────────┐
+   │                                                                     │
+   │   ESP32-C3                                                          │
+   │   GPIO10 ──┬── [330Ω] ──►|── PC817 LED (ánodo→cátodo)               │
+   │            │                       │                               │
+   │          [10kΩ]                 GND_control                        │
+   │            │                                                       │
+   │          GND_control                                              │
+   └──────────────────────┊ aislamiento óptico ┊──────────────────────┘
+   ┌──────────────────────┊──── DOMINIO POTENCIA (24 V · GND_potencia) ─┐
+   │                                                                    │
+   │   Fuente 24 VCD ──┬────────────────────────┬─────────────┐        │
+   │                   │                        │             │        │
+   │             [BOBINA CONTACTOR]        [10kΩ pull-up]   LED "24V"   │
+   │               24 VCD  │  ▲                 │           +[680Ω]     │
+   │                       │  │ flyback         ▼                       │
+   │          LED ind. ∥   │  SS14          Gate ┌── AO3400A            │
+   │          +[4.7kΩ]     │  (cát→+24V)         │   Drain ─► bobina(−) │
+   │   PC817 colector(4) ──┘  (ánodo→Drain)      │   Source ─ GND_pot   │
+   │   PC817 emisor(3) ─ GND_potencia        [100kΩ] Gate→GND_pot       │
+   │                                                                    │
+   │   CONTACTOR (contactos de potencia, aislados de la bobina):        │
+   │   120 VCA L ──[contacto]── MOTOR bomba (≤1 HP) ── N                 │
+   │                  └──[R 100Ω 2W]+[C 0.1µF X2 275VCA]──┘  snubber RC  │
+   └────────────────────────────────────────────────────────────────────┘
+
+ Los dos dominios comparten SOLO el enlace óptico del PC817; sus tierras
+ (GND_control / GND_potencia) NO se unen en el PCB.
+```
 
 ### Esquemático — buzzer (GPIO 3)
 
