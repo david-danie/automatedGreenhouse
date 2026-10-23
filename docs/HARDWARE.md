@@ -30,7 +30,9 @@ Definido en `ESP32_controller/Constants.h`.
 | Buzzer | 3 | Digital | Señalización sonora no bloqueante (ver [vocabulario de pitidos](#vocabulario-de-pitidos)) |
 | Ventilador / extractor | 7 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
 | Bomba de agua | 10 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
-| RTC DS3231 | I²C `0x68` | — | Bus `Wire`, para el scheduling |
+| I²C SDA | 8 | I²C | Datos del bus I²C (DS3231) |
+| I²C SCL | 9 | I²C | Reloj del bus I²C (DS3231) |
+| RTC DS3231 | I²C `0x68` | — | Reloj externo para el scheduling (bus I²C en GPIO 8/9) |
 
 **Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `HIGH`/`LOW` (lógica directa). Si se cambia a módulos de relé activos en bajo, basta intercambiar esas dos líneas y todo el firmware queda coherente.
 
@@ -88,7 +90,7 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 |---|---|---|
 | **Fuente única** | **24 VCD** | A 120 W, 24 V tira ~5 A vs ~10 A a 12 V → mitad de corriente, ¼ de pérdidas (I²R), pistas y conectores más chicos, menos calor. A >60 W las fuentes de 24 V son tan comunes como las de 12 V. Una sola fuente alimenta LEDs, bobinas de contactor y (vía buck) el MCU. |
 | **Dimensionado LED** | 60–120 W para 1–2 m², relación **1:5 azul:rojo con azul predominante** | Azul ≈ 100 W (~4.2 A @ 24 V, canal fuerte); rojo ≈ 20 W (~0.85 A). El hardware se dimensiona al **peor caso: cada canal al 100 %**. |
-| **Salidas digitales (vent/bomba/blanco)** | **Contactor con bobina de CD (24 V)** accionado por **MOSFET lógico + diodo flyback** | Con bobina CD y tierra común NO hace falta optoacoplador: el **contactor es la barrera de aislamiento** hacia la CA. Más simple y barato que SSR/triac u opto+transistor. |
+| **Salidas digitales (vent/bomba/blanco)** | **Opto PC817 + MOSFET lógico** acciona un **contactor con bobina de CD (24 V)**; **flyback** en la bobina y **snubber RC** en los contactos de CA | Aislamiento galvánico explícito entre el control (3.3 V) y el dominio de potencia: el opto separa `GND_control` de `GND_potencia`. El contactor conmuta la carga de CA (motores ≤1 HP a 120 V). |
 | **PWM LED (azul, rojo)** | **MOSFET lógico N-channel directo** (sin opto) | A 1 kHz un optoacoplador común (PC817) deforma la señal. El MOSFET lógico conmuta directo desde 3.3 V. |
 | **MCU 3.3 V** | **Buck 24→5 V (→3.3 V)**, no lineal | Un lineal 24→3.3 disiparía demasiado; se usa un convertidor conmutado (p. ej. MP1584). |
 
@@ -105,8 +107,10 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 | Función | Componente | Notas |
 |---|---|---|
 | MOSFET canal PWM (azul/rojo) | **IRLZ44N** (TO-220) o **AOD4184** (DPAK, SMD) | Logic-level, margen de V y RDS(on) para el canal azul ~4.2 A @ 24 V. El AO3400A (30 V, ~5.7 A) se queda **justo** a 24 V y a 3.3 V de gate su RDS(on) sube: solo para cargas pequeñas. |
-| MOSFET bobina de contactor | **AO3400A** (SOT-23) | La bobina tira poco (<0.2 A típico); aquí el AO3400A sobra. |
+| MOSFET bobina de contactor | **AO3400A** (SOT-23) | La bobina tira poco (<0.2 A típico); aquí el AO3400A sobra. Lo excita el opto (lado potencia). |
+| Optoacoplador (salidas digitales) | **PC817** (DIP-4 / SOP-4) | Aísla el GPIO (3.3 V) del dominio de 24 V. **Activo en alto**: `GPIO → R 330Ω → ánodo`, `cátodo → GND_control`, con **pull-down 10 kΩ** en el GPIO (apagado seguro en el boot). Salida: fototransistor + pull-up 10 kΩ al gate del MOSFET. **Requiere `GND_control` y `GND_potencia` separadas.** |
 | Diodo flyback (bobina CD) | **SS14** (Schottky SMD) o **1N4007** | **Obligatorio** en antiparalelo con la bobina CD: absorbe el pico inductivo (V=−L·di/dt) al cortar. |
+| Snubber RC (contactos CA) | **100 Ω ≥2 W + 0.1 µF X2 275 VCA** (en serie) | En paralelo con los contactos del contactor / la carga. Protege los contactos del arco al abrir el motor inductivo (≤1 HP, 120 VCA) y reduce EMI. |
 | Resistencia de gate | **100 Ω** | En serie GPIO→gate. |
 | Pull-down de gate | **100 kΩ** | Gate→GND. Mantiene el actuador apagado durante el boot del C3 (sus GPIO quedan indefinidos antes de que corra el firmware). |
 | Convertidor MCU | Buck **24 V → 5 V** (MP1584 o equiv.) | De ahí al regulador 3.3 V. |
@@ -145,41 +149,87 @@ Aplica si las tiras/arreglos son de **voltaje constante a 24 V**. Un canal por c
 > *strapping pin* de boot. Un pull-down de 100 kΩ (alta impedancia) no suele afectar el
 > arranque, pero conviene verificarlo; si da problemas, mover ese canal a un GPIO no-strapping.
 
-### Esquemático — salida digital (contactor con bobina CD)
+### Esquemático — salida digital (opto + MOSFET + contactor)
 
-Aplica a ventilador, bomba y lámpara blanca (GPIO 7, 10, 0). El contactor conmuta la **CA**
-de la carga; su bobina es de **24 VCD**:
+Aplica a ventilador, bomba y lámpara blanca (GPIO 7, 10, 0). Aislamiento galvánico: el opto
+separa el dominio de control (3.3 V, `GND_control`) del de potencia (24 V, `GND_potencia`).
+**Las dos tierras NO se unen en el PCB** — de ahí viene el aislamiento.
 
 ```
-            +24 V
-              │
-         [ BOBINA CONTACTOR 24 VCD ]
-              │        ▲
-              ├────────┤ cátodo   SS14 / 1N4007   (flyback, antiparalelo)
-              │        ▼ ánodo
-              │
-              ├──[4.7k]──▶|── (LED indicador: salida activa)
-              │
-              │  Drain
- GPIO ──[100Ω]──┤ AO3400A
-   │          │  Source
- [100k]       │
-   │         GND
-  GND
+LADO CONTROL (3.3 V, GND_control)          LADO POTENCIA (24 V, GND_potencia)
+-----------------------------------        --------------------------------------
+                                           +24V ──[ BOBINA CONTACTOR 24VCD ]── Drain
+ GPIO ─[330Ω]─► ánodo(1)   PC817                       (flyback SS14/1N4007 ∥ bobina:
+   │                                                    cátodo→+24V, ánodo→Drain)
+ [10kΩ]        cátodo(2) ── GND_control
+   │             · · · · · · · · · · · · ·
+ GND_control     (aislamiento óptico)      +24V ─[10kΩ]─┬─► Gate   AO3400A
+                                     colector(4) ───────┘   Source ── GND_potencia
+                                     emisor(3) ── GND_potencia   [100kΩ] Gate→GND_potencia
 
-   (contactos del contactor) ── conmutan la carga en CA (120/240 V)
+ Contactos del contactor ──► motor en CA (≤1 HP, 120 VCA)
+      └──[ R 100Ω 2W ]──[ C 0.1µF X2 275VCA ]──┘   snubber RC (∥ contactos/carga)
 ```
 
-- El **flyback** va en antiparalelo con la bobina (cátodo a +24 V, ánodo al drain): sin él, el
-  pico inductivo al apagar destruye el MOSFET.
-- El **LED indicador** (en serie con `4.7 kΩ`) va **en paralelo con la bobina**, así enciende
-  solo cuando la bobina está realmente energizada: confirma el camino completo
-  GPIO→MOSFET→bobina, no solo lo que pide el firmware. El LED+R **no sustituye al flyback**;
-  son elementos distintos. A ~5 mA: `R = (24−2)/0.005 ≈ 4.7 kΩ`, 1/4 W sobra.
-- El **aislamiento hacia la CA lo da el contactor** (sus contactos separan la red de la
-  electrónica de control). Por eso no se usa optoacoplador en la bobina de bajo voltaje.
-- Si se quisiera una barrera extra por ruido de motores/bomba, se puede dejar **huella
-  opcional de opto** y poblarla solo si hace falta — pero el diseño base va **sin** opto.
+Lectura: **activo en ALTO** — `GPIO = 1` entrega corriente por el LED del opto (pines 1-2) y
+lo enciende; `GPIO = 0` lo apaga. El fototransistor (pines 3-4), con el pull-up de 10 kΩ, pone
+el gate del MOSFET a 24 V → conduce y energiza la bobina del contactor. Todo el lado derecho
+está en `GND_potencia`, separada de `GND_control`.
+
+- **Por qué activo en alto + pull-down:** durante el boot/reset los GPIO del C3 quedan
+  indefinidos. El **pull-down de 10 kΩ** fija el pin en bajo → opto apagado → actuador apagado
+  (seguro por defecto): la bomba/ventilador no pueden arrancar solos en el arranque. Además
+  mantiene la polaridad uniforme con `deviceOn = 1` (lógica directa, igual que el PWM).
+- **Corriente del LED del opto:** `(3.3 − 1.2) / 330 ≈ 6 mA`, que el GPIO entrega sin problema.
+
+- **Aislamiento:** el PC817 traslada la señal del GPIO al lado de 24 V sin unir tierras. Para
+  que aísle de verdad, `GND_control` y `GND_potencia` deben quedar **separadas** en el layout
+  (la fuente de 24 V flota respecto a la del MCU).
+- **Flyback** (SS14/1N4007) en antiparalelo con la bobina CD: absorbe el pico inductivo al
+  cortar; protege el MOSFET.
+- **Snubber RC** (100 Ω 2 W + 0.1 µF X2 275 VCA, en serie) en paralelo con los contactos/carga
+  de CA: protege los contactos del arco al abrir el motor inductivo y reduce EMI.
+- **LED indicador** (LED + 4.7 kΩ) en paralelo con la bobina (lado potencia): enciende cuando
+  la bobina está realmente energizada.
+- **Contactor**: dimensionar para 1 HP a 120 VCA en categoría **AC-3** (inrush ~40–60 A), con
+  bobina de **24 VCD**.
+
+### Esquema de conexión final — una salida digital completa
+
+Cadena completa de una salida (p. ej. la bomba, GPIO 10), extremo a extremo, con los dos
+dominios de alimentación y todos los componentes. Las otras dos salidas digitales
+(ventilador GPIO 7, blanco GPIO 0) son idénticas.
+
+```
+   ┌─────────────── DOMINIO CONTROL (3.3 V · GND_control) ───────────────┐
+   │                                                                     │
+   │   ESP32-C3                                                          │
+   │   GPIO10 ──┬── [330Ω] ──►|── PC817 LED (ánodo→cátodo)               │
+   │            │                       │                               │
+   │          [10kΩ]                 GND_control                        │
+   │            │                                                       │
+   │          GND_control                                              │
+   └──────────────────────┊ aislamiento óptico ┊──────────────────────┘
+   ┌──────────────────────┊──── DOMINIO POTENCIA (24 V · GND_potencia) ─┐
+   │                                                                    │
+   │   Fuente 24 VCD ──┬────────────────────────┬─────────────┐        │
+   │                   │                        │             │        │
+   │             [BOBINA CONTACTOR]        [10kΩ pull-up]   LED "24V"   │
+   │               24 VCD  │  ▲                 │           +[680Ω]     │
+   │                       │  │ flyback         ▼                       │
+   │          LED ind. ∥   │  SS14          Gate ┌── AO3400A            │
+   │          +[4.7kΩ]     │  (cát→+24V)         │   Drain ─► bobina(−) │
+   │   PC817 colector(4) ──┘  (ánodo→Drain)      │   Source ─ GND_pot   │
+   │   PC817 emisor(3) ─ GND_potencia        [100kΩ] Gate→GND_pot       │
+   │                                                                    │
+   │   CONTACTOR (contactos de potencia, aislados de la bobina):        │
+   │   120 VCA L ──[contacto]── MOTOR bomba (≤1 HP) ── N                 │
+   │                  └──[R 100Ω 2W]+[C 0.1µF X2 275VCA]──┘  snubber RC  │
+   └────────────────────────────────────────────────────────────────────┘
+
+ Los dos dominios comparten SOLO el enlace óptico del PC817; sus tierras
+ (GND_control / GND_potencia) NO se unen en el PCB.
+```
 
 ### Esquemático — buzzer (GPIO 3)
 
@@ -244,10 +294,14 @@ usuario y de seguridad**.
           │             azul / rojo                  vent · bomba · blanco
        ESP32-C3            ▲   ▲                         ▲   ▲   ▲
           │  PWM 1 kHz ────┘   │                         │   │   │  cada bobina:
-          │  (GPIO 1,2)        │        GPIO 7,10,0 ──────┘   │   │  ∥ LED+4.7k (indicador)
-          └── MOSFET lógico ───┴──── MOSFET lógico + flyback ─┴───┘
+          │  (GPIO 1,2)        │     GPIO 7,10,0 ─[opto]──┘   │   │  ∥ LED+4.7k (indicador)
+          └── MOSFET directo ──┘      │  (aísla tierras)      │   │  + flyback
+                                      └── MOSFET (GND_potencia) ──┘
                                                    │
-                                            contactos CA → cargas 120/240 V
+                                   contactos CA → motores ≤1 HP (120 VCA) + snubber RC
+
+  GND_control (3.3 V)  ⟂  GND_potencia (24 V)   — separadas: de ahí el aislamiento
+  PWM de LED: MOSFET directo (sin opto, 1 kHz).  Digitales: vía opto (aisladas).
 ```
 
 Los canales PWM no llevan LED indicador dedicado (el arreglo LED ya es su indicador).
