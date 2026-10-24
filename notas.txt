@@ -151,5 +151,5 @@ recrearlos a mano en cada máquina:
 
 Sensores de temperatura/humedad.
   
-
+calcular dias y semanas en el firmware
 
