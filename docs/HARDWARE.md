@@ -117,7 +117,7 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 | Fuente | **24 VCD, 150 W** (o 100 W si tope 60 W) | ~125 % de la carga máxima. |
 | LED indicador de salida | **LED + 680 Ω** | Uno por salida digital, en el **lado de control** (refleja el GPIO, ~3 mA @ 3.3 V). R fija: **independiente del voltaje de bobina** (5/12/24 V). Indica lo que pide el firmware. |
 | LED indicador de sistema | **LED + 680 Ω** | "24 V presente" en la fuente y, opcional, "3.3 V OK" tras el buck (~2 mA @ 3.3–5 V). |
-| Buzzer | **Activo magnético 5 V** (HYDZ 12 mm, DIP) | 2.4 kHz fijo, ~30 mA, 85 dB. Alimentado a 5 V, conmutado por MOSFET pequeño + flyback (ver esquemático). Control no bloqueante en firmware (`buzzerBeep`/`buzzerUpdate`). |
+| Buzzer | **Activo magnético 5 V** (HYDZ 12 mm, DIP) | 2.4 kHz fijo, ~30 mA, 85 dB. Alimentado a 5 V, conmutado por **AO3400A** (mismo MOSFET que las bobinas) + flyback 1N4148, directo desde GPIO 3 (ver esquemático). Control no bloqueante (`buzzerBeep`/`buzzerUpdate`). |
 
 ### Esquemático — canal PWM de LED (voltaje constante)
 
@@ -268,29 +268,32 @@ Control ON/OFF, igual que una salida digital, en GPIO 3.
      ![Buzzer](./img/buzzer_sch.png) -->
 
 ```
-            +5 V  (riel del buck)
-              │
-          [ BUZZER activo 5 V ]
-              │
-              ├──▶|── 1N4148   (flyback: es magnético = inductivo)
-              │
-              │  Drain
- GPIO 3 ─[100Ω]─┤ 2N7002 / AO3400A
-   │          │  Source
- [100k]       │
-   │         GND
+   +5V ──┬───────────────────┐
+         │                   │
+   [BUZZER activo 5V]      1N4148      flyback en antiparalelo con el buzzer
+         │                   │         (cátodo→+5V, ánodo→Drain)
+         └─────────┬─────────┘
+                   │ Drain
+ GPIO3 ─[100Ω]─────┤ AO3400A (N-MOSFET)
+   │               │ Source
+ [100kΩ]           │
+   │              GND
   GND
 ```
 
 - **No se conecta directo al GPIO**: a 5 V y ~30 mA, el pin del C3 (3.3 V) no debe manejarlo
-  directo. El MOSFET conmuta los 5 V; el GPIO 3 solo controla el gate (resuelve a la vez la
-  corriente y el desajuste 3.3 V/5 V).
-- **Flyback 1N4148** en antiparalelo: el buzzer magnético es inductivo.
-- `100 Ω` gate + `100 kΩ` pull-down → mismo patrón que el resto; buzzer callado en el boot.
-- A 3.3 V sonaría más débil (su óptimo es 5 V), por eso se alimenta del riel de 5 V.
-- **Firmware:** el control del buzzer está implementado como salida digital no bloqueante
-  (`pinMode` en `begin()`, máquina de estados `buzzerBeep`/`buzzerUpdate`). Ver el vocabulario
-  de pitidos abajo.
+  directo. El MOSFET conmuta los 5 V; el GPIO 3 solo controla el gate.
+- **MOSFET: AO3400A** — el mismo que acciona las bobinas de contactor, para unificar el BOM.
+  (Si no se consiguiera, un 2N7002 sirve como sustituto: sobra para los ~30 mA del buzzer. Es
+  solo una referencia de equivalente, no un segundo componente del diseño.) El buzzer va
+  directo desde el GPIO (sin opto): es parte del circuito de control (5 V del buck, misma
+  tierra), no necesita aislamiento.
+- **Flyback 1N4148** en antiparalelo con el buzzer (carga inductiva magnética): absorbe el
+  pico al apagar.
+- `100 Ω` en serie al gate + `100 kΩ` pull-down → buzzer callado durante el boot.
+- A 3.3 V sonaría más débil (su óptimo es 5 V), por eso se alimenta del riel de 5 V del buck.
+- **Firmware:** control no bloqueante (`pinMode` en `begin()`, máquina de estados
+  `buzzerBeep`/`buzzerUpdate`). Ver el vocabulario de pitidos abajo.
 
 #### Vocabulario de pitidos
 
