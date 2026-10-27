@@ -150,6 +150,83 @@ recrearlos a mano en cada máquina:
 
 
 Sensores de temperatura/humedad.
-  
-calcular dias y semanas en el firmware
 
+Recordatorios de hardware para el PCB (el DISEÑO cerrado de la etapa de potencia
+—opto activo en alto + MOSFET + flyback + snubber RC— está en docs/HARDWARE.md):
+  - Desacoplo local: 100 nF cerca de los pines de alimentación y 10–100 µF cerca
+    de la entrada de la placa (Espressif recomienda >=10 µF en la entrada).
+  - Fusible en la línea de CA de los contactos: dimensionado según la carga, el
+    cableado y la capacidad de interrupción requerida.
+
+
+
+===========================================================================
+ D. FIRMWARE ESP-IDF (migración, rama esp-idf-migration) — compilar en Ubuntu
+===========================================================================
+
+El firmware ESP-IDF vive en firmware/ (NO en ESP32_controller/, que es el Arduino
+estable). Punto de entrada: firmware/main/. Target: esp32c3.
+
+1) Instalar la extensión ESP-IDF de VS Code:
+   - VS Code → Extensions → "Espressif IDF" (espressif.esp-idf-extension) → Install.
+   - Al terminar, abre el comando "ESP-IDF: Configure ESP-IDF Extension" → modo
+     EXPRESS. Esto descarga e instala TODO lo necesario:
+       * ESP-IDF  -> ELEGIR VERSIÓN v5.5  (compatible con ArduinoJson ~6.21 que
+         usa el proyecto; no elegir una muy nueva/vieja).
+       * El toolchain (riscv32-esp-elf), cmake, ninja, idf.py, OpenOCD, python.
+   - No hace falta instalar ESP-IDF aparte por terminal; la extensión lo hace.
+
+2) Permiso del puerto serie (igual que Arduino):
+     sudo usermod -aG dialout $USER     # cierra sesión y vuelve a entrar
+
+3) Abrir el proyecto IDF:
+   - En VS Code abre la carpeta firmware/ (ahí está el CMakeLists.txt del proyecto).
+   - Fija el target a esp32c3 (barra de estado abajo, o: idf.py set-target esp32c3).
+
+4) Crear firmware/main/sensible.h (NO viene en el repo; hay plantilla
+   firmware/main/sensible.h.example). Copia la plantilla y pon apSsid/apPassword.
+
+5) Compilar / flashear / monitor:
+   - Desde la barra de la extensión (iconos Build / Flash / Monitor), o terminal:
+       idf.py set-target esp32c3
+       idf.py build
+       idf.py -p /dev/ttyACM0 erase-flash      # 1a vez: limpia otadata residual
+       idf.py -p /dev/ttyACM0 flash monitor
+   - La 1a build descarga el componente ArduinoJson (bblanchon/arduinojson)
+     automáticamente -> requiere internet esa primera vez.
+
+OJO (esperado): es MUY probable que la 1a compilación arroje errores. Todo el
+firmware IDF (hitos 1-4) está escrito y verificado por lógica, pero NUNCA se ha
+compilado contra las APIs reales de IDF. Los errores que salgan se corrigen en el
+"espacio MAC" (ver abajo). Apunta el log aquí.
+
+
+===========================================================================
+ FLUJO Ubuntu (placa)  <->  Mac (desarrollo)
+===========================================================================
+
+Uso este archivo como puente entre las dos máquinas:
+  - En UBUNTU (tengo la placa): ejecuto, flasheo, pruebo en hardware y en la app.
+  - En MAC (desarrollo con el agente): corrijo código según lo que apunte aquí.
+
+Al cambiar de máquina: git pull antes de empezar, git push al terminar.
+
+---- PENDIENTE DE HACER EN UBUNTU (placa) ----------------------------------
+  [ ] Instalar extensión ESP-IDF v5.5 y compilar firmware/ (idf.py build).
+  [ ] Capturar el log de la 1a build (errores) y pegarlo abajo.
+  [ ] Verificar en serial que días/semanas del cultivo coincidan con el dashboard
+      (ver tarea de código abajo). Confirmar fecha configurada y pila del DS3231.
+
+---- TAREA DE CÓDIGO (hacer en MAC) ---------------------------------------
+  [ ] Días/semanas del cultivo en el SERIAL: hoy el dashboard los calcula en el
+      navegador a partir del "dia" total que manda el firmware
+      (semana = (dia-1)/7+1 ; dia-en-semana = (dia-1)%7+1). printSystemData() debe
+      imprimir EXACTAMENTE lo mismo, aplicando esa misma fórmula de presentación,
+      para que serial y dashboard muestren idéntico. Hacerlo en Arduino (estable)
+      y en el firmware IDF (control/cropDayFromRtc ya da el "dia" total).
+
+---- ERRORES / OBSERVACIONES PARA CORREGIR EN MAC --------------------------
+  (pega aquí los errores de compilación de idf.py y los bugs que veas en la app;
+   cada entrada: qué, dónde, log/síntoma)
+
+  -
