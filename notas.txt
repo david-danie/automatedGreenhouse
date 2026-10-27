@@ -150,62 +150,14 @@ recrearlos a mano en cada máquina:
 
 
 Sensores de temperatura/humedad.
-  
-Circuito con mosfet
 
-  1. Etapa de Control (Lado ESP32 - 3.3V)
+Recordatorios de hardware para el PCB (el DISEÑO cerrado de la etapa de potencia
+—opto activo en alto + MOSFET + flyback + snubber RC— está en docs/HARDWARE.md):
+  - Desacoplo local: 100 nF cerca de los pines de alimentación y 10–100 µF cerca
+    de la entrada de la placa (Espressif recomienda >=10 µF en la entrada).
+  - Fusible en la línea de CA de los contactos: dimensionado según la carga, el
+    cableado y la capacidad de interrupción requerida.
 
-    3.3V ──[R1 330Ω]──► A (ánodo PC817)
-    GPIO ─────────────► K (cátodo)  → activo en BAJO
-                                    
-  2. Etapa de Potencia (Lado 12V o 24V - Fuente Independiente)
-
-    +V ──[R3 10k]──┬──► Gate (AO3400A)
-                    │
-            Colector PC817
-            Emisor PC817 ──► GND_potencia
-    
-    Gate ──[R4 100k]── GND_potencia   (pull-down)
-    Source ── GND_potencia
-    Drain ──► Bobina (−)
-    +V ──────► Bobina (+)
-    Diodo 1N4007 (o SS14) en antiparalelo con la bobina:
-        cátodo → +V, ánodo → Drain
-
-Circuito con BJT
-
-  1. Etapa de Control (Lado ESP32 - 3.3V)
-
-    Conecta un pin digital del ESP32-C3 a una resistencia de $330\,\Omega$.
-    El otro extremo de la resistencia va al Ánodo (Pin 1) del optoacoplador PC817.
-    El Cátodo (Pin 2) del PC817 se conecta directamente al GND del ESP32.
-
-  2. Etapa de Potencia (Lado 12V o 24V - Fuente Independiente)
-
-    Colector del fototransistor (Pin 4 del PC817): Se conecta a través de una resistencia de $4.7\text{k}\Omega$ hacia la base del transistor MMBT2222A.
-    Emisor del fototransistor (Pin 3 del PC817): Se conecta al GND de la fuente externa (12V/24V).
-    Transistor MMBT2222A:
-      Emisor: Conectado al GND de la fuente externa.
-      Base: Conectada a la resistencia de $4.7\text{k}\Omega$ proveniente del optoacoplador.
-      Colector: Conectado a uno de los extremos de la bobina del contactor.
-    Alimentación de la bobina: El otro extremo de la bobina del contactor se conecta al positivo de tu fuente externa (+12V o +24V).
-    Diodo de protección (Flyback): Coloca el diodo (ej. SS14) en paralelo con la bobina del contactor, con el cátodo apuntando hacia la línea positiva (+12V/+24V) y el ánodo hacia el colector del transistor. Este diodo es vital para disipar el pico de voltaje al apagar la bobina.
-
-
-Desacoplo local
-
-Como punto de partida, considera 100 nF cerca de los pines de alimentación y 10–100 µF cerca de la entrada de alimentación de la placa, ajustando los valores a la fuente y al diseño. Espressif recomienda desacoplo local y al menos 10 µF en la entrada principal en sus directrices de diseño. 
-
-Protección de los contactos de 127/220 V CA
-El circuito de los contactos es distinto al de la bobina. Para reducir interferencias, debes considerar:
-
-Fusible: dimensionado según la carga, el cableado y la capacidad de interrupción requerida.
-
-Red RC snubber: puede instalarse en paralelo con la carga o en los contactos, según el circuito y las recomendaciones del fabricante. Debe usar un condensador de seguridad adecuado para la aplicación de red y una resistencia con capacidad suficiente.
-
-Varistor MOV: puede ser apropiado para limitar sobretensiones en cargas inductivas; debe seleccionarse según la tensión de servicio y la energía esperada.
-
-Relevador adecuado: comprueba que sus contactos estén especificados para la tensión y el tipo de carga. La capacidad para una carga resistiva no garantiza la misma capacidad para motores, transformadores o cargas capacitivas.
 
 
 ===========================================================================
@@ -262,8 +214,16 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
 ---- PENDIENTE DE HACER EN UBUNTU (placa) ----------------------------------
   [ ] Instalar extensión ESP-IDF v5.5 y compilar firmware/ (idf.py build).
   [ ] Capturar el log de la 1a build (errores) y pegarlo abajo.
-  [ ] Bug días/semana: abrir http://192.168.4.1/getparams y anotar dia, semana,
-      rtcValid; confirmar fecha configurada y si el DS3231 tiene pila.
+  [ ] Verificar en serial que días/semanas del cultivo coincidan con el dashboard
+      (ver tarea de código abajo). Confirmar fecha configurada y pila del DS3231.
+
+---- TAREA DE CÓDIGO (hacer en MAC) ---------------------------------------
+  [ ] Días/semanas del cultivo en el SERIAL: hoy el dashboard los calcula en el
+      navegador a partir del "dia" total que manda el firmware
+      (semana = (dia-1)/7+1 ; dia-en-semana = (dia-1)%7+1). printSystemData() debe
+      imprimir EXACTAMENTE lo mismo, aplicando esa misma fórmula de presentación,
+      para que serial y dashboard muestren idéntico. Hacerlo en Arduino (estable)
+      y en el firmware IDF (control/cropDayFromRtc ya da el "dia" total).
 
 ---- ERRORES / OBSERVACIONES PARA CORREGIR EN MAC --------------------------
   (pega aquí los errores de compilación de idf.py y los bugs que veas en la app;
