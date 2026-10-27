@@ -121,6 +121,12 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 
 ### Esquemático — canal PWM de LED (voltaje constante)
 
+<!-- TODO: reemplazar el diagrama ASCII de abajo por la captura del esquemático real.
+     ![Canal PWM de LED](./img/pwm_led_sch.png)
+     NOTA: sección aún no cerrada — el usuario podrá conectar sus propios LEDs/arreglos
+     (punto de conexión flexible, como las bobinas). Capturar cuando se fijen límites
+     de voltaje/corriente del canal. -->
+
 Aplica si las tiras/arreglos son de **voltaje constante a 24 V**. Un canal por color
 (GPIO 1 = azul, GPIO 2 = rojo):
 
@@ -150,6 +156,9 @@ Aplica si las tiras/arreglos son de **voltaje constante a 24 V**. Un canal por c
 > arranque, pero conviene verificarlo; si da problemas, mover ese canal a un GPIO no-strapping.
 
 ### Esquemático — salida digital (opto + MOSFET + contactor)
+
+<!-- TODO: reemplazar el diagrama ASCII de abajo por la captura del esquemático real.
+     ![Salida digital (control + potencia)](./img/salida_digital_sch.png) -->
 
 Aplica a ventilador, bomba y lámpara blanca (GPIO 7, 10, 0). Aislamiento galvánico: el opto
 separa el dominio de control (3.3 V, `GND_control`) del de potencia (`GND_potencia`).
@@ -254,6 +263,9 @@ dominios de alimentación y todos los componentes. Las otras dos salidas digital
 
 Buzzer **activo** (oscilador integrado: suena con solo aplicarle DC, tono fijo 2.4 kHz).
 Control ON/OFF, igual que una salida digital, en GPIO 3.
+
+<!-- TODO: reemplazar el diagrama ASCII de abajo por la captura del esquemático real.
+     ![Buzzer](./img/buzzer_sch.png) -->
 
 ```
             +5 V  (riel del buck)
