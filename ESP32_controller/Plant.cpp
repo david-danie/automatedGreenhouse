@@ -1042,6 +1042,9 @@ void Plant::printSystemData() {
 
   int cropDayAge = cropDayFromRtc();  // derivado del RTC + ancla (getCurrentTime ya corrió arriba)
   int cropWeekAge = cropDayAge > 0 ? (cropDayAge - 1) / 7 + 1 : 0;
+  // Día DENTRO de la semana (1-7), igual que el dashboard: (total-1) % 7 + 1.
+  // Antes el serial imprimía el día TOTAL, que no coincidía con el dashboard.
+  int cropDayOfWeek = cropDayAge > 0 ? (cropDayAge - 1) % 7 + 1 : 0;
 
   // Estilo de logs: etiqueta a la izquierda (ancho fijo) + separador + valor,
   // agrupado por secciones (identidad / cultivo / actuadores) con una línea en
@@ -1065,7 +1068,7 @@ void Plant::printSystemData() {
   // -- Cultivo --
   Serial.printf(" Cultivo  ·  %s - Sem %d, Dia %d\n",
                 _plantName[0] ? _plantName : "(sin definir)",
-                cropWeekAge, cropDayAge);
+                cropWeekAge, cropDayOfWeek);
 
   // -- Actuadores --
   Serial.printf(" Luz      ·  %02dh-%02dh  Blanca %s   Azul %d%%  Roja %d%%\n",

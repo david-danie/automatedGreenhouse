@@ -15,6 +15,7 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "storage.h"
 #include "rtc.h"
 #include "actuators.h"
@@ -83,6 +84,7 @@ extern "C" void app_main(void)
     // deviceUpdateInterval, leyendo RTC + config (equivalente al loop() del
     // firmware Arduino, sin la capa HTTP que llega en el hito de red).
     uint8_t t[currentTimeCount] = {0};
+    uint32_t lastLog = 0;
     while (true) {
         CropConfig cfg;
         storage::loadConfig(cfg);                 // defaults si no hay config
@@ -92,6 +94,20 @@ extern "C" void app_main(void)
 
         // Persiste las credenciales Wi-Fi si un intento pendiente acaba de conectar.
         wifimod::updateWifiPersist();
+
+        // Log de estado del cultivo (throttle systemLogInterval). Días/semanas con
+        // la MISMA fórmula que el dashboard: a partir del día TOTAL (cropDayFromRtc),
+        // semana = (total-1)/7+1 y día-en-semana = (total-1)%7+1. Así el serial y el
+        // dashboard muestran idéntico.
+        uint32_t now = (uint32_t)(esp_timer_get_time() / 1000ULL);
+        if (now - lastLog >= systemLogInterval) {
+            lastLog = now;
+            int total = control::cropDayFromRtc(cfg, t, rtcValid);
+            int sem    = total > 0 ? (total - 1) / 7 + 1 : 0;
+            int diaSem = total > 0 ? (total - 1) % 7 + 1 : 0;
+            ESP_LOGI(TAG, "Cultivo · Sem %d, Dia %d  (RTC %s)",
+                     sem, diaSem, rtcValid ? "ok" : "sin hora");
+        }
 
         vTaskDelay(pdMS_TO_TICKS(deviceUpdateInterval));
     }
