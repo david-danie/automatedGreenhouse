@@ -35,9 +35,9 @@ a partir de [`main/sensible.h.example`](main/sensible.h.example).
 ### Portal embebido (`main/mainForm.h`)
 
 `main/mainForm.h` es el mismo artefacto gzip que genera `scripts/gen_mainform.py`
-para el firmware Arduino (`ESP32_controller/mainForm.h`), con un bloque que define
-`PROGMEM` vacío (no existe en IDF). Tras regenerar el portal hay que actualizar
-también esta copia; si no, el firmware IDF sirve una versión anterior.
+para el firmware Arduino (`ESP32_controller/mainForm.h`), con un preámbulo que
+define `PROGMEM` vacío (no existe en IDF). El generador escribe ambos archivos en
+la misma ejecución cuando existe `firmware/main/`, así que no hay copia manual.
 
 ## Estado de la migración
 
@@ -77,7 +77,6 @@ Aplicado en código, **sin compilar ni probar en hardware**:
 
 Pendiente:
 
-- **Copia manual de `mainForm.h`** (ver arriba).
 - Una ruta conocida con otro método (p. ej. `POST /`) recibe `405` en IDF; en
   Arduino `server.on("/", handleRoot)` acepta cualquier método.
 
@@ -94,7 +93,7 @@ firmware/
     ├── main.cpp             # app_main: init + Wi-Fi + HTTP + DNS + bucle de control
     ├── Constants.h          # pines, PWM, enums, límites (sin Arduino)
     ├── sensible.h.example   # plantilla de credenciales del AP (sensible.h no se versiona)
-    ├── mainForm.h           # portal gzip embebido (copia del artefacto de gen_mainform.py)
+    ├── mainForm.h           # portal gzip embebido (generado por gen_mainform.py)
     ├── utils.h/.cpp         # helpers puros (BCD, UTF-8, PBKDF2, hex, fechas)
     ├── storage.h/.cpp       # persistencia NVS (CropConfig versionado)
     ├── rtc.h/.cpp           # DS3231 por i2c_master (modo seguro OSF)
