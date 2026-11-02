@@ -274,6 +274,11 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 │   ├── utils.h / .cpp         # Helpers: validación de strings/UTF-8, BCD, fecha
 │   ├── sensible.h             # Secretos del AP (no versionado)
 │   └── mainForm.h             # Artefacto generado: el HTML que sirve el ESP32
+├── firmware/                  # Firmware en MIGRACIÓN a ESP-IDF puro (solo en la rama esp-idf-migration)
+│   ├── CMakeLists.txt         # Proyecto ESP-IDF
+│   ├── partitions.csv         # Doble slot OTA (4 MB)
+│   ├── README.md              # Compilar/flashear, estado de la migración y módulos
+│   └── main/                  # Módulos IDF: storage, rtc, actuators, control, wifi, httpserver…
 ├── HTML/
 │   ├── mainForm.html          # Pista ESTABLE (producción): fuente del portal
 │   ├── mainForm.preview.html  # Preview de la estable (generado, con mock)
@@ -299,15 +304,19 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 no confundirlas:
 
 - **`ESP32_controller/` — estable, Arduino-ESP32.** Es el firmware **en producción y
-  funcional**, el que se flashea hoy. Vive en esta rama (`main`).
+  funcional**, el que se flashea hoy. Vive en la rama `main`.
 - **`firmware/` — migración a ESP-IDF puro, en curso.** Reescritura del firmware a ESP-IDF
-  nativo por hitos, para profesionalizar tooling, OTA de doble slot y TLS. Vive en la rama
-  `esp-idf-migration` (no aparece en `main`). Usa `ESP32_controller/` como especificación de
-  referencia y lo **reemplazará** cuando la migración termine. El plan por fases está en
-  [`docs/ROADMAP.md`](docs/ROADMAP.md).
+  nativo por hitos, para profesionalizar tooling, OTA de doble slot y TLS. Vive solo en la rama
+  `esp-idf-migration`. Usa `ESP32_controller/` como especificación de referencia, debe
+  alcanzar **paridad de comportamiento** con él y lo **reemplazará** cuando la migración
+  termine. El plan por fases está en [`docs/ROADMAP.md`](docs/ROADMAP.md); el avance, en
+  [`firmware/README.md`](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md).
 
 El **portal web (`HTML/`), el backend (`pythonServer/`), el hardware (`ESP32_Board/`) y la
-documentación (`docs/`) son comunes** a ambas: no dependen de qué framework use el firmware.
+documentación (`docs/`, `README.md`, `README.en.md`) son comunes** a ambas: no dependen de qué
+framework use el firmware. La documentación común se edita en `main` y se lleva a
+`esp-idf-migration` con `git merge main`; lo propio del firmware ESP-IDF vive en
+`firmware/README.md`.
 
 </div>
 
