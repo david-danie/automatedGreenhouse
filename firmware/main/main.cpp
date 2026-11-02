@@ -23,6 +23,7 @@
 #include "wifi.h"
 #include "httpserver.h"
 #include "captivedns.h"
+#include "ota.h"
 
 static const char *TAG = "smartplant";
 
@@ -60,18 +61,28 @@ extern "C" void app_main(void)
 
     // Wi-Fi AP+STA: SoftAP siempre arriba; STA condicional si hay credenciales
     // guardadas en NVS (persistencia diferida de la fase de red).
+    bool wifiOk = false;
     {
         char ssid[maxWifiSsidChars + 1] = {0};
         char pass[maxWifiPassChars + 1] = {0};
         storage::loadWifi(ssid, sizeof(ssid), pass, sizeof(pass));
-        if (!wifimod::begin(ssid, pass)) {
+        wifiOk = wifimod::begin(ssid, pass);
+        if (!wifiOk) {
             ESP_LOGE(TAG, "Wi-Fi no disponible");
         }
     }
 
     // Servidor HTTP: sirve el portal (gzip) y la API del dispositivo.
-    if (!httpserver::begin()) {
+    bool httpOk = httpserver::begin();
+    if (!httpOk) {
         ESP_LOGE(TAG, "Servidor HTTP no disponible");
+    }
+
+    // Rollback de OTA: si esta imagen llegó por OTA, se confirma solo cuando el
+    // AP y el servidor HTTP están arriba (el equipo puede recibir otro OTA). Si
+    // no, queda sin confirmar y el bootloader vuelve al slot anterior al reiniciar.
+    if (wifiOk && httpOk) {
+        ota::confirmRunningImage();
     }
 
     // DNS captivo: responde la IP del AP a toda consulta, para que el portal

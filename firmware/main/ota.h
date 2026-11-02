@@ -28,6 +28,13 @@ bool finish();
 // Aborta la sesión en curso (libera el handle sin cambiar el arranque).
 void abort();
 
+// Rollback (CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE): tras un OTA, la imagen nueva
+// arranca en estado "pendiente de verificar"; si no se confirma, el bootloader
+// vuelve al slot anterior en el siguiente reinicio. Se llama cuando el equipo
+// arrancó lo suficiente para volver a recibir un OTA (AP + servidor HTTP arriba).
+// No hace nada si la imagen en ejecución no está pendiente de verificar.
+void confirmRunningImage();
+
 } // namespace ota
 
 #endif

@@ -38,12 +38,14 @@ static esp_err_t rootHandler(httpd_req_t* req) {
 }
 
 // Catch-all para la detección de portal captivo: cualquier ruta desconocida
-// redirige a '/', igual que onNotFound del firmware Arduino.
-static esp_err_t captiveHandler(httpd_req_t* req) {
+// (con CUALQUIER método) redirige a '/', igual que onNotFound del firmware
+// Arduino. Se registra como manejador del error 404 en vez de como ruta '/*',
+// porque una ruta solo cubre un método.
+static esp_err_t notFoundHandler(httpd_req_t* req, httpd_err_code_t) {
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "/");
     httpd_resp_send(req, nullptr, 0);
-    return ESP_OK;
+    return ESP_OK;   // mantiene el socket abierto
 }
 
 // Flags de CropConfig.flags (ver storage.h).
@@ -135,16 +137,48 @@ static bool readBody(httpd_req_t* req, std::string& out) {
     return true;
 }
 
-// ¿La petición entró por la interfaz del AP? Se compara la IP local del socket
-// con la IP del SoftAP (192.168.4.1). No es un dato que el cliente pueda
+// ¿El socket se aceptó por la interfaz del AP? Se compara la IP LOCAL del
+// socket con la IP del SoftAP (192.168.4.1). No es un dato que el cliente pueda
 // falsificar (igual que el fromAP del firmware Arduino).
-static bool fromAP(httpd_req_t* req) {
-    int fd = httpd_req_to_sockfd(req);
+// esp_http_server abre un socket IPv6 dual-stack cuando CONFIG_LWIP_IPV6 está
+// activo (es el valor por defecto): las conexiones IPv4 llegan entonces como
+// direcciones IPv4-mapeadas (::ffff:a.b.c.d). Por eso se leen con
+// sockaddr_storage y se manejan ambas familias.
+static bool socketIsOnAp(int fd) {
     if (fd < 0) return false;
-    sockaddr_in local = {};
+    sockaddr_storage local = {};
     socklen_t len = sizeof(local);
     if (getsockname(fd, (sockaddr*)&local, &len) != 0) return false;
-    return local.sin_addr.s_addr == htonl(0xC0A80401);   // 192.168.4.1
+
+    const uint32_t apIp = htonl(0xC0A80401);   // 192.168.4.1 (orden de red)
+    if (local.ss_family == AF_INET) {
+        return ((const sockaddr_in*)&local)->sin_addr.s_addr == apIp;
+    }
+#if CONFIG_LWIP_IPV6
+    if (local.ss_family == AF_INET6) {
+        // IPv4-mapeada: 10 bytes a 0x00, 2 bytes a 0xff y luego la IPv4.
+        static const uint8_t v4MappedPrefix[12] = {0,0,0,0,0,0,0,0,0,0,0xff,0xff};
+        const uint8_t* a = (const uint8_t*)&((const sockaddr_in6*)&local)->sin6_addr;
+        return memcmp(a, v4MappedPrefix, sizeof(v4MappedPrefix)) == 0 &&
+               memcmp(a + 12, &apIp, 4) == 0;
+    }
+#endif
+    return false;
+}
+
+static bool fromAP(httpd_req_t* req) {
+    return socketIsOnAp(httpd_req_to_sockfd(req));
+}
+
+// open_fn del servidor: el portal se sirve SOLO por la interfaz del AP, igual
+// que WebServer server(apGatewayIp, 80) del firmware Arduino. esp_http_server
+// no permite ligar el socket a una IP concreta (escucha en todas las
+// interfaces), así que cualquier conexión aceptada por otra interfaz (la STA,
+// la red del usuario) se cierra antes de leer la petición.
+static esp_err_t onOpen(httpd_handle_t, int sockfd) {
+    if (socketIsOnAp(sockfd)) return ESP_OK;
+    ESP_LOGW(TAG, "Conexión rechazada: no entró por la interfaz del AP");
+    return ESP_FAIL;   // httpd cierra el socket
 }
 
 // Emite respuesta de login/registro OK con el token de sesión.
@@ -285,9 +319,9 @@ namespace httpserver {
 
 bool begin() {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
-    cfg.uri_match_fn = httpd_uri_match_wildcard;   // permite el catch-all '/*'
     cfg.lru_purge_enable = true;
-    cfg.max_uri_handlers = 16;                      // 11 rutas registradas (> 8 por defecto)
+    cfg.max_uri_handlers = 16;                      // 10 rutas registradas (> 8 por defecto)
+    cfg.open_fn = onOpen;                           // solo conexiones por el AP
 
     if (httpd_start(&s_server, &cfg) != ESP_OK) {
         ESP_LOGE(TAG, "httpd_start falló");
@@ -319,8 +353,8 @@ bool begin() {
     httpd_uri_t ota = { "/otaupdate", HTTP_POST, otaUpdateHandler, nullptr };
     httpd_register_uri_handler(s_server, &ota);
 
-    httpd_uri_t any = { "/*", HTTP_GET, captiveHandler, nullptr };
-    httpd_register_uri_handler(s_server, &any);
+    // Portal captivo: toda ruta desconocida -> 302 a '/' (cualquier método).
+    httpd_register_err_handler(s_server, HTTPD_404_NOT_FOUND, notFoundHandler);
 
     ESP_LOGI(TAG, "Servidor HTTP iniciado (portal en /)");
     return true;

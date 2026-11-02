@@ -66,4 +66,18 @@ void abort() {
     }
 }
 
+void confirmRunningImage() {
+    const esp_partition_t* running = esp_ota_get_running_partition();
+    esp_ota_img_states_t state;
+    if (!running || esp_ota_get_state_partition(running, &state) != ESP_OK) return;
+    if (state != ESP_OTA_IMG_PENDING_VERIFY) return;   // flasheo por serie o ya confirmada
+
+    esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Imagen '%s' confirmada como válida (rollback cancelado)", running->label);
+    } else {
+        ESP_LOGE(TAG, "esp_ota_mark_app_valid_cancel_rollback: %s", esp_err_to_name(err));
+    }
+}
+
 } // namespace ota

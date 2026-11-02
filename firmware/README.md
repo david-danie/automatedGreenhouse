@@ -59,21 +59,27 @@ hito 4 = fase 3).
 > host. No consta en el repositorio un `idf.py build` ni pruebas en hardware del
 > firmware IDF completo.
 
-### Pendiente para la paridad con Arduino (fase 3)
+### Paridad con Arduino (fase 3)
 
-- **Portal solo por la interfaz del AP.** Arduino liga el servidor a `192.168.4.1`;
-  `esp_http_server` escucha en todas las interfaces, así que en AP+STA el portal
-  queda accesible desde la red del usuario. Hoy solo `/otaupdate` y el reset
-  comprueban la interfaz (`fromAP`).
-- **Catch-all del portal captivo solo para `GET`.** Arduino (`onNotFound`) redirige
-  cualquier método; aquí un método distinto a `GET` en una ruta desconocida recibe
-  el 404 por defecto.
-- **Rollback de OTA.** `sdkconfig.defaults` activa
-  `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`, pero el firmware no llama a
-  `esp_ota_mark_app_valid_cancel_rollback()`: tras un OTA, la imagen nueva queda
-  pendiente de verificar y el bootloader volvería a la anterior en el siguiente
-  reinicio.
+Aplicado en código, **sin compilar ni probar en hardware**:
+
+- **Portal solo por la interfaz del AP.** `esp_http_server` escucha en todas las
+  interfaces y no permite ligarse a una IP; el `open_fn` del servidor cierra toda
+  conexión cuya IP local no sea la del SoftAP (`192.168.4.1`), equivalente a
+  `WebServer server(apGatewayIp, 80)` de Arduino. `fromAP` (reset y OTA) usa la
+  misma comprobación, que ahora maneja el socket IPv6 dual-stack de
+  `esp_http_server` (direcciones IPv4-mapeadas).
+- **Catch-all del portal captivo para cualquier método** (manejador del error 404),
+  como `onNotFound` de Arduino.
+- **Rollback de OTA.** Con `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`, la imagen nueva
+  se confirma (`esp_ota_mark_app_valid_cancel_rollback()`) cuando el AP y el
+  servidor HTTP arrancan; si no, el bootloader vuelve al slot anterior al reiniciar.
+
+Pendiente:
+
 - **Copia manual de `mainForm.h`** (ver arriba).
+- Una ruta conocida con otro método (p. ej. `POST /`) recibe `405` en IDF; en
+  Arduino `server.on("/", handleRoot)` acepta cualquier método.
 
 ## Estructura
 
