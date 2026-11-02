@@ -75,7 +75,7 @@ La parte interesante de un proyecto embebido no es solo *qué* hace, sino *cómo
 | **No guardar una contraseña Wi-Fi que no sirve** | **Persistencia diferida**: las credenciales se escriben en NVS *solo* cuando la conexión llega a `WL_CONNECTED` — nada de bucles de reintento tras reiniciar con credenciales inválidas. |
 | **Autenticación sin reenviar credenciales** | **Token de sesión** de 128 bits (`esp_random()`), TTL fijo en RAM (muere con el reboot, expiración por `millis()` a prueba de wrap-around). El AP va cifrado con WPA2-PSK. |
 | **Validación idéntica en navegador y dispositivo** | Reglas replicadas bit a bit front↔firmware, contando por **carácter UTF-8** (no bytes), para que acentos y ñ no descuadren los límites entre JS y C++. |
-| **Servir 50 KB de HTML sin agotar el heap** | `send_P` entrega el portal por trozos directo desde flash. Con `send()` y un `const char*` se creaba un `String` temporal del tamaño completo, y ese pico podía fallar en modo AP+STA dejando el formulario sin cargar. |
+| **Servir el portal sin agotar el heap** | `send_P` entrega el portal (hoy ~16 KB gzip) por trozos directo desde flash. Con `send()` y un `const char*` se creaba un `String` temporal del tamaño completo, y ese pico podía fallar en modo AP+STA dejando el formulario sin cargar. |
 | **Menos flash y carga más rápida del portal** | El HTML legible (fuente de verdad) se regenera sin comentarios y **comprimido con gzip** al artefacto que sirve el ESP32: de ~93 KB a **~16 KB (−83 %)**. `handleRoot` lo entrega con `Content-Encoding: gzip` y el navegador lo descomprime solo. |
 
 ---
