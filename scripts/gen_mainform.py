@@ -18,6 +18,10 @@ completa y COMPRIMIDO con gzip, como arreglo de bytes en PROGMEM + su longitud:
     static const unsigned char mainForm_gz[] PROGMEM = { 0x1f, 0x8b, ... };
     static const unsigned int  mainForm_gz_len = NNNN;
 
+Si existe `firmware/main/` (firmware ESP-IDF, rama esp-idf-migration), se escribe
+también `firmware/main/mainForm.h`: el mismo contenido con un preámbulo que define
+PROGMEM vacío, para que ambos firmwares sirvan siempre el mismo portal.
+
 El navegador descomprime gzip de forma transparente; el firmware solo declara el
 encabezado `Content-Encoding: gzip` al servir (ver handleRoot). gzip reduce el
 HTML (~73 KB) a ~12–18 KB: menos flash, menos chunks por el AP y carga más rápida.
@@ -37,6 +41,18 @@ from pathlib import Path
 SRC_ESTABLE = Path("HTML/mainForm.html")
 SRC_DEV = Path("HTML/portal-dev/mainForm.html")
 DST = Path("ESP32_controller/mainForm.h")
+# Copia para el firmware ESP-IDF (solo existe en la rama esp-idf-migration). Mismo
+# contenido que DST con un preámbulo que define PROGMEM vacío (no existe en IDF).
+DST_IDF = Path("firmware/main/mainForm.h")
+IDF_PREAMBLE = (
+    "// Artefacto generado (gzip del portal). Copia para el build ESP-IDF.\n"
+    "// En IDF puro PROGMEM no existe; se define vacío para reutilizar el mismo\n"
+    "// formato que genera scripts/gen_mainform.py.\n"
+    "#ifndef PROGMEM\n"
+    "#define PROGMEM\n"
+    "#endif\n"
+    "\n"
+)
 
 
 def strip_full_line_comments(text: str) -> str:
@@ -106,10 +122,16 @@ def main() -> int:
     # mtime=0 para que el .gz sea DETERMINISTA (mismo HTML -> mismos bytes), y no
     # cambie en cada ejecución por el timestamp que gzip incrusta por defecto.
     gz = gzip.compress(raw, compresslevel=9, mtime=0)
-    DST.write_text(to_byte_array_header(gz), encoding="utf-8")
+    header = to_byte_array_header(gz)
+    DST.write_text(header, encoding="utf-8")
     ratio = 100 * (1 - len(gz) / len(raw)) if raw else 0
     print(f"Regenerado {DST}: {len(raw)} B HTML -> {len(gz)} B gzip "
           f"(-{ratio:.0f}%) desde {src} [pista {pista}]")
+    # Si está el firmware ESP-IDF (rama esp-idf-migration), se regenera también su
+    # copia para que ambos firmwares sirvan el mismo portal.
+    if DST_IDF.parent.is_dir():
+        DST_IDF.write_text(IDF_PREAMBLE + header, encoding="utf-8")
+        print(f"Regenerado {DST_IDF} (copia ESP-IDF)")
     return 0
 
 
