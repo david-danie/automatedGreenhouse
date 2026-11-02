@@ -600,6 +600,10 @@ python3 scripts/gen_mainform.py          # estable -> ESP32_controller/mainForm.
 python3 scripts/gen_mainform.py --dev     # desarrollo (portal-dev)
 ```
 
+Si existe `firmware/main/` (rama `esp-idf-migration`), el mismo comando regenera también
+`firmware/main/mainForm.h` (mismo contenido + preámbulo que define `PROGMEM` vacío), para que
+ambos firmwares sirvan siempre el mismo portal.
+
 Internamente: limpia comentarios → `gzip.compress(..., compresslevel=9, mtime=0)` → emite
 
 ```cpp
