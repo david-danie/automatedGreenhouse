@@ -14,13 +14,14 @@
 | [**HARDWARE.md**](HARDWARE.md) | Mapa de pines, PWM, RTC, etapa de potencia (control ↔ potencia), conectividad e instalación eléctrica | Para montar o modificar el hardware |
 | [**BACKEND.md**](BACKEND.md) | Diseño del backend y **referencia autoritativa** para implementarlo: stack, modelo de datos, contratos de API, despliegue | Para retomar el desarrollo del backend |
 | [**ROADMAP.md**](ROADMAP.md) | Plan de migración del firmware de Arduino-ESP32 a ESP-IDF, por fases entregables: motivación, clasificación del código, mapeo de APIs y criterios de verificación | Para planear o retomar la migración a ESP-IDF |
-| [**firmware/README.md**](../firmware/README.md) | Proyecto ESP-IDF (migración en curso): cómo compilar/flashear con `idf.py`, estado por hitos y estructura de módulos | Para trabajar en el firmware ESP-IDF |
+| [**firmware/README.md**](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md) *(solo en la rama `esp-idf-migration`)* | Proyecto ESP-IDF: cómo compilar/flashear con `idf.py`, **estado de la migración** por fase y estructura de módulos | Para trabajar en el firmware ESP-IDF o ver su avance |
 
-> **Dos bases de firmware.** El repositorio contiene el firmware en dos formas: `ESP32_controller/`
-> es el **estable en Arduino-ESP32** (producción, rama `main`), y `firmware/` es la **migración a
-> ESP-IDF puro** en curso (rama `esp-idf-migration`), que lo reemplazará al terminar. El portal,
-> el backend, el hardware y esta documentación son **comunes** a ambas. Ver
-> [README § Estructura](../README.md#estructura-del-repositorio) y [ROADMAP.md](ROADMAP.md).
+> **Dos bases de firmware.** El firmware existe en dos formas: `ESP32_controller/` es el
+> **estable en Arduino-ESP32** (producción, rama `main`), y `firmware/` es la **migración a
+> ESP-IDF puro** en curso (solo en la rama `esp-idf-migration`), que lo reemplazará al terminar
+> con paridad de comportamiento. El portal, el backend, el hardware y esta documentación son
+> **comunes** a ambas: se editan en `main` y se llevan a `esp-idf-migration` con `git merge main`.
+> Ver [README § Estructura](../README.md#estructura-del-repositorio) y [ROADMAP.md](ROADMAP.md).
 
 ## Por tarea
 
@@ -42,7 +43,7 @@
 
 **`Constants.h` es la fuente de verdad del hardware y de los límites de validación.** Pines, canales PWM, longitudes de campo y `validFrequencies` se definen ahí. La documentación los refleja; si divergen, el código gana.
 
-**El portal tiene dos archivos y una dirección.** `HTML/mainForm.html` es la fuente legible y comentada; `ESP32_controller/mainForm.h` es el artefacto que sirve el dispositivo, generado a partir del anterior quitando comentarios y envolviéndolo en un raw string de C. **Se edita el `.html` y se regenera el `.h`**, nunca al revés.
+**El portal tiene dos archivos y una dirección.** `HTML/mainForm.html` es la fuente legible y comentada; `ESP32_controller/mainForm.h` es el artefacto que sirve el dispositivo, generado a partir del anterior con `scripts/gen_mainform.py`: quita los comentarios de línea completa, comprime con gzip y lo embebe como arreglo de bytes en PROGMEM (`mainForm_gz` + `mainForm_gz_len`). **Se edita el `.html` y se regenera el `.h`**, nunca al revés.
 
 **Las validaciones están duplicadas a propósito.** El navegador y el firmware aplican las mismas reglas (charset, longitudes, repetidos) contando por carácter UTF-8. Si cambias una, cambia la otra: `HTML/mainForm.html` y `Plant.cpp` / `utils.cpp`.
 

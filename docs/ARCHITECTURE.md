@@ -20,7 +20,7 @@ ESP32_controller/
   Plant.h / Plant.cpp # Lógica del cultivo: validación de payloads, persistencia, PWM/relés, RTC, sesión
   Constants.h         # Pines, canales PWM, límites de validación, TTL de sesión, enums de estado y de error
   sensible.h          # *** Secretos del AP (apSsid / apPassword) — NO versionar, copiar por equipo ***
-  mainForm.h          # *** Artefacto GENERADO (string C R"===(...)===") sin comentarios que sirve el ESP32 — no editar a mano ***
+  mainForm.h          # *** Artefacto GENERADO (HTML sin comentarios, gzip, arreglo de bytes PROGMEM) que sirve el ESP32 — no editar a mano ***
   ci.json             # Config de build (FQBN / placa)
 HTML/
   mainForm.html       # *** Fuente de verdad: HTML legible y comentado del formulario — edita AQUÍ ***
@@ -582,8 +582,9 @@ No hace falta ninguna acción especial ni un endpoint aparte.
 > es accionable ("cambia la pila"). El firmware ya tiene los dos datos
 > (`_rtcValid` y `_cropStartDay`); faltaría exponer ese segundo bit.
 
-## Propuesta: servir el HTML comprimido (gzip) para mayor performance
-## Servir el HTML comprimido (gzip) — implementado
+## Servir el HTML comprimido (gzip)
+
+> **Estado:** implementado.
 
 El portal se embebe **comprimido con gzip**: el `.h` ya no es texto crudo sino el HTML
 gzipeado como arreglo de bytes. Medido: el HTML limpio (~93 KB) baja a **~16 KB en el `.h`
@@ -603,7 +604,7 @@ Internamente: limpia comentarios → `gzip.compress(..., compresslevel=9, mtime=
 
 ```cpp
 static const unsigned char mainForm_gz[] PROGMEM = { 0x1f, 0x8b, ... };
-static const unsigned int  mainForm_gz_len = 16023;
+static const unsigned int  mainForm_gz_len = 16075;   // valor actual; cambia con cada regeneración
 ```
 
 `mtime=0` hace la salida **determinista** (mismo HTML → mismos bytes; no cambia por el

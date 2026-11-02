@@ -75,7 +75,7 @@ La parte interesante de un proyecto embebido no es solo *qué* hace, sino *cómo
 | **No guardar una contraseña Wi-Fi que no sirve** | **Persistencia diferida**: las credenciales se escriben en NVS *solo* cuando la conexión llega a `WL_CONNECTED` — nada de bucles de reintento tras reiniciar con credenciales inválidas. |
 | **Autenticación sin reenviar credenciales** | **Token de sesión** de 128 bits (`esp_random()`), TTL fijo en RAM (muere con el reboot, expiración por `millis()` a prueba de wrap-around). El AP va cifrado con WPA2-PSK. |
 | **Validación idéntica en navegador y dispositivo** | Reglas replicadas bit a bit front↔firmware, contando por **carácter UTF-8** (no bytes), para que acentos y ñ no descuadren los límites entre JS y C++. |
-| **Servir 50 KB de HTML sin agotar el heap** | `send_P` entrega el portal por trozos directo desde flash. Con `send()` y un `const char*` se creaba un `String` temporal del tamaño completo, y ese pico podía fallar en modo AP+STA dejando el formulario sin cargar. |
+| **Servir el portal sin agotar el heap** | `send_P` entrega el portal (hoy ~16 KB gzip) por trozos directo desde flash. Con `send()` y un `const char*` se creaba un `String` temporal del tamaño completo, y ese pico podía fallar en modo AP+STA dejando el formulario sin cargar. |
 | **Menos flash y carga más rápida del portal** | El HTML legible (fuente de verdad) se regenera sin comentarios y **comprimido con gzip** al artefacto que sirve el ESP32: de ~93 KB a **~16 KB (−83 %)**. `handleRoot` lo entrega con `Content-Encoding: gzip` y el navegador lo descomprime solo. |
 
 ---
@@ -267,17 +267,18 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 
 ```
 .
-├── ESP32_controller/          # Firmware ESTABLE (Arduino): sketch en producción
+├── ESP32_controller/          # Firmware ESTABLE (Arduino-ESP32): sketch en producción
 │   ├── ESP32_controller.ino   # AP Wi-Fi, DNS captivo, rutas HTTP y handlers
 │   ├── Plant.h / .cpp         # Lógica del cultivo: validación, PWM/relés, RTC, sesión, Wi-Fi
 │   ├── Constants.h            # Pines, PWM, límites de validación, enums de estado/error
 │   ├── utils.h / .cpp         # Helpers: validación de strings/UTF-8, BCD, fecha
 │   ├── sensible.h             # Secretos del AP (no versionado)
 │   └── mainForm.h             # Artefacto generado: el HTML que sirve el ESP32
-├── firmware/                  # Firmware en MIGRACIÓN a ESP-IDF puro (ver nota abajo)
+├── firmware/                  # Firmware en MIGRACIÓN a ESP-IDF puro (solo en la rama esp-idf-migration)
 │   ├── CMakeLists.txt         # Proyecto ESP-IDF
 │   ├── partitions.csv         # Doble slot OTA (4 MB)
-│   └── main/                  # Módulos IDF: storage (NVS), rtc (I²C), actuators, control…
+│   ├── README.md              # Compilar/flashear, estado de la migración y módulos
+│   └── main/                  # Módulos IDF: storage, rtc, actuators, control, wifi, httpserver…
 ├── HTML/
 │   ├── mainForm.html          # Pista ESTABLE (producción): fuente del portal
 │   ├── mainForm.preview.html  # Preview de la estable (generado, con mock)
@@ -305,17 +306,23 @@ no confundirlas:
 - **`ESP32_controller/` — estable, Arduino-ESP32.** Es el firmware **en producción y
   funcional**, el que se flashea hoy. Vive en la rama `main`.
 - **`firmware/` — migración a ESP-IDF puro, en curso.** Reescritura del firmware a ESP-IDF
-  nativo por hitos, para profesionalizar tooling, OTA de doble slot y TLS. Vive en la rama
-  `esp-idf-migration`. Usa `ESP32_controller/` como especificación de referencia y lo
-  **reemplazará** cuando la migración termine. El plan por fases está en
-  [`docs/ROADMAP.md`](docs/ROADMAP.md).
+  nativo por hitos, para profesionalizar tooling, OTA de doble slot y TLS. Vive solo en la rama
+  `esp-idf-migration`. Usa `ESP32_controller/` como especificación de referencia, debe
+  alcanzar **paridad de comportamiento** con él y lo **reemplazará** cuando la migración
+  termine. El plan por fases está en [`docs/ROADMAP.md`](docs/ROADMAP.md); el avance, en
+  [`firmware/README.md`](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md).
 
 El **portal web (`HTML/`), el backend (`pythonServer/`), el hardware (`ESP32_Board/`) y la
-documentación (`docs/`) son comunes** a ambas: no dependen de qué framework use el firmware.
+documentación (`docs/`, `README.md`, `README.en.md`) son comunes** a ambas: no dependen de qué
+framework use el firmware. La documentación común se edita en `main` y se lleva a
+`esp-idf-migration` con `git merge main`; lo propio del firmware ESP-IDF vive en
+`firmware/README.md`.
 
 </div>
 
 ---
+
+<div align="justify">
 
 **Convención del portal — dos pistas.** El formulario se mantiene en **dos pistas** permanentes, cada una con su fuente legible y comentada:
 
