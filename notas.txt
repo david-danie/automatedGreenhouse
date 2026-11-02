@@ -130,7 +130,8 @@ recrearlos a mano en cada máquina:
 
     python3 scripts/gen_mainform.py        # desde la raíz del proyecto
 
-  Genera ESP32_controller/mainForm.h. Nunca se edita el .h a mano.
+  Genera ESP32_controller/mainForm.h y, si existe firmware/main/ (rama
+  esp-idf-migration), también firmware/main/mainForm.h. Nunca se edita el .h a mano.
   Para validar el JS tras editar (opcional, requiere node):
     # extraer <script> y correr: node --check
 
@@ -216,6 +217,37 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
   [ ] Capturar el log de la 1a build (errores) y pegarlo abajo.
   [ ] Verificar en serial que días/semanas del cultivo coincidan con el dashboard
       (ver tarea de código abajo). Confirmar fecha configurada y pila del DS3231.
+  [ ] Probar los cambios de PARIDAD con Arduino en el firmware IDF (escritos en
+      Mac SIN compilar; ver firmware/README.md § Paridad con Arduino):
+        - Desde el AP "SmartPlant": el portal carga, login/edición funcionan, el
+          reset ("**reset**") se acepta y un OTA (/otaupdate) se instala.
+          (Antes, fromAP() leía mal el socket IPv6 de esp_http_server y es
+          probable que el reset y el OTA se rechazaran siempre.)
+        - Tras el OTA, en el monitor debe salir:
+            "Imagen '...' confirmada como válida (rollback cancelado)"
+          Reiniciar otra vez y confirmar que NO vuelve al firmware anterior.
+        - Desde la Wi-Fi de casa (equipo en modo STA): abrir http://<IP STA del
+          ESP32>/ NO debe responder, y en el log debe salir
+            "Conexión rechazada: no entró por la interfaz del AP"
+        - Portal captivo: una ruta desconocida con GET y con POST
+          (curl -X POST http://192.168.4.1/xyz -i) debe dar 302 -> /.
+
+---- PENDIENTE DE DECIDIR (firmware IDF, no trabajado) ---------------------
+  [ ] DNS captivo ligado solo al AP. Hoy (en ambas ramas) el DNS escucha en todas
+      las interfaces: desde la red de casa contesta cualquier dominio con
+      192.168.4.1 (limitación aceptada en docs/ARCHITECTURE.md para Arduino,
+      porque DNSServer no permite elegir interfaz). En IDF el DNS es propio
+      (firmware/main/captivedns.cpp) y se puede arreglar con 1 línea: bind a
+      192.168.4.1 en vez de INADDR_ANY. Implica:
+        - IDF quedaría MÁS seguro que Arduino: diferencia deliberada a documentar
+          (firmware/README.md y redacción común en docs/ARCHITECTURE.md).
+        - Si al arrancar la tarea DNS el AP aún no tiene IP, el bind fallaría
+          (en main.cpp el Wi-Fi arranca antes que el DNS; probar en placa).
+  [ ] Ruta conocida con otro método: en IDF "POST /" responde 405; en Arduino
+      server.on("/", handleRoot) acepta cualquier método. Decidir si igualarlo.
+  [ ] Caso borde (también en Arduino): si la red de casa usa 192.168.4.0/24, el
+      ESP32 tendría dos interfaces en la misma subred y el filtro "solo por el AP"
+      (y fromAP) podría confundirse. Valorar si cambiar la subred del AP.
 
 ---- TAREA DE CÓDIGO (hacer en MAC) ---------------------------------------
   [ ] Días/semanas del cultivo en el SERIAL: hoy el dashboard los calcula en el
