@@ -74,11 +74,25 @@ Aplicado en código, **sin compilar ni probar en hardware**:
 - **Rollback de OTA.** Con `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`, la imagen nueva
   se confirma (`esp_ota_mark_app_valid_cancel_rollback()`) cuando el AP y el
   servidor HTTP arrancan; si no, el bootloader vuelve al slot anterior al reiniciar.
+- **`/` acepta cualquier método**, como `server.on("/", handleRoot)` de Arduino
+  (`HTTP_ANY`): se registra una vez por método (GET, POST, PUT, DELETE, PATCH, HEAD,
+  OPTIONS); en HEAD solo se envían las cabeceras.
+
+Diferencia deliberada respecto a Arduino (IDF es más estricto):
+
+- **DNS captivo ligado solo a la IP del AP** (`192.168.4.1`), no a `INADDR_ANY`. En
+  Arduino `DNSServer` no permite elegir interfaz y escucha también en la red del
+  usuario (limitación aceptada en `docs/ARCHITECTURE.md`); aquí el servidor es
+  propio, así que desde la red STA ya no contesta. Como la IP del AP se asigna al
+  llegar el evento `AP_START` (asíncrono respecto a `esp_wifi_start()`), el `bind`
+  se reintenta hasta 20 veces cada 500 ms; si no lo logra, el DNS queda desactivado
+  y el log lo indica.
 
 Pendiente:
 
-- Una ruta conocida con otro método (p. ej. `POST /`) recibe `405` en IDF; en
-  Arduino `server.on("/", handleRoot)` acepta cualquier método.
+- `/exit` en Arduino también acepta cualquier método (`server.on("/exit", handleExit)`);
+  en IDF sigue siendo solo `GET`. El resto de rutas de la API sí son específicas de
+  método en ambos firmwares.
 
 ## Estructura
 

@@ -30,10 +30,12 @@ static const char* TAG = "http";
 static httpd_handle_t s_server = nullptr;
 
 // GET '/' — sirve el portal COMPRIMIDO con gzip. El navegador lo descomprime
-// solo (Content-Encoding: gzip). Igual que handleRoot del firmware Arduino.
+// solo (Content-Encoding: gzip). Igual que handleRoot del firmware Arduino, que
+// responde a cualquier método; en HEAD solo se envían las cabeceras (sin cuerpo).
 static esp_err_t rootHandler(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/html");
     httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+    if (req->method == HTTP_HEAD) return httpd_resp_send(req, nullptr, 0);
     return httpd_resp_send(req, (const char*)mainForm_gz, mainForm_gz_len);
 }
 
@@ -320,7 +322,7 @@ namespace httpserver {
 bool begin() {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.lru_purge_enable = true;
-    cfg.max_uri_handlers = 16;                      // 10 rutas registradas (> 8 por defecto)
+    cfg.max_uri_handlers = 20;                      // 9 rutas + '/' x7 métodos = 16 (> 8 por defecto)
     cfg.open_fn = onOpen;                           // solo conexiones por el AP
 
     if (httpd_start(&s_server, &cfg) != ESP_OK) {
@@ -328,8 +330,18 @@ bool begin() {
         return false;
     }
 
-    httpd_uri_t root = { "/", HTTP_GET, rootHandler, nullptr };
-    httpd_register_uri_handler(s_server, &root);
+    // '/' acepta CUALQUIER método, como server.on("/", handleRoot) de Arduino (sin
+    // método = HTTP_ANY). esp_http_server liga cada ruta a un solo método, así que
+    // se registra una vez por método.
+    static const httpd_method_t rootMethods[] = {
+        HTTP_GET, HTTP_POST, HTTP_PUT, HTTP_DELETE, HTTP_PATCH, HTTP_HEAD, HTTP_OPTIONS
+    };
+    for (httpd_method_t m : rootMethods) {
+        httpd_uri_t root = { "/", m, rootHandler, nullptr };
+        if (httpd_register_uri_handler(s_server, &root) != ESP_OK) {
+            ESP_LOGE(TAG, "no se pudo registrar '/' para el método %d", (int)m);
+        }
+    }
 
     httpd_uri_t getparams = { "/getparams", HTTP_GET, getParamsHandler, nullptr };
     httpd_register_uri_handler(s_server, &getparams);

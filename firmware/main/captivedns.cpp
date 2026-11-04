@@ -5,6 +5,7 @@
 // ===========================================================================
 #include "captivedns.h"
 #include <cstring>
+#include <cerrno>
 #include <lwip/sockets.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -31,18 +32,37 @@ static void dnsTask(void*) {
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) { ESP_LOGE(TAG, "socket falló"); vTaskDelete(nullptr); return; }
 
+    // El DNS escucha SOLO en la IP del SoftAP (192.168.4.1), no en INADDR_ANY: así
+    // no responde por la interfaz STA (la red del usuario), donde contestar
+    // cualquier dominio con la IP del AP sería un resolvedor abierto con
+    // respuestas falsas. (En Arduino, DNSServer no permite elegir interfaz y es
+    // una limitación aceptada; aquí el servidor es propio y sí se puede.)
     sockaddr_in addr = {};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(53);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (bind(sock, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        ESP_LOGE(TAG, "bind :53 falló");
+    memcpy(&addr.sin_addr.s_addr, AP_IP, sizeof(AP_IP));   // AP_IP ya está en orden de red
+
+    // La IP del AP se asigna cuando la interfaz arranca (evento AP_START), que es
+    // asíncrono respecto a esp_wifi_start(): si esta tarea llega antes, el bind a
+    // esa IP falla. Se reintenta unos segundos antes de rendirse.
+    const int maxIntentos = 20;
+    const TickType_t espera = pdMS_TO_TICKS(500);
+    bool ligado = false;
+    for (int i = 1; i <= maxIntentos; i++) {
+        if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == 0) { ligado = true; break; }
+        ESP_LOGW(TAG, "bind %d.%d.%d.%d:53 falló (errno %d), intento %d/%d",
+                 AP_IP[0], AP_IP[1], AP_IP[2], AP_IP[3], errno, i, maxIntentos);
+        vTaskDelay(espera);
+    }
+    if (!ligado) {
+        ESP_LOGE(TAG, "no se pudo ligar el DNS a la IP del AP; DNS captivo desactivado");
         close(sock);
         vTaskDelete(nullptr);
         return;
     }
 
-    ESP_LOGI(TAG, "DNS captivo escuchando en :53");
+    ESP_LOGI(TAG, "DNS captivo escuchando en %d.%d.%d.%d:53 (solo AP)",
+             AP_IP[0], AP_IP[1], AP_IP[2], AP_IP[3]);
     uint8_t buf[512];
     while (true) {
         sockaddr_in src = {};
@@ -84,7 +104,7 @@ static void dnsTask(void*) {
 namespace captivedns {
 
 bool begin() {
-    BaseType_t r = xTaskCreate(dnsTask, "captivedns", 3072, nullptr, 5, nullptr);
+    BaseType_t r = xTaskCreate(dnsTask, "captivedns", 4096, nullptr, 5, nullptr);
     return r == pdPASS;
 }
 
