@@ -128,7 +128,7 @@ recrearlos a mano en cada máquina:
   El portal es un único HTML embebido que sirve el firmware. Se edita el fuente
   HTML/mainForm.html y se REGENERA el artefacto que sirve el ESP32:
 
-    python3 scripts/gen_mainform.py        # desde la raíz del proyecto
+    python3 HTML/scripts/gen_mainform.py        # desde la raíz del proyecto
 
   Genera ESP32_controller/mainForm.h y, si existe firmware/main/ (rama
   esp-idf-migration), también firmware/main/mainForm.h. Nunca se edita el .h a mano.

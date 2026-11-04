@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Genera HTML/portal-dev/mainForm.preview.html desde HTML/portal-dev/mainForm.html.
+"""Genera HTML/dev/mainForm.preview.html desde HTML/dev/mainForm.html.
 
-Es el equivalente de scripts/gen_preview.py pero para la pista de DESARROLLO
-(portal-dev). El preview es el MISMO portal con un mock de `fetch` y `XMLHttpRequest` inyectado antes de
-`</head>`, para que el portal funcione en el navegador sin ESP32:
+Es el equivalente de HTML/scripts/gen_preview.py pero para la pista de DESARROLLO
+(HTML/dev/), reservada a la PRÓXIMA ronda de rediseño del portal. Hoy esa fuente
+puede no existir todavía; cuando exista, este script la previsualiza sin tocar la
+estable. El preview es el MISMO portal con un mock de `fetch` y `XMLHttpRequest`
+inyectado antes de `</head>`, para que funcione en el navegador sin ESP32:
   - `fetch` responde los endpoints con datos simulados y sin validar token.
   - `XMLHttpRequest` se intercepta para la subida OTA (`/otaupdate`), simulando el
     progreso de subida y el éxito, para ver la vista `flashing`.
@@ -14,14 +16,16 @@ fuente (`mainForm.html`). Nunca se edita a mano.
 El escenario simulado se controla con las banderas del bloque `MOCK.params` (edita
 este script si el cambio debe persistir entre regeneraciones).
 
-Uso, desde la raíz del proyecto:
-    python3 scripts/gen_preview_dev.py
+Las rutas se resuelven respecto a la RAÍZ del repo (dos niveles por encima de
+este archivo), así que funciona sin importar desde qué carpeta se invoque:
+    python3 HTML/scripts/gen_preview_dev.py
 """
 import sys
 from pathlib import Path
 
-SRC = Path("HTML/portal-dev/mainForm.html")
-DST = Path("HTML/portal-dev/mainForm.preview.html")
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "HTML/dev/mainForm.html"
+DST = ROOT / "HTML/dev/mainForm.preview.html"
 
 # El mock se inyecta ANTES de </head> para que window.fetch/XMLHttpRequest queden
 # parcheados antes de que corra el <script> del portal (que vive en el <body>).

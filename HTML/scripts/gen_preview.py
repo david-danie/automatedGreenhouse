@@ -9,21 +9,23 @@ dispositivo. Se GENERA en vez de mantenerse a mano por el mismo motivo que
 El escenario simulado se controla con las banderas del bloque MOCK del archivo
 generado (o de este script, si el cambio debe persistir entre regeneraciones).
 
-Uso, desde la raíz del proyecto:
-    python3 scripts/gen_preview.py
+Las rutas se resuelven respecto a la RAÍZ del repo (dos niveles por encima de
+este archivo), así que funciona sin importar desde qué carpeta se invoque:
+    python3 HTML/scripts/gen_preview.py
 """
 import sys
 from pathlib import Path
 
-SRC = Path("HTML/mainForm.html")
-DST = Path("HTML/mainForm.preview.html")
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "HTML/mainForm.html"
+DST = ROOT / "HTML/mainForm.preview.html"
 
 # El mock se inyecta ANTES de </head> para que window.fetch quede parcheado antes
 # de que corra el <script> del portal (que vive en el <body>).
 MOCK = r"""
     <!-- ==================================================================
          MOCK DE PREVIEW  ·  ARCHIVO GENERADO, NO EDITAR A MANO
-         Generado por scripts/gen_preview.py desde HTML/mainForm.html.
+         Generado por HTML/scripts/gen_preview.py desde HTML/mainForm.html.
          Intercepta fetch() para que el portal funcione sin dispositivo:
          no se valida ningún token y los endpoints devuelven datos simulados.
          ================================================================== -->

@@ -43,7 +43,7 @@
 
 **`Constants.h` es la fuente de verdad del hardware y de los límites de validación.** Pines, canales PWM, longitudes de campo y `validFrequencies` se definen ahí. La documentación los refleja; si divergen, el código gana.
 
-**El portal tiene dos archivos y una dirección.** `HTML/mainForm.html` es la fuente legible y comentada; `ESP32_controller/mainForm.h` es el artefacto que sirve el dispositivo, generado a partir del anterior con `scripts/gen_mainform.py`: quita los comentarios de línea completa, comprime con gzip y lo embebe como arreglo de bytes en PROGMEM (`mainForm_gz` + `mainForm_gz_len`). **Se edita el `.html` y se regenera el `.h`**, nunca al revés.
+**El portal tiene dos archivos y una dirección.** `HTML/mainForm.html` es la fuente legible y comentada; `ESP32_controller/mainForm.h` es el artefacto que sirve el dispositivo, generado a partir del anterior con `HTML/scripts/gen_mainform.py`: quita los comentarios de línea completa, comprime con gzip y lo embebe como arreglo de bytes en PROGMEM (`mainForm_gz` + `mainForm_gz_len`). **Se edita el `.html` y se regenera el `.h`**, nunca al revés.
 
 **Las validaciones están duplicadas a propósito.** El navegador y el firmware aplican las mismas reglas (charset, longitudes, repetidos) contando por carácter UTF-8. Si cambias una, cambia la otra: `HTML/mainForm.html` y `Plant.cpp` / `utils.cpp`.
 

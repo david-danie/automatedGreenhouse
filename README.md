@@ -280,11 +280,11 @@ El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica
 │   ├── README.md              # Compilar/flashear, estado de la migración y módulos
 │   └── main/                  # Módulos IDF: storage, rtc, actuators, control, wifi, httpserver…
 ├── HTML/
-│   ├── mainForm.html          # Pista ESTABLE (producción): fuente del portal
-│   ├── mainForm.preview.html  # Preview de la estable (generado, con mock)
-│   └── portal-dev/             # Pista DESARROLLO (pruebas): mainForm.html (fuente),
-│                              #   mainForm.preview.html (generado) y paletas-guardadas.css
-├── scripts/                   # Generadores: gen_mainform.py (--dev), gen_preview.py, gen_preview_dev.py
+│   ├── mainForm.html          # Portal ACTIVO (el que sirve el dispositivo): fuente
+│   ├── mainForm.preview.html  # Preview del activo (generado, con mock)
+│   ├── scripts/               # Generadores: gen_mainform.py (--dev), gen_preview.py, gen_preview_dev.py
+│   ├── dev/                   # Próxima ronda de rediseño (futura) + paletas-guardadas.css
+│   └── deprecated/            # Portal anterior, archivado (ya no se usa)
 ├── ESP32_Board/               # Diseño de la tarjeta (KiCad)
 ├── pythonServer/              # Backend: FastAPI + Alembic + Docker (auth funcional)
 ├── docs/                      # Documentación técnica
@@ -324,27 +324,27 @@ framework use el firmware. La documentación común se edita en `main` y se llev
 
 <div align="justify">
 
-**Convención del portal — dos pistas.** El formulario se mantiene en **dos pistas** permanentes, cada una con su fuente legible y comentada:
+**Convención del portal — una pista activa.** El formulario que sirve el dispositivo tiene una única fuente legible y comentada, y los artefactos se regeneran de ella, **nunca al revés**:
 
-- **Estable** (producción): `HTML/mainForm.html`
-- **Desarrollo** (pruebas / features nuevas, p. ej. temperatura/humedad): `HTML/portal-dev/mainForm.html`
-
-Se edita la fuente de cada pista y de ahí se regeneran sus artefactos, **nunca al revés**:
+- **Activa** (la que sirve el ESP32): `HTML/mainForm.html`
+- **Desarrollo** (próxima ronda de rediseño, aún no activa): `HTML/dev/mainForm.html`
+- **Archivada** (portal anterior, ya no se usa): `HTML/deprecated/mainForm.html`
 
 ```bash
 # Previews para revisar en el navegador sin dispositivo (cada uno inyecta su propio
 # mock de fetch/XHR que simula el firmware):
-python3 scripts/gen_preview.py     # -> HTML/mainForm.preview.html            (estable)
-python3 scripts/gen_preview_dev.py  # -> HTML/portal-dev/mainForm.preview.html  (desarrollo)
+python3 HTML/scripts/gen_preview.py      # -> HTML/mainForm.preview.html      (activa)
+python3 HTML/scripts/gen_preview_dev.py  # -> HTML/dev/mainForm.preview.html  (desarrollo)
 
-# Promover UNA pista al artefacto embebido que sirve el ESP32 (un solo .h; se elige cuál):
-python3 scripts/gen_mainform.py        # -> ESP32_controller/mainForm.h  desde la ESTABLE
-python3 scripts/gen_mainform.py --dev  # -> ESP32_controller/mainForm.h  desde DESARROLLO
+# Regenerar el artefacto embebido que sirve el ESP32 (un solo .h):
+python3 HTML/scripts/gen_mainform.py        # -> mainForm.h desde la pista ACTIVA
+python3 HTML/scripts/gen_mainform.py --dev  # previsualiza el .h desde DESARROLLO (sin promover)
 ```
 
-El firmware sirve **un solo** `mainForm.h`, así que promover = elegir qué pista lo
-sobrescribe. Cada preview tiene su propio mock (pueden divergir a propósito: la pista de
-desarrollo simula lo que va probando).
+Cuando una ronda de desarrollo se da por buena, se **promueve**: su fuente pasa a
+`HTML/mainForm.html`, la anterior baja a `HTML/deprecated/`, y se regenera `mainForm.h`.
+Cada preview tiene su propio mock (pueden divergir a propósito: la pista de desarrollo
+simula lo que va probando).
 
 </div>
 
@@ -380,8 +380,8 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
   - [x] Reset de fábrica **restringido a la interfaz del AP**, y operación rutinaria separada en `POST /newcrop` (autenticada, conserva cuenta y Wi-Fi)
   - [x] **Límite de intentos** de login: espera creciente de 5 s a 5 min, contador en RAM
 - [x] Servir el portal **gzip** (`Content-Encoding: gzip`): `gen_mainform.py` comprime el HTML y lo embebe como arreglo de bytes (`mainForm_gz`); `handleRoot` lo sirve con el encabezado. Reduce el portal de ~93 KB a ~16 KB (−83 %). Falta probarlo en hardware.
-- [ ] **Portal V2** (rediseño hub-and-spoke, en desarrollo en `HTML/portal-dev/`): estructura, JS y **diseño visual completo** con **paletas intercambiables** (claras: tierra/invernadero/slate; oscura: verde-oscuro; ver `paletas-guardadas.css` y el comparador). Falta el repaso visual fino y **homologarlo** (promover con `gen_mainform.py --dev` + generar su `mainForm.h`) como versión oficial ([ver estado](docs/ARCHITECTURE.md))
-- [x] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): endpoint `POST /otaupdate` en el firmware (librería `Update`), `partitions.csv` con dos slots OTA y **cliente en ambos portales** (V1 y V2, vistas `ota`/`flashing` con barra de progreso). Falta probar el flujo completo en hardware real ([ver requisitos](docs/ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota))
+- [x] **Portal rediseñado (hub-and-spoke) — PROMOVIDO a versión activa.** Estructura, JS y **diseño visual completo** con **paletas intercambiables** (claras: tierra/invernadero/slate; oscura: verde-oscuro; ver `HTML/dev/paletas-guardadas.css`). Es el portal que sirve el dispositivo (`HTML/mainForm.html` → `mainForm.h`); el portal lineal anterior quedó archivado en `HTML/deprecated/`. Pendiente menor: repaso visual fino/responsive ([ver detalle](docs/ARCHITECTURE.md#el-portal-hub-and-spoke))
+- [x] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): endpoint `POST /otaupdate` en el firmware (librería `Update`), `partitions.csv` con dos slots OTA y **cliente en el portal** (vistas `ota`/`flashing` con barra de progreso). Falta probar el flujo completo en hardware real ([ver requisitos](docs/ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota))
 - [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos. Ya está en pie la base — la infraestructura corre en Docker (Postgres/Timescale, MinIO y Mosquitto), Alembic crea el esquema completo (5 tablas + hypertable), el registro/login/refresh funciona con JWT y los dispositivos se vinculan a una cuenta recibiendo su propio token revocable. En curso: recibir configuración y telemetría por REST (escrito, pendiente de probar). Falta exponer las lecturas para la app, servir OTA y la ingesta por MQTT ([ver estado](pythonServer/README.md))
 - [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
 - [ ] Medición de temperatura y humedad (DS18B20 contemplado en el diseño original)
