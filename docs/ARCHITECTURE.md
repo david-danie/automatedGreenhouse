@@ -27,12 +27,14 @@ HTML/
 ```
 
 ### Convención importante (leer antes de tocar formularios)
-- **Edita siempre la fuente HTML** (legible y comentada), nunca el artefacto. Hay dos pistas:
-  la **estable** (`HTML/mainForm.html`) y la de **desarrollo** (`HTML/portal-dev/mainForm.html`).
+- **Edita siempre la fuente HTML** (legible y comentada), nunca el artefacto. La pista
+  activa (la que sirve el dispositivo) es `HTML/mainForm.html`; la próxima ronda de
+  rediseño irá en `HTML/dev/mainForm.html`, y el portal anterior quedó archivado en
+  `HTML/deprecated/mainForm.html`.
 - **`ESP32_controller/mainForm.h` es un artefacto generado**: el HTML (sin comentarios de
   línea completa) **comprimido con gzip** y embebido como arreglo de bytes en PROGMEM
   (`mainForm_gz` + `mainForm_gz_len`). Es lo que el dispositivo sirve; **no se edita a mano**.
-  Se produce con `python3 scripts/gen_mainform.py` (estable) o `--dev` (desarrollo).
+  Se produce con `python3 HTML/scripts/gen_mainform.py` (estable) o `--dev` (desarrollo).
 - **gzip es el ahorro real**: el HTML (~93 KB) baja a **~16 KB (−83 %)** en el `.h`. (Quitar
   comentarios por sí solo ahorraba <1 %; el peso lo quita gzip.) El navegador descomprime
   solo; el firmware únicamente declara `Content-Encoding: gzip` en `handleRoot`.
@@ -41,7 +43,7 @@ HTML/
   vale la pena un `node --check` sobre el `<script>` del fuente para confirmar que el strip no
   rompió sintaxis. Verificación de integridad: descomprimir el `.gz` del `.h` debe devolver
   exactamente el HTML limpio.
-- **`HTML/mainForm.preview.html` es el otro artefacto generado** (`scripts/gen_preview.py`):
+- **`HTML/mainForm.preview.html` es el otro artefacto generado** (`HTML/scripts/gen_preview.py`):
   el mismo portal con un mock de `fetch` inyectado antes de `</head>`, que responde los 8
   endpoints con datos simulados y sin validar token. Igual que el `.h`, **no se edita a
   mano**: se regenera desde el fuente. El escenario simulado se controla con las banderas del
@@ -306,14 +308,16 @@ segundos; la config se aplica en vivo, así que solo `**reset**` reinicia el equ
 
 ---
 
-## Portal V2 (en desarrollo, aún no homologado)
+## El portal (hub-and-spoke)
 
-Existe una reescritura del portal en `HTML/portal-dev/mainForm.html`. **Todavía NO
-es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.html`
-→ `mainForm.h`). La V2 vive aparte como borrador y no está en el artefacto servido.
+El portal que sirve el dispositivo es una SPA hub-and-spoke (fuente:
+`HTML/mainForm.html`, artefacto `mainForm.h`). Reemplazó al portal lineal anterior,
+que se conserva solo como referencia en `HTML/deprecated/mainForm.html` (ya no se
+genera nada de él). La próxima ronda de rediseño, cuando exista, vivirá en
+`HTML/dev/`.
 
-**Qué cambia respecto a la V1:**
-- **Navegación hub-and-spoke** en vez de pasos lineales: el dashboard es el centro
+**Modelo de navegación:**
+- **Navegación hub-and-spoke**: el dashboard es el centro
   y de ahí se sale a destinos independientes (`edit`, `wifi`, `ota`) y se vuelve.
   `auth` deja de ser un destino y pasa a ser una **compuerta**: solo se cruza si la
   sesión no está vigente, recuerda a dónde ibas (`pendingIntent`) y te deposita ahí.
@@ -326,7 +330,7 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   había escrito (ver [Manejo del 401](API.md#manejo-del-401-en-el-cliente)). Los cuatro
   flujos protegidos —`edit`, `wifi`, `ota` y `/newcrop`— pasan por la misma compuerta.
 - **Estados:** `welcome · register · auth · view · edit · wifi · ota · flashing · exit`
-  (la V1 no tenía `ota`, `flashing` ni `exit` como vista propia).
+  (el portal lineal anterior no tenía `ota`, `flashing` ni `exit` como vista propia).
 - **Navegación del dashboard como fila de íconos.** Los cuatro destinos hub→spoke
   (`edit`, `wifi`, `ota`, `exit`) pasaron de botones de texto de ancho completo —que en
   móvil envolvían a dos filas— a una sola fila de **íconos SVG con etiqueta corta**
@@ -334,9 +338,9 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   de solo trazo (`stroke="currentColor"`, sin relleno), así que pesan poco y heredan el
   color de la paleta activa.
 
-  - **OTA vuelve a la fila principal.** En la V1 el acceso a OTA se apartaba en un
+  - **OTA vuelve a la fila principal.** En el portal anterior el acceso a OTA se apartaba en un
     `footer` discreto ("la prominencia sigue la frecuencia de uso"), para que no se pulsara
-    por inercia. En la V2 se decidió lo contrario: como los cuatro destinos pasan por la
+    por inercia. Aquí se decidió lo contrario: como los cuatro destinos pasan por la
     **misma compuerta de login** (`requireAuth`) y OTA además pide confirmación antes de
     flashear, la barrera real ya no es esconderlo. Los cuatro íconos comparten el mismo
     estilo (sin recuadro, color `--text-dim` que vira a `--primary` al pasar/enfocar).
@@ -362,10 +366,10 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
   ```
 
   Cada paleta define el **mismo juego de 18 variables** de color, así que
-  ninguna queda a medias heredando un color de otra. Hoy la pista de desarrollo
-  tiene embebida **tierra** (clara); las demás candidatas —invernadero y slate
-  (claras) y **verde-oscuro** (oscura, verde)— viven en
-  `HTML/portal-dev/paletas-guardadas.css` y se activan cambiando el `data-theme`.
+  ninguna queda a medias heredando un color de otra. Hoy el portal embebe **tierra**
+  (clara); las demás candidatas —invernadero y slate (claras) y **verde-oscuro**
+  (oscura, verde)— viven en `HTML/dev/paletas-guardadas.css` y se activan cambiando
+  el `data-theme`.
 
   > **Invariante:** el cambio de vista usa el atributo `hidden`, no clases, y lo sostiene
   > `[hidden] { display: none !important; }`. Si una regla de `.view` ganara especificidad
@@ -385,36 +389,38 @@ es la versión oficial:** el dispositivo sigue sirviendo la V1 (`HTML/mainForm.h
     cuelga un `<small class="field-error">` bajo el campo, que se limpia al editarlo. Los
     `<form>` llevan `novalidate` para que valide el JS, no el navegador. No se usan `alert()`.
 
-**Qué le falta para homologarse:**
-1. ~~**CSS / estilos**~~ — **implementado**: la V2 ya tiene su hoja de estilos
-   completa, con **paletas intercambiables** (hoy embebe la clara *tierra*). Están estilizados
-   contenedor, tipografía, campos (inputs/selects/sliders/toggles y el desplegable de
-   espectro avanzado), botones (`.primary`/`.secondary`/`.crop-reset`),
-   dashboard (hero, secciones, ítems y la fila de íconos sin recuadro), notificaciones
-   (toast + banner + validación por campo) y los componentes de wifi/ota/flashing.
-   Todos los selectores referencian **solo variables** de paleta. Pendiente: repaso
-   visual fino/responsive. Más paletas para probar en `HTML/portal-dev/paletas-guardadas.css`.
-2. ~~**Endpoint OTA en el firmware**~~ — **ya implementado**: `POST /otaupdate` existe en
-   `ESP32_controller.ino` (librería `Update`, doble slot vía `partitions.csv`). El cliente
-   de la V2 sube el `.bin` por `multipart` con el token en el header `Authorization: Bearer`.
-3. ~~**`firmwareVersion` en `/getparams`**~~ — **ya implementado**: el firmware lo
-   expone desde la constante de compilación `firmwareVersion` (`Constants.h`).
-4. **Modelo de dos pistas (estable + desarrollo).** El portal se mantiene en dos pistas
-   permanentes: la **estable** (`HTML/mainForm.html`) y la de **desarrollo**
-   (`HTML/portal-dev/mainForm.html`, donde se prueban features nuevas: temperatura/humedad,
-   etc.). El firmware sirve **un solo** `mainForm.h`, así que se **promueve** la pista que se
-   quiera con el generador parametrizado: `python3 scripts/gen_mainform.py` (estable) o
-   `python3 scripts/gen_mainform.py --dev` (desarrollo). Al promover la de desarrollo hay que
-   actualizar esta doc (la máquina de estados y el portal servido cambian).
+**Estado y mantenimiento:**
+- **CSS / estilos**: hoja completa con **paletas intercambiables** (hoy embebe la
+  clara *tierra*). Están estilizados contenedor, tipografía, campos
+  (inputs/selects/sliders/toggles y el desplegable de espectro avanzado), botones
+  (`.primary`/`.secondary`/`.crop-reset`), dashboard (hero, secciones, ítems y la
+  fila de íconos sin recuadro), notificaciones (toast + banner + validación por
+  campo) y los componentes de wifi/ota/flashing. Todos los selectores referencian
+  **solo variables** de paleta. Pendiente menor: repaso visual fino/responsive. Más
+  paletas para probar en `HTML/dev/paletas-guardadas.css`.
+- **Endpoint OTA en el firmware**: `POST /otaupdate` (Arduino con la librería
+  `Update`; ESP-IDF con `esp_ota_ops`), doble slot vía `partitions.csv`. El cliente
+  sube el `.bin` por `multipart` con el token en el header `Authorization: Bearer`.
+- **`firmwareVersion` en `/getparams`**: el firmware lo expone desde la constante de
+  compilación `firmwareVersion` (`Constants.h`).
+- **Modelo de pistas (una sola activa).** La fuente del portal servido es
+  `HTML/mainForm.html`; su artefacto es `mainForm.h`. El portal lineal anterior
+  quedó en `HTML/deprecated/` (solo referencia). La próxima ronda de rediseño se
+  trabajará en `HTML/dev/mainForm.html` y, al terminar, se **promueve**: su fuente
+  pasa a `HTML/mainForm.html`, la anterior baja a `HTML/deprecated/`, y se regeneran
+  los artefactos con `python3 HTML/scripts/gen_mainform.py`. `--dev` solo previsualiza
+  la pista de desarrollo sin tocar la estable. Al promover hay que actualizar esta doc
+  (la máquina de estados y el portal servido cambian).
 
-**Cómo probarla sin dispositivo:** cada pista tiene su preview con firmware simulado
-(`mainForm.preview.html`), que se **genera** desde su fuente —`gen_preview.py` para la
-estable, `gen_preview_dev.py` para desarrollo— inyectando un mock de `fetch`/`XHR` antes de
-`</head>`. Se abre directo en el navegador; arranca en el dashboard sin login y simula Wi-Fi,
-guardado y OTA. **El preview no se sirve desde el ESP32 ni se regenera a `mainForm.h`.** La
-fuente de verdad de cada pista es su `mainForm.html` (sin mock). Cada mock puede divergir a
-propósito (la pista de desarrollo simula lo que va probando); editar `MOCK.params` en el
-generador cambia el escenario (p. ej. `hasRegisteredUser:false` → arranca en `welcome`).
+**Cómo probarlo sin dispositivo:** la pista activa tiene su preview con firmware
+simulado (`HTML/mainForm.preview.html`), que se **genera** desde su fuente con
+`HTML/scripts/gen_preview.py`, inyectando un mock de `fetch`/`XHR` antes de `</head>`.
+Se abre directo en el navegador; arranca en el dashboard sin login y simula Wi-Fi,
+guardado y OTA. La pista de desarrollo (cuando exista) tiene su propio
+`HTML/scripts/gen_preview_dev.py`. **El preview no se sirve desde el ESP32 ni se
+regenera a `mainForm.h`.** La fuente de verdad es `mainForm.html` (sin mock); editar
+`MOCK.params` en el generador cambia el escenario (p. ej. `hasRegisteredUser:false`
+→ arranca en `welcome`).
 
 ---
 
@@ -596,8 +602,8 @@ La compresión es parte del generador del `.h`, no un paso manual, para que **nu
 desincronice** del fuente. Un solo comando produce el `.h` de la pista elegida:
 
 ```bash
-python3 scripts/gen_mainform.py          # estable -> ESP32_controller/mainForm.h (gzip)
-python3 scripts/gen_mainform.py --dev     # desarrollo (portal-dev)
+python3 HTML/scripts/gen_mainform.py          # activa -> ESP32_controller/mainForm.h (gzip)
+python3 HTML/scripts/gen_mainform.py --dev     # previsualiza desde HTML/dev/ (sin promover)
 ```
 
 Si existe `firmware/main/` (rama `esp-idf-migration`), el mismo comando regenera también

@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Regenera ESP32_controller/mainForm.h (HTML del portal GZIP-comprimido) desde
-una de las dos PISTAS del formulario.
+la fuente del formulario.
 
-El proyecto mantiene dos pistas permanentes del formulario:
-  - ESTABLE (producción):   HTML/mainForm.html
-  - DESARROLLO (pruebas):   HTML/portal-dev/mainForm.html
+Pista ESTABLE (la que sirve el dispositivo):  HTML/mainForm.html
 
-Ambas pueden promoverse al MISMO artefacto embebido (ESP32_controller/mainForm.h);
-el firmware solo sirve uno a la vez, así que se elige cuál promover:
+    python3 HTML/scripts/gen_mainform.py          # promueve la ESTABLE (por defecto)
+    python3 HTML/scripts/gen_mainform.py --dev     # promueve la pista de desarrollo
 
-    python3 scripts/gen_mainform.py          # promueve la ESTABLE (por defecto)
-    python3 scripts/gen_mainform.py --dev     # promueve la de DESARROLLO (portal-dev)
+La pista de DESARROLLO (HTML/dev/mainForm.html) es para la PRÓXIMA ronda de
+rediseño del portal; hoy puede no existir. `--dev` solo sirve para previsualizar
+cómo quedaría ese artefacto sin tocar aún la estable. Al terminar una ronda, se
+PROMUEVE: su fuente pasa a HTML/mainForm.html (y la anterior a HTML/deprecated/).
+
+El script resuelve las rutas respecto a la RAÍZ del repo (dos niveles por encima
+de este archivo), así que funciona sin importar desde qué carpeta se invoque.
 
 El artefacto que sirve el ESP32 es el HTML fuente SIN comentarios de línea
 completa y COMPRIMIDO con gzip, como arreglo de bytes en PROGMEM + su longitud:
@@ -38,16 +41,19 @@ import sys
 import gzip
 from pathlib import Path
 
-SRC_ESTABLE = Path("HTML/mainForm.html")
-SRC_DEV = Path("HTML/portal-dev/mainForm.html")
-DST = Path("ESP32_controller/mainForm.h")
+# Raíz del repo: este script vive en HTML/scripts/, así que subimos dos niveles.
+ROOT = Path(__file__).resolve().parents[2]
+
+SRC_ESTABLE = ROOT / "HTML/mainForm.html"
+SRC_DEV = ROOT / "HTML/dev/mainForm.html"
+DST = ROOT / "ESP32_controller/mainForm.h"
 # Copia para el firmware ESP-IDF (solo existe en la rama esp-idf-migration). Mismo
 # contenido que DST con un preámbulo que define PROGMEM vacío (no existe en IDF).
-DST_IDF = Path("firmware/main/mainForm.h")
+DST_IDF = ROOT / "firmware/main/mainForm.h"
 IDF_PREAMBLE = (
     "// Artefacto generado (gzip del portal). Copia para el build ESP-IDF.\n"
     "// En IDF puro PROGMEM no existe; se define vacío para reutilizar el mismo\n"
-    "// formato que genera scripts/gen_mainform.py.\n"
+    "// formato que genera HTML/scripts/gen_mainform.py.\n"
     "#ifndef PROGMEM\n"
     "#define PROGMEM\n"
     "#endif\n"
@@ -99,7 +105,7 @@ def to_byte_array_header(data: bytes) -> str:
         lines.append("  " + ", ".join(f"0x{b:02x}" for b in chunk) + ",")
     body = "\n".join(lines)
     return (
-        "// Generado por scripts/gen_mainform.py — NO EDITAR A MANO.\n"
+        "// Generado por HTML/scripts/gen_mainform.py — NO EDITAR A MANO.\n"
         "// HTML del portal (sin comentarios) comprimido con gzip. Se sirve con\n"
         "// Content-Encoding: gzip; el navegador lo descomprime. Ver handleRoot.\n"
         "static const unsigned char mainForm_gz[] PROGMEM = {\n"
@@ -112,7 +118,7 @@ def to_byte_array_header(data: bytes) -> str:
 def main() -> int:
     dev = "--dev" in sys.argv[1:]
     src = SRC_DEV if dev else SRC_ESTABLE
-    pista = "DESARROLLO (portal-dev)" if dev else "ESTABLE"
+    pista = "DESARROLLO (HTML/dev)" if dev else "ESTABLE"
     if not src.exists():
         print(f"No se encontró {src}", file=sys.stderr)
         return 1
