@@ -701,6 +701,11 @@ evitando depender del RTC DS3231 y su caso borde de "hora no seteada".
   defecto) y **la librería no permite ligarlo a una interfaz**, así que es una limitación
   aceptada: eliminarla exigiría no levantar el DNS con el STA activo, lo que rompería el
   portal captivo en modo AP+STA.
+
+  > **Firmware ESP-IDF (`firmware/`, rama `esp-idf-migration`):** el DNS captivo es código
+  > propio (`captivedns.cpp`), así que **sí** se liga solo a la IP del AP (`192.168.4.1`) y
+  > no responde por la interfaz STA. Es una diferencia deliberada: IDF es más estricto que
+  > Arduino en este punto. Detalle en `firmware/README.md`.
 - El token se genera solo en login/registro (no por request), evitando escrituras innecesarias.
 
 ### Huecos de seguridad identificados y su resolución
