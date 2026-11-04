@@ -74,9 +74,9 @@ Aplicado en código, **sin compilar ni probar en hardware**:
 - **Rollback de OTA.** Con `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`, la imagen nueva
   se confirma (`esp_ota_mark_app_valid_cancel_rollback()`) cuando el AP y el
   servidor HTTP arrancan; si no, el bootloader vuelve al slot anterior al reiniciar.
-- **`/` acepta cualquier método**, como `server.on("/", handleRoot)` de Arduino
-  (`HTTP_ANY`): se registra una vez por método (GET, POST, PUT, DELETE, PATCH, HEAD,
-  OPTIONS); en HEAD solo se envían las cabeceras.
+- **`/` acepta cualquier método**, como `server.on("/", handleRoot)` de Arduino:
+  se registra con `HTTP_ANY` (el comodín de método de `esp_http_server`); en HEAD
+  solo se envían las cabeceras.
 
 Diferencia deliberada respecto a Arduino (IDF es más estricto):
 

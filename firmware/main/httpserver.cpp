@@ -322,7 +322,7 @@ namespace httpserver {
 bool begin() {
     httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
     cfg.lru_purge_enable = true;
-    cfg.max_uri_handlers = 20;                      // 9 rutas + '/' x7 métodos = 16 (> 8 por defecto)
+    cfg.max_uri_handlers = 12;                      // 10 rutas registradas (> 8 por defecto)
     cfg.open_fn = onOpen;                           // solo conexiones por el AP
 
     if (httpd_start(&s_server, &cfg) != ESP_OK) {
@@ -330,18 +330,10 @@ bool begin() {
         return false;
     }
 
-    // '/' acepta CUALQUIER método, como server.on("/", handleRoot) de Arduino (sin
-    // método = HTTP_ANY). esp_http_server liga cada ruta a un solo método, así que
-    // se registra una vez por método.
-    static const httpd_method_t rootMethods[] = {
-        HTTP_GET, HTTP_POST, HTTP_PUT, HTTP_DELETE, HTTP_PATCH, HTTP_HEAD, HTTP_OPTIONS
-    };
-    for (httpd_method_t m : rootMethods) {
-        httpd_uri_t root = { "/", m, rootHandler, nullptr };
-        if (httpd_register_uri_handler(s_server, &root) != ESP_OK) {
-            ESP_LOGE(TAG, "no se pudo registrar '/' para el método %d", (int)m);
-        }
-    }
+    // '/' acepta CUALQUIER método, como server.on("/", handleRoot) de Arduino.
+    // HTTP_ANY es el comodín de método de esp_http_server (un solo registro).
+    httpd_uri_t root = { "/", HTTP_ANY, rootHandler, nullptr };
+    httpd_register_uri_handler(s_server, &root);
 
     httpd_uri_t getparams = { "/getparams", HTTP_GET, getParamsHandler, nullptr };
     httpd_register_uri_handler(s_server, &getparams);
