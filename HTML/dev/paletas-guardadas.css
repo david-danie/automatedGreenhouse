@@ -152,3 +152,90 @@
     --err-text:      #be123c;
     --shadow:        0 6px 24px rgba(30, 41, 59, .10);
 }
+
+/* ===========================================================================
+   PALETAS OSCURAS CANDIDATAS (2026-11)
+   ===========================================================================
+   Tres temas OSCUROS para elegir el definitivo, como reemplazo de "verde-oscuro"
+   (descartada). Cada uno define las 18 variables del sistema. Para probar uno:
+   sustituye el bloque de paleta embebido en mainForm.html y pon su data-theme en
+   <html>, y añade su nombre al selector :not([data-theme="verde-oscuro"]) de los
+   efectos de vida para que el portal lo trate como OSCURO (sin degradado claro ni
+   sombra teñida de primario).
+   --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   "carbon" — Oscura A. Neutro frío tipo dashboard nocturno; acento esmeralda.
+   --------------------------------------------------------------------------- */
+[data-theme="carbon"] {
+    --bg:            #0d1117;
+    --surface:       #161b22;
+    --surface-2:     #1c232c;
+    --border:        #2d3643;
+    --text:          #e6edf3;
+    --text-dim:      #9aa7b4;
+    --primary:       #2ea860;
+    --primary-2:     #3fc274;
+    --primary-soft:  #13251b;
+    --on-primary:    #0d1117;
+    --secondary:     #f0785a;
+    --secondary-2:   #d8623f;
+    --on-secondary:  #0d1117;
+    --accent:        #4aa3df;
+    --ok-bg:         #122820;
+    --ok-text:       #3fc274;
+    --err-bg:        #2a1714;
+    --err-text:      #f0a08c;
+    --shadow:        0 6px 24px rgba(0, 0, 0, .5);
+}
+
+/* ---------------------------------------------------------------------------
+   "medianoche" — Oscura B. Fondo azul índigo; primario verde-lima, acento azul.
+   --------------------------------------------------------------------------- */
+[data-theme="medianoche"] {
+    --bg:            #0f1420;
+    --surface:       #171d2e;
+    --surface-2:     #1e2638;
+    --border:        #2c3650;
+    --text:          #e7ebf4;
+    --text-dim:      #97a2bd;
+    --primary:       #4ade80;
+    --primary-2:     #22c55e;
+    --primary-soft:  #15241c;
+    --on-primary:    #0f1420;
+    --secondary:     #fb7185;
+    --secondary-2:   #e11d48;
+    --on-secondary:  #0f1420;
+    --accent:        #60a5fa;
+    --ok-bg:         #122a1d;
+    --ok-text:       #4ade80;
+    --err-bg:        #2b1620;
+    --err-text:      #fda4b0;
+    --shadow:        0 6px 24px rgba(0, 0, 0, .5);
+}
+
+/* ---------------------------------------------------------------------------
+   "bosque-noche" — Oscura C. Verde muy oscuro protagonista, más vivo y con más
+   contraste que la antigua "verde-oscuro".
+   --------------------------------------------------------------------------- */
+[data-theme="bosque-noche"] {
+    --bg:            #0a130d;
+    --surface:       #121d15;
+    --surface-2:     #18271c;
+    --border:        #26382b;
+    --text:          #e9f2ea;
+    --text-dim:      #9cb6a3;
+    --primary:       #46d17f;
+    --primary-2:     #63e096;
+    --primary-soft:  #15271b;
+    --on-primary:    #07110a;
+    --secondary:     #ef8a6b;
+    --secondary-2:   #d96f4e;
+    --on-secondary:  #07110a;
+    --accent:        #5cb3e0;
+    --ok-bg:         #112a1c;
+    --ok-text:       #63e096;
+    --err-bg:        #2a1813;
+    --err-text:      #f0ad95;
+    --shadow:        0 6px 24px rgba(0, 0, 0, .5);
+}
