@@ -159,6 +159,22 @@
             background: var(--bg, #eef2f0);
             color: var(--text, #1a1a1a);
         }
+        /* VIDA EN LOS TEMAS CLAROS (no toca los colores de las paletas) ======
+           El aspecto "apagado" venía del fondo plano y de una sombra muy tenue.
+           Estas reglas derivan todo de las variables de la paleta activa con
+           color-mix (cero colores literales nuevos), así que cada tema conserva
+           su identidad y solo gana profundidad. Se limitan a los temas CLAROS:
+           el oscuro (verde-oscuro) se deja como está. Si se añade otra paleta
+           oscura, se excluye aquí por su data-theme. */
+        body:not([data-theme="verde-oscuro"]) {
+            /* Lavado de color sutil: del --bg a una mezcla de --bg con el primario
+               de la paleta. Da vida sin introducir un color ajeno al tema. */
+            background:
+                radial-gradient(1200px 600px at 50% -10%,
+                    color-mix(in srgb, var(--primary) 14%, var(--bg)) 0%,
+                    var(--bg) 60%);
+            background-attachment: fixed;
+        }
         /* Footer global de versión: metadato de referencia, mínimo y atenuado.
            Fuera de la tarjeta, centrado bajo ella, sin caja ni color de acento. */
         #appFooter {
@@ -870,6 +886,37 @@
         }
         /* Los sliders y el porcentaje del espectro no deben empujar el ancho. */
         .field output { white-space: nowrap; }
+
+        /* VIDA EN LA TARJETA (temas claros) — sombra con cuerpo + filo de color.
+           Igual que el fondo: todo sale de las variables de la paleta, así que no
+           se modifica ningún color definido en las paletas. El oscuro se excluye. */
+        body:not([data-theme="verde-oscuro"]) #card {
+            position: relative;
+            /* Dos capas de sombra teñidas con el primario de la paleta (no negro):
+               una de contacto, corta y definida, y otra ambiental, amplia y suave.
+               Más presencia que --shadow, pero sin dramatismo. */
+            box-shadow:
+                0 1px 2px color-mix(in srgb, var(--primary) 22%, transparent),
+                0 10px 30px -8px color-mix(in srgb, var(--primary) 26%, transparent);
+        }
+        /* Filo superior: una línea fina primario -> secundario en el borde de
+           arriba de la tarjeta. Es el detalle que más "despierta" la UI sin
+           recargarla. Va en ::before para no tocar el layout del contenido. */
+        body:not([data-theme="verde-oscuro"]) #card::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;          /* pegado al borde superior */
+            height: 3px;
+            border-radius: 16px 16px 0 0;
+            background: linear-gradient(90deg,
+                var(--primary) 0%,
+                color-mix(in srgb, var(--primary) 55%, var(--secondary)) 100%);
+        }
+        @media (max-width: 480px) {
+            body:not([data-theme="verde-oscuro"]) #card::before {
+                border-radius: 12px 12px 0 0;   /* coincide con el radio chico */
+            }
+        }
     </style>
 
     <!-- ==================================================================
