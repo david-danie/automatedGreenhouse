@@ -13,7 +13,7 @@
 | [**API-backend.md**](API-backend.md) | Referencia de la API HTTP **del backend** (nube): auth, provisión, config/telemetría del dispositivo y lecturas de la app; qué está implementado y qué no | Para integrar la app o el dispositivo contra la nube |
 | [**HARDWARE.md**](HARDWARE.md) | Mapa de pines, PWM, RTC, etapa de potencia (control ↔ potencia), conectividad e instalación eléctrica | Para montar o modificar el hardware |
 | [**BACKEND.md**](BACKEND.md) | Diseño del backend y **referencia autoritativa** para implementarlo: stack, modelo de datos, contratos de API, despliegue | Para retomar el desarrollo del backend |
-| [**ROADMAP.md**](ROADMAP.md) | Plan de migración del firmware de Arduino-ESP32 a ESP-IDF, por fases entregables: motivación, clasificación del código, mapeo de APIs y criterios de verificación | Para planear o retomar la migración a ESP-IDF |
+| [**ROADMAP.md**](ROADMAP.md) | **Estado del proyecto** (qué funciona hoy, con nivel de evidencia) y plan de migración del firmware de Arduino-ESP32 a ESP-IDF por fases | Para ver el estado global o planear/retomar la migración |
 | [**firmware/README.md**](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md) *(solo en la rama `esp-idf-migration`)* | Proyecto ESP-IDF: cómo compilar/flashear con `idf.py`, **estado de la migración** por fase y estructura de módulos | Para trabajar en el firmware ESP-IDF o ver su avance |
 
 > **Dos bases de firmware.** El firmware existe en dos formas: `ESP32_controller/` es el
@@ -25,7 +25,7 @@
 
 ## Por tarea
 
-**Quiero flashear el dispositivo y usarlo** → [README § Compilar y flashear](../README.md#compilar-y-flashear), luego [HARDWARE.md](HARDWARE.md) para el conexionado.
+**Quiero flashear el dispositivo y usarlo** → [README § Compilar y usar](../README.md#compilar-y-usar), luego [HARDWARE.md](HARDWARE.md) para el conexionado.
 
 **Quiero modificar el portal web** → [ARCHITECTURE.md](ARCHITECTURE.md) explica la máquina de estados y la convención de regenerar `mainForm.h` desde `HTML/mainForm.html`.
 

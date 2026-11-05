@@ -1,10 +1,66 @@
-# Roadmap — Migración del firmware a ESP-IDF
+# Estado y roadmap del proyecto
+
+Este documento es la **única fuente de verdad del estado del proyecto**: qué funciona hoy, qué
+está en curso y qué está planeado ([Estado actual](#estado-actual)); seguido del **plan de
+migración** del firmware de Arduino-ESP32 a ESP-IDF ([Plan de migración a ESP-IDF](#plan-de-migración-a-esp-idf)).
+
+Para el diseño técnico y las decisiones de ingeniería, ver [ARCHITECTURE.md](ARCHITECTURE.md).
+`Constants.h` es la fuente de verdad del hardware y los límites de validación.
+
+---
+
+## Leyenda de estado
+
+Cada ítem de estado lleva una etiqueta de **nivel de evidencia**, para no confundir "escrito"
+con "probado". Es la convención que el README y ARCHITECTURE referencian.
+
+| Etiqueta | Significado |
+|---|---|
+| ✅ **Verificado** | Probado con tests en host o comprobación objetiva (round-trip de artefactos, `node --check`, etc.). |
+| 🔧 **Verificado en hardware** | Probado en la placa real (ESP32-C3). |
+| 📝 **Escrito, sin probar en hardware** | Implementado y revisado por lógica; no compilado/flasheado todavía. |
+| 🚧 **En curso** | En desarrollo activo. |
+| 🗓️ **Planeado** | Diseñado, sin empezar. |
+
+---
+
+## Estado actual
+
+Estado del proyecto completo (firmware, portal, backend). El avance fino de la migración a
+ESP-IDF, por fase, está más abajo y en [`firmware/README.md`](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md).
+
+### Funciona hoy
+
+Firmware Arduino (`ESP32_controller/`), salvo que se indique:
+
+- ✅ **Portal captivo + dashboard + edición de parámetros en vivo** (se aplican sin reiniciar). El portal rediseñado hub-and-spoke es la versión activa.
+- ✅ **Sesión con token** de 128 bits (sin reenviar credenciales; TTL fijo en RAM).
+- ✅ **Conectividad Wi-Fi del usuario** (AP+STA, escaneo asíncrono, conexión + polling).
+- ✅ **Interruptor general del cultivo** (`enable`) que inhibe todos los actuadores.
+- ✅ **Modo seguro del RTC**: sin hora fiable (bit OSF del DS3231) no se acciona nada.
+- ✅ **Seguridad del portal** — los tres huecos resueltos ([detalle](ARCHITECTURE.md#huecos-de-seguridad-identificados-y-su-resolución)): contraseña con PBKDF2-HMAC-SHA256 + salt; reset de fábrica restringido a la interfaz del AP (operación rutinaria separada en `POST /newcrop`); límite de intentos de login con espera creciente.
+- ✅ **Portal servido gzip** (`Content-Encoding: gzip`, ~16 KB): round-trip del artefacto verificado. 📝 Falta la prueba en hardware del servido.
+- 📝 **OTA local** (`POST /otaupdate`, subir el `.bin` por el AP sin internet): doble slot en `partitions.csv`, cliente en el portal (vistas `ota`/`flashing`). Escrito; falta probar el flujo completo en hardware.
+- ✅ **Backend — autenticación y provisión**: infraestructura en Docker (Postgres/Timescale, MinIO, Mosquitto), esquema por Alembic, registro/login/refresh con JWT y vinculación de dispositivos con token revocable, verificados end-to-end ([estado](../pythonServer/README.md)).
+
+### En curso
+
+- 🚧 **Backend — configuración y telemetría por REST**: 📝 escrito, pendiente de probar.
+- 🚧 **Migración del firmware a ESP-IDF** (`firmware/`, rama `esp-idf-migration`): fases 0–3 escritas; sin build/flash en hardware. Avance por fase en [`firmware/README.md`](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md) y en [Plan de migración](#plan-de-migración-a-esp-idf).
+
+### Planeado
+
+- 🗓️ **OTA segura sobre TLS** (CA pinning + firmware firmado + rollback).
+- 🗓️ **Medición de temperatura y humedad** (DS18B20, contemplado en el diseño original).
+- 🗓️ **Backend — lecturas app-facing e ingesta MQTT.**
+
+---
+
+## Plan de migración a ESP-IDF
 
 Plan de migración del firmware de **Arduino-ESP32** a **ESP-IDF** puro, por fases entregables y verificables en hardware por separado. La meta es profesionalizar el firmware (tooling, control de RAM/flash, OTA de doble slot y TLS), no aumentar la velocidad de CPU.
 
-Para el diseño técnico a fondo, ver [ARCHITECTURE.md](ARCHITECTURE.md). `Constants.h` sigue siendo la fuente de verdad del hardware y los límites de validación.
-
-> **Este documento es el plan** (qué se migra, cómo y cómo se verifica) y es común a ambas
+> **Esta mitad es el plan** (qué se migra, cómo y cómo se verifica) y es común a ambas
 > ramas. El **avance** (qué fases están hechas y qué falta probar en hardware) vive junto al
 > código, en [`firmware/README.md`](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md)
 > (solo en la rama `esp-idf-migration`).
@@ -206,9 +262,9 @@ de cierre.
 
 ---
 
-## Estado
+## Avance de la migración por fase
 
 El avance por fase se lleva en
 [`firmware/README.md` § Estado de la migración](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md#estado-de-la-migración)
 (rama `esp-idf-migration`), para que cada avance del firmware IDF no obligue a tocar la
-documentación común.
+documentación común. El resumen de alto nivel está arriba en [Estado actual](#estado-actual).

@@ -2,7 +2,7 @@
 
 <div align="justify">
 
-SmartPlant es un sistema embebido que controla iluminación por espectro, riego y ventilación de un cultivo indoor, y se configura desde el celular mediante un portal Wi-Fi servido por el propio microcontrolador — sin app, sin nube obligatoria, sin frameworks de terceros. La principal motivación de este proyecto es generar **independencia alimentaria** respecto a las especies que se adapten a estas tecnologías, contemplando principalmente hortalizas.
+Controlador **embebido** para cultivo indoor sobre **ESP32-C3**: regula iluminación por espectro, riego y ventilación, y se configura desde el celular mediante un portal Wi-Fi servido por el propio microcontrolador — sin app, sin nube obligatoria, sin frameworks de terceros. Nace con una motivación de fondo: avanzar hacia la **independencia alimentaria** con hortalizas adaptables a cultivo protegido.
 
 </div>
 
@@ -12,161 +12,41 @@ SmartPlant es un sistema embebido que controla iluminación por espectro, riego 
 </div>
 <br>
 
-<div align="justify">
-
-SmartPlant está construido sobre un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con portal captivo, frontend embebido y una arquitectura pensada para escalar hacia un backend con telemetría y OTA segura.
-
-</div>
-
-<br>
-
 `C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (in progress)`
 
 ---
 
 ## CONTENIDO
 
-* [QUÉ DEMUESTRA ESTE PROYECTO.](#qué-demuestra-este-proyecto)
-* [DECISIONES DE INGENIERÍA.](#decisiones-de-ingeniería)
-* [CARACTERÍSTICAS.](#características)
-* [ARQUITECTURA.](#arquitectura)
+* [QUÉ CONTROLA Y CÓMO.](#qué-controla-y-cómo)
+  - [Iluminación por espectro.](#iluminación-por-espectro)
+  - [Riego.](#riego)
+  - [Ventilación / extracción.](#ventilación--extracción)
+* [CONFIGURACIÓN DISPONIBLE.](#configuración-disponible)
+* [HARDWARE.](#hardware)
 * [EL PORTAL.](#el-portal)
-* [DISPOSITIVOS A CONTROLAR.](#dispositivos-a-controlar)
-  - [Lámparas de cultivo.](#lámparas-de-cultivo)
-  - [Bomba para irrigación.](#bomba-para-irrigación)
-  - [Ventilación/Extracción.](#ventilaciónextracción)
-* [TARJETA DE CONTROL.](#tarjeta-de-control)
-* [STACK TECNOLÓGICO.](#stack-tecnológico)
+* [ARQUITECTURA EN UNA VISTA.](#arquitectura-en-una-vista)
+* [CÓMO ESTÁ CONSTRUIDO.](#cómo-está-construido)
+* [COMPILAR Y USAR.](#compilar-y-usar)
+* [ESTADO DEL PROYECTO.](#estado-del-proyecto)
 * [ESTRUCTURA DEL REPOSITORIO.](#estructura-del-repositorio)
-* [COMPILAR Y FLASHEAR.](#compilar-y-flashear)
-* [ROADMAP.](#roadmap)
 * [DOCUMENTACIÓN.](#documentación)
 
 ---
 
-## QUÉ DEMUESTRA ESTE PROYECTO
+## QUÉ CONTROLA Y CÓMO
 
 <div align="justify">
 
-Un sistema **embebido de extremo a extremo** construido bajo restricciones reales de hardware (1 núcleo RISC-V @160 MHz, RAM y flash limitadas):
-
-- **Firmware en C++** para ESP32-C3: PWM multicanal, relés, RTC por I²C, persistencia en NVS, servidor HTTP y DNS captivo.
-- **Frontend embebido**: una SPA completa (máquina de estados) en un solo HTML con vanilla JS, servida desde el flash del dispositivo — sin build, sin dependencias.
-- **Diseño con trade-offs documentados**: cada decisión no trivial (scheduling, sesión, conectividad, validación) está razonada en el código y en la documentación técnica.
-- **Mentalidad de producto**: UX cuidada (transiciones, estados de error, accesibilidad), seguridad por capas y un roadmap de backend/OTA pensado para el hardware.
+SmartPlant automatiza las tres tareas básicas de un cultivo protegido: **luz, riego y aire**. Cada actuador se maneja desde el firmware del ESP32-C3 y se programa desde el portal web; no se requiere internet para operar.
 
 </div>
 
----
-
-## DECISIONES DE INGENIERÍA
+#### ILUMINACIÓN POR ESPECTRO.
 
 <div align="justify">
 
-La parte interesante de un proyecto embebido no es solo *qué* hace, sino *cómo* resuelve los problemas difíciles que impone el hardware. A continuación se documentan las decisiones más relevantes:
-
-</div>
-
-| Reto | Solución |
-|------|----------|
-| **Que el riego sobreviva cortes de luz** | Scheduling **stateless**: el encendido se recalcula desde un contador continuo de horas derivado del RTC (`epochHours % intervalo`). El mismo modelo cubre riego sub-diario y espaciado de varios días, sin depender de un contador que se perdería al apagarse. |
-| **Edad del cultivo correcta tras estar apagado** | `día`/`semana` se **derivan del calendario real** (ancla `cropStart` en NVS), no de un contador — el cultivo "sigue envejeciendo" aunque el equipo estuviera off, sin desgastar flash cada noche. |
-| **Conectar a Wi-Fi sin congelar el portal** | Conexión STA **no bloqueante** + **polling** desde el front: el `POST` solo arranca el intento y responde al instante; el cliente confirma vía `/getparams`. Evita bloquear `handleClient()` varios segundos. |
-| **No guardar una contraseña Wi-Fi que no sirve** | **Persistencia diferida**: las credenciales se escriben en NVS *solo* cuando la conexión llega a `WL_CONNECTED` — nada de bucles de reintento tras reiniciar con credenciales inválidas. |
-| **Autenticación sin reenviar credenciales** | **Token de sesión** de 128 bits (`esp_random()`), TTL fijo en RAM (muere con el reboot, expiración por `millis()` a prueba de wrap-around). El AP va cifrado con WPA2-PSK. |
-| **Validación idéntica en navegador y dispositivo** | Reglas replicadas bit a bit front↔firmware, contando por **carácter UTF-8** (no bytes), para que acentos y ñ no descuadren los límites entre JS y C++. |
-| **Servir el portal sin agotar el heap** | `send_P` entrega el portal (hoy ~16 KB gzip) por trozos directo desde flash. Con `send()` y un `const char*` se creaba un `String` temporal del tamaño completo, y ese pico podía fallar en modo AP+STA dejando el formulario sin cargar. |
-| **Menos flash y carga más rápida del portal** | El HTML legible (fuente de verdad) se regenera sin comentarios y **comprimido con gzip** al artefacto que sirve el ESP32: de ~93 KB a **~16 KB (−83 %)**. `handleRoot` lo entrega con `Content-Encoding: gzip` y el navegador lo descomprime solo. |
-
----
-
-## CARACTERÍSTICAS
-
-<div align="justify">
-
-- **Portal captivo Wi-Fi** (AP "SmartPlant" con WPA2): se configura desde cualquier navegador, sin instalar nada.
-- **Iluminación por espectro** (azul / rojo vía PWM, blanco ON/OFF), con fotoperiodo que puede cruzar medianoche.
-- **Riego y ventilación** programables por intervalo (de cada hora a semanal).
-- **RTC externo DS3231**: la hora se sincroniza desde el navegador del usuario.
-- **Conectividad Wi-Fi del usuario** (modo AP+STA condicional) para habilitar nube/telemetría a futuro.
-- **Sesión con token** + reset de fábrica protegido.
-- **Aplicación de parámetros en vivo** (sin reiniciar el dispositivo).
-
-</div>
-
----
-
-## ARQUITECTURA
-
-```
-┌──────────────┐   Wi-Fi (WPA2)   ┌─────────────────────────────┐
-│  📱 Cliente   │ ────────────────▶│   ESP32-C3  "SmartPlant"    │
-│ (navegador)  │   HTTP / JSON    │ ┌─────────────────────────┐ │
-└──────────────┘                  │ │ Portal captivo (AP)     │ │
-                                  │ │ SPA en 1 HTML (vanilla) │ │
-                                  │ └─────────────────────────┘ │
-   red del usuario   ◀────────────│ ┌─────────────────────────┐ │
-   (Internet, futuro)             │ │ STA  (AP+STA condicional)│ │
-                                  │ └─────────────────────────┘ │
-                                  │  PWM LEDs · Bomba · Fan ·   │
-                                  │  RTC DS3231 · NVS · Token   │
-                                  └─────────────────────────────┘
-```
-
-<div align="justify">
-
-El frontend es una **máquina de estados** (`welcome · register · view · auth · edit · wifi`) contenida en un único archivo HTML; el firmware expone una API JSON y aplica la configuración al instante. Toda la comunicación entre el navegador y el microcontrolador ocurre dentro de la red local del AP — no se requiere internet para operar.
-
-El detalle de cada decisión está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); el contrato completo de la API en [`docs/API.md`](docs/API.md).
-
-</div>
-
----
-
-## EL PORTAL
-
-<div align="justify">
-
-Al conectarse a la red **SmartPlant**, el sistema operativo detecta el portal captivo y abre el formulario automáticamente. Todo el frontend es un único archivo HTML con JavaScript vanilla servido desde el flash del microcontrolador: sin build, sin CDN, sin dependencias.
-
-</div>
-
-<br>
-<table align="center">
-  <tr>
-    <th>Dashboard.</th>
-    <th>Edición de parámetros.</th>
-    <th>Configuración de red.</th>
-  </tr>
-  <tr>
-    <td><img src="./docs/img/portal-dashboard.png" alt="Dashboard del portal" width="240"/></td>
-    <td><img src="./docs/img/portal-edit.png" alt="Edición de parámetros" width="240"/></td>
-    <td><img src="./docs/img/portal-wifi.png" alt="Configuración de red Wi-Fi" width="240"/></td>
-  </tr>
-</table>
-<br>
-
-<div align="justify">
-
-El dashboard muestra el estado del cultivo en modo lectura; para editar hay que autenticarse, lo que emite un token de sesión válido 30 minutos. La vista de red escanea las señales disponibles y permite conectar el dispositivo a la Wi-Fi del usuario sin perder el acceso al portal.
-
-</div>
-
----
-
-## DISPOSITIVOS A CONTROLAR
-
-<div align="justify">
-
-Los invernaderos ofrecen muchas ventajas sobre los métodos de agricultura tradicionales. El cultivo de algunas plantas y hortalizas puede adaptarse a espacios dedicados en la ciudad. La tecnología usada en la agricultura protegida también se puede adaptar a estos lugares y puede contemplar la automatización de tareas como el riego, la ventilación y/o extracción de aire, control de fotoperiodo y también la medición de parámetros como temperatura, humedad, pH, etc.
-
-</div>
-
-#### LÁMPARAS DE CULTIVO.
-
-<div align="justify">
-
-El sol como fuente de energía es muy potente e influye directamente en el desarrollo de vida. Dentro del espectro de radiación solar encontramos la radiación fotosintéticamente activa (PAR), donde los tonos azules y rojos son los más influyentes en el desarrollo de las plantas. La tecnología LED en la actualidad ofrece alternativas para suministro de luz en los cultivos. En la implementación actual se dispone de **2 canales PWM** (azul, rojo) que permiten controlar la intensidad de cada espectro de forma granular (0–100 %), más un **canal digital ON/OFF** para el blanco, con un fotoperiodo configurable que admite cruce de medianoche.
+Dentro del espectro solar, la radiación fotosintéticamente activa (PAR) —sobre todo los tonos **azul** y **rojo**— es la que más influye en el desarrollo de la planta. El sistema controla **2 canales PWM** (azul y rojo) a 1 kHz / 8 bits para regular la intensidad de cada espectro de forma granular, más un **canal digital ON/OFF** para el blanco. El **fotoperiodo es configurable y admite cruce de medianoche** (p. ej. encender a las 18:00 y apagar a las 06:00).
 
 </div>
 
@@ -185,11 +65,11 @@ El sol como fuente de energía es muy potente e influye directamente en el desar
 </div>
 <br>
 
-#### BOMBA PARA IRRIGACIÓN.
+#### RIEGO.
 
 <div align="justify">
 
-Hay diferentes métodos de riego en la agricultura: riego por aspersión, por goteo, por gravedad, película de nutrientes, entre otros. Se hace la generalización de controlar el encendido/apagado de una bomba de agua o una electroválvula para realizar esta tarea. El sistema actual implementa un **scheduling stateless** que recalcula los ciclos de riego directamente desde el RTC, de modo que el riego se ejecuta correctamente incluso después de un corte de energía sin necesidad de persistir contadores.
+El sistema generaliza el riego al **encendido/apagado de una bomba o electroválvula** por relé, aplicable a goteo, gravedad, NFT o aspersión. El encendido se decide con un **scheduling stateless** que recalcula los ciclos directamente desde el RTC (`epochHours % intervalo`): el riego se ejecuta correctamente incluso tras un corte de energía, sin depender de contadores persistidos.
 
 </div>
 
@@ -210,21 +90,51 @@ Hay diferentes métodos de riego en la agricultura: riego por aspersión, por go
 </div>
 <br>
 
-#### VENTILACIÓN/EXTRACCIÓN.
+#### VENTILACIÓN / EXTRACCIÓN.
 
 <div align="justify">
 
-La calidad del aire de los espacios de cultivo influye en la temperatura y por lo tanto en el desarrollo de las plantas. Si es necesario forzar la circulación de aire limpio en los invernaderos y eliminar el aire viciado, se incluyen equipos de extracción y ventilación. El sistema controla un relé (lógica directa) para activar el ventilador/extractor en intervalos configurables desde el portal.
+La calidad del aire influye en la temperatura y, por lo tanto, en el desarrollo del cultivo. El sistema controla un **relé** (lógica directa) para activar un ventilador o extractor en **intervalos configurables**, forzando la circulación de aire limpio y la salida del aire viciado.
 
 </div>
 
 ---
 
-## TARJETA DE CONTROL
+## CONFIGURACIÓN DISPONIBLE
 
 <div align="justify">
 
-El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) que integra Wi-Fi nativo y sirve el portal web completo directamente desde el microcontrolador.
+Todo se ajusta desde el portal y se **aplica en vivo**, sin reiniciar el dispositivo. Las reglas de validación son idénticas en el navegador y en el firmware.
+
+</div>
+
+| Parámetro | Rango / opciones | Notas |
+|-----------|------------------|-------|
+| Espectro **azul** | 0–100 % | PWM; se escala a 0–255 en el firmware |
+| Espectro **rojo** | 0–100 % | PWM; se escala a 0–255 en el firmware |
+| Luz **blanca** | ON / OFF | Canal digital (sin regulación) |
+| **Fotoperiodo** | Hora de encendido y apagado | Admite cruce de medianoche |
+| **Riego** — frecuencia | De cada hora a cada 2 semanas (`0` = apagado) | Intervalo en horas; scheduling desde el RTC |
+| **Riego** — duración | Minutos por ciclo | — |
+| **Ventilación** — frecuencia | De cada hora a cada 2 semanas (`0` = apagado) | Intervalo en horas |
+| **Ventilación** — duración | Minutos por ciclo | — |
+| **Hora del dispositivo** | Fecha y hora | Se sincroniza desde el navegador al RTC DS3231 |
+| **Interruptor general** (`enable`) | ON / OFF | OFF inhibe todos los actuadores |
+| **Red Wi-Fi del usuario** | SSID + contraseña | AP+STA condicional; para nube/telemetría a futuro |
+
+<div align="justify">
+
+El rango y las opciones exactas (incluidas las frecuencias válidas) salen de `Constants.h`; el contrato completo de cada parámetro está en [`docs/API.md`](docs/API.md).
+
+</div>
+
+---
+
+## HARDWARE
+
+<div align="justify">
+
+El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo, que sirve el portal web completo desde su propia flash.
 
 </div>
 
@@ -240,117 +150,86 @@ El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) que integra Wi-Fi
 
 <div align="justify">
 
-PWM configurado a 1 kHz con resolución de 8 bits (0–255). Los valores de espectro se envían desde el portal como porcentaje (0–100 %) y se escalan internamente en el firmware.
-
-El detalle completo —esquemáticos, salidas SSR, RTC e instalación eléctrica— está en **[`docs/HARDWARE.md`](docs/HARDWARE.md)**.
+PWM a 1 kHz con resolución de 8 bits (0–255); los valores de espectro viajan como 0–100 % y se escalan en el firmware. El detalle completo —esquemáticos, etapa de potencia (MOSFET/relé), RTC e instalación eléctrica— está en **[`docs/HARDWARE.md`](docs/HARDWARE.md)**.
 
 </div>
 
 ---
 
-## STACK TECNOLÓGICO
+## EL PORTAL
 
 <div align="justify">
 
-- **MCU:** ESP32-C3 (RISC-V, 1 núcleo @160 MHz)
-- **Firmware:** C++ (Arduino-ESP32 / ESP-IDF) — `WiFi`, `WebServer`, `DNSServer`, `Wire`, `Preferences`, `ArduinoJson` (v6)
-- **Frontend:** HTML + CSS + JavaScript vanilla (sin frameworks, sin build)
-- **Persistencia local:** NVS (Preferences)
-- **Backend (diseño cerrado, corriendo con auth y provisión):** Python (FastAPI), PostgreSQL + TimescaleDB, MQTT, almacenamiento S3-compatible. La infraestructura levanta en Docker, Alembic crea todo el esquema, el registro/login de usuarios funciona y los dispositivos ya se vinculan a una cuenta con su propio token; lo que sigue es recibir configuración y telemetría.
-- **Planeado:** TLS (mbedTLS) y OTA firmada
+Al conectarse a la red **SmartPlant**, el sistema operativo detecta el portal captivo y abre el formulario automáticamente. Todo el frontend es un único archivo HTML con JavaScript vanilla servido desde el flash del microcontrolador: sin build, sin CDN, sin dependencias. Es la interfaz de configuración de todo lo anterior.
+
+</div>
+
+<br>
+<table align="center">
+  <tr>
+    <th>Dashboard.</th>
+    <th>Edición de parámetros.</th>
+    <th>Configuración de red.</th>
+  </tr>
+  <tr>
+    <td><img src="./docs/img/portal-dashboard.png" alt="Dashboard del portal" width="240"/></td>
+    <td><img src="./docs/img/portal-edit.png" alt="Edición de parámetros" width="240"/></td>
+    <td><img src="./docs/img/portal-wifi.png" alt="Configuración de red Wi-Fi" width="240"/></td>
+  </tr>
+</table>
+<br>
+
+<div align="justify">
+
+El dashboard muestra el estado del cultivo en modo lectura; para editar hay que autenticarse, lo que emite un token de sesión válido 30 minutos. La vista de red escanea las señales disponibles y conecta el dispositivo a la Wi-Fi del usuario sin perder el acceso al portal.
 
 </div>
 
 ---
 
-## ESTRUCTURA DEL REPOSITORIO
+## ARQUITECTURA EN UNA VISTA
 
 ```
-.
-├── ESP32_controller/          # Firmware ESTABLE (Arduino-ESP32): sketch en producción
-│   ├── ESP32_controller.ino   # AP Wi-Fi, DNS captivo, rutas HTTP y handlers
-│   ├── Plant.h / .cpp         # Lógica del cultivo: validación, PWM/relés, RTC, sesión, Wi-Fi
-│   ├── Constants.h            # Pines, PWM, límites de validación, enums de estado/error
-│   ├── utils.h / .cpp         # Helpers: validación de strings/UTF-8, BCD, fecha
-│   ├── sensible.h             # Secretos del AP (no versionado)
-│   └── mainForm.h             # Artefacto generado: el HTML que sirve el ESP32
-├── firmware/                  # Firmware en MIGRACIÓN a ESP-IDF puro (solo en la rama esp-idf-migration)
-│   ├── CMakeLists.txt         # Proyecto ESP-IDF
-│   ├── partitions.csv         # Doble slot OTA (4 MB)
-│   ├── README.md              # Compilar/flashear, estado de la migración y módulos
-│   └── main/                  # Módulos IDF: storage, rtc, actuators, control, wifi, httpserver…
-├── HTML/
-│   ├── mainForm.html          # Portal ACTIVO (el que sirve el dispositivo): fuente
-│   ├── mainForm.preview.html  # Preview del activo (generado, con mock)
-│   ├── scripts/               # Generadores: gen_mainform.py (--dev), gen_preview.py, gen_preview_dev.py
-│   ├── dev/                   # Próxima ronda de rediseño (futura) + paletas-guardadas.css
-│   └── deprecated/            # Portal anterior, archivado (ya no se usa)
-├── ESP32_Board/               # Diseño de la tarjeta (KiCad)
-├── pythonServer/              # Backend: FastAPI + Alembic + Docker (auth funcional)
-├── docs/                      # Documentación técnica
-│   ├── README.md              # Índice de la documentación
-│   ├── ARCHITECTURE.md        # Diseño del firmware y del portal
-│   ├── API.md                 # Referencia de la API HTTP
-│   ├── HARDWARE.md            # Pines, periféricos, instalación eléctrica
-│   ├── BACKEND.md             # Diseño del backend
-│   └── img/                   # Imágenes y diagramas
-├── README.md
-└── README.en.md
+┌──────────────┐   Wi-Fi (WPA2)   ┌─────────────────────────────┐
+│  📱 Cliente   │ ────────────────▶│   ESP32-C3  "SmartPlant"    │
+│ (navegador)  │   HTTP / JSON    │ ┌─────────────────────────┐ │
+└──────────────┘                  │ │ Portal captivo (AP)     │ │
+                                  │ │ SPA en 1 HTML (vanilla) │ │
+                                  │ └─────────────────────────┘ │
+   red del usuario   ◀────────────│ ┌─────────────────────────┐ │
+   (Internet, futuro)             │ │ STA  (AP+STA condicional)│ │
+                                  │ └─────────────────────────┘ │
+                                  │  PWM LEDs · Bomba · Fan ·   │
+                                  │  RTC DS3231 · NVS · Token   │
+                                  └─────────────────────────────┘
 ```
 
 <div align="justify">
 
-**Dos bases de firmware (una en migración).** El firmware existe en dos formas, y es importante
-no confundirlas:
-
-- **`ESP32_controller/` — estable, Arduino-ESP32.** Es el firmware **en producción y
-  funcional**, el que se flashea hoy. Vive en la rama `main`.
-- **`firmware/` — migración a ESP-IDF puro, en curso.** Reescritura del firmware a ESP-IDF
-  nativo por hitos, para profesionalizar tooling, OTA de doble slot y TLS. Vive solo en la rama
-  `esp-idf-migration`. Usa `ESP32_controller/` como especificación de referencia, debe
-  alcanzar **paridad de comportamiento** con él y lo **reemplazará** cuando la migración
-  termine. El plan por fases está en [`docs/ROADMAP.md`](docs/ROADMAP.md); el avance, en
-  [`firmware/README.md`](https://github.com/david-danie/automatedGreenhouse/blob/esp-idf-migration/firmware/README.md).
-
-El **portal web (`HTML/`), el backend (`pythonServer/`), el hardware (`ESP32_Board/`) y la
-documentación (`docs/`, `README.md`, `README.en.md`) son comunes** a ambas: no dependen de qué
-framework use el firmware. La documentación común se edita en `main` y se lleva a
-`esp-idf-migration` con `git merge main`; lo propio del firmware ESP-IDF vive en
-`firmware/README.md`.
+El frontend es una **máquina de estados** en un único HTML; el firmware expone una API JSON y aplica la configuración al instante. Toda la comunicación navegador↔microcontrolador ocurre dentro de la red local del AP. El detalle está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); el contrato de la API, en [`docs/API.md`](docs/API.md).
 
 </div>
 
 ---
+
+## CÓMO ESTÁ CONSTRUIDO
 
 <div align="justify">
 
-**Convención del portal — una pista activa.** El formulario que sirve el dispositivo tiene una única fuente legible y comentada, y los artefactos se regeneran de ella, **nunca al revés**:
+Lo interesante de un proyecto embebido no es solo *qué* hace, sino *cómo* resuelve los problemas que impone el hardware (1 núcleo RISC-V @160 MHz, RAM y flash limitadas):
 
-- **Activa** (la que sirve el ESP32): `HTML/mainForm.html`
-- **Desarrollo** (próxima ronda de rediseño, aún no activa): `HTML/dev/mainForm.html`
-- **Archivada** (portal anterior, ya no se usa): `HTML/deprecated/mainForm.html`
+- **Scheduling stateless** del riego, recalculado desde el RTC: sobrevive cortes de luz sin persistir contadores.
+- **Servir el portal sin agotar el heap**: HTML comprimido con gzip (−83 %) entregado directo desde flash.
+- **Sesión con token** de 128 bits en RAM y **validación idéntica** front↔firmware (por carácter UTF-8).
+- **Seguridad por capas**: PBKDF2 para la contraseña, reset restringido al AP y límite de intentos de login.
 
-```bash
-# Previews para revisar en el navegador sin dispositivo (cada uno inyecta su propio
-# mock de fetch/XHR que simula el firmware):
-python3 HTML/scripts/gen_preview.py      # -> HTML/mainForm.preview.html      (activa)
-python3 HTML/scripts/gen_preview_dev.py  # -> HTML/dev/mainForm.preview.html  (desarrollo)
-
-# Regenerar el artefacto embebido que sirve el ESP32 (un solo .h):
-python3 HTML/scripts/gen_mainform.py        # -> mainForm.h desde la pista ACTIVA
-python3 HTML/scripts/gen_mainform.py --dev  # previsualiza el .h desde DESARROLLO (sin promover)
-```
-
-Cuando una ronda de desarrollo se da por buena, se **promueve**: su fuente pasa a
-`HTML/mainForm.html`, la anterior baja a `HTML/deprecated/`, y se regenera `mainForm.h`.
-Cada preview tiene su propio mock (pueden divergir a propósito: la pista de desarrollo
-simula lo que va probando).
+El razonamiento completo de cada decisión, con sus trade-offs, está en **[`docs/ARCHITECTURE.md` § Decisiones de ingeniería](docs/ARCHITECTURE.md#decisiones-de-ingeniería-resumen)**.
 
 </div>
 
 ---
 
-## COMPILAR Y FLASHEAR
+## COMPILAR Y USAR
 
 ```bash
 # Requisitos: Arduino IDE / arduino-cli con el core ESP32 y ArduinoJson (v6).
@@ -361,31 +240,43 @@ simula lo que va probando).
 
 <div align="justify">
 
-No hay test runner automatizado: la validación se hace en hardware. El JS del portal se verifica con `node --check` tras regenerar `mainForm.h` desde el HTML fuente.
+No hay test runner automatizado: la validación se hace en hardware. El JS del portal se verifica con `node --check` tras regenerar `mainForm.h` desde el HTML fuente. La convención de regeneración del portal (fuente → artefacto) está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 </div>
 
 ---
 
-## ROADMAP
+## ESTADO DEL PROYECTO
 
-- [x] Portal captivo + dashboard + edición de parámetros en vivo
-- [x] Sesión con token (sin reenviar credenciales)
-- [x] Conectividad Wi-Fi del usuario (AP+STA, escaneo asíncrono, conexión + polling)
-- [x] Interruptor general del cultivo (`enable`) que realmente inhibe todos los actuadores
-- [x] Modo seguro del RTC: sin hora fiable (bit OSF del DS3231) no se acciona nada
-- [x] **Seguridad del portal** — los tres huecos conocidos, resueltos
-      ([ver detalle](docs/ARCHITECTURE.md#huecos-de-seguridad-identificados-y-su-resolución)):
-  - [x] Contraseña de usuario **hasheada** con PBKDF2-HMAC-SHA256 + salt de 16 B (queda calibrar las iteraciones en la placa)
-  - [x] Reset de fábrica **restringido a la interfaz del AP**, y operación rutinaria separada en `POST /newcrop` (autenticada, conserva cuenta y Wi-Fi)
-  - [x] **Límite de intentos** de login: espera creciente de 5 s a 5 min, contador en RAM
-- [x] Servir el portal **gzip** (`Content-Encoding: gzip`): `gen_mainform.py` comprime el HTML y lo embebe como arreglo de bytes (`mainForm_gz`); `handleRoot` lo sirve con el encabezado. Reduce el portal de ~93 KB a ~16 KB (−83 %). Falta probarlo en hardware.
-- [x] **Portal rediseñado (hub-and-spoke) — PROMOVIDO a versión activa.** Estructura, JS y **diseño visual completo** con **paletas intercambiables** (claras: tierra/invernadero/slate; oscura: verde-oscuro; ver `HTML/dev/paletas-guardadas.css`). Es el portal que sirve el dispositivo (`HTML/mainForm.html` → `mainForm.h`); el portal lineal anterior quedó archivado en `HTML/deprecated/`. Pendiente menor: repaso visual fino/responsive ([ver detalle](docs/ARCHITECTURE.md#el-portal-hub-and-spoke))
-- [x] **OTA local** (subir el `.bin` desde el teléfono por el AP, sin internet): endpoint `POST /otaupdate` en el firmware (librería `Update`), `partitions.csv` con dos slots OTA y **cliente en el portal** (vistas `ota`/`flashing` con barra de progreso). Falta probar el flujo completo en hardware real ([ver requisitos](docs/ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota))
-- [ ] **Backend** (FastAPI + Postgres/Timescale): cuentas, telemetría y consulta entre dispositivos. Ya está en pie la base — la infraestructura corre en Docker (Postgres/Timescale, MinIO y Mosquitto), Alembic crea el esquema completo (5 tablas + hypertable), el registro/login/refresh funciona con JWT y los dispositivos se vinculan a una cuenta recibiendo su propio token revocable. En curso: recibir configuración y telemetría por REST (escrito, pendiente de probar). Falta exponer las lecturas para la app, servir OTA y la ingesta por MQTT ([ver estado](pythonServer/README.md))
-- [ ] **OTA segura** sobre TLS (CA pinning + firmware firmado)
-- [ ] Medición de temperatura y humedad (DS18B20 contemplado en el diseño original)
-- [ ] **Migración del firmware a ESP-IDF**: profesionalizar el firmware (tooling, control de RAM/flash, OTA de doble slot y TLS) migrando de Arduino-ESP32 a ESP-IDF por fases entregables. El plan completo —motivación, clasificación del código, mapeo de APIs Arduino → ESP-IDF y criterios de verificación por fase— está en [`docs/ROADMAP.md`](docs/ROADMAP.md)
+<div align="justify">
+
+El firmware Arduino es **funcional** (portal, scheduling, sesión, Wi-Fi AP+STA, OTA local, seguridad del portal); el backend tiene **autenticación y provisión** corriendo; están **en curso** la telemetría del backend y la migración del firmware a ESP-IDF, y **planeados** la OTA segura sobre TLS y la medición de temperatura/humedad.
+
+El estado detallado —con nivel de evidencia por capacidad (verificado / verificado en hardware / escrito sin probar / en curso / planeado)— es la única fuente de verdad y vive en **[`docs/ROADMAP.md` § Estado actual](docs/ROADMAP.md#estado-actual)**.
+
+</div>
+
+---
+
+## ESTRUCTURA DEL REPOSITORIO
+
+```
+.
+├── ESP32_controller/   # Firmware ESTABLE (Arduino-ESP32): sketch en producción
+├── firmware/           # Firmware en MIGRACIÓN a ESP-IDF (solo en la rama esp-idf-migration)
+├── HTML/               # Portal: fuente, artefactos generados, scripts y paletas
+├── ESP32_Board/        # Diseño de la tarjeta (KiCad)
+├── pythonServer/       # Backend: FastAPI + Alembic + Docker
+├── docs/               # Documentación técnica (ARCHITECTURE, API, HARDWARE, BACKEND, ROADMAP)
+├── README.md
+└── README.en.md
+```
+
+<div align="justify">
+
+**Dos bases de firmware.** `ESP32_controller/` es el firmware **estable** (Arduino-ESP32), el que se flashea hoy, en la rama `main`. `firmware/` es la **migración a ESP-IDF** en curso (solo en la rama `esp-idf-migration`), que usa el estable como especificación de referencia y lo reemplazará al alcanzar paridad. El portal, el backend, el hardware y la documentación son **comunes** a ambas: se editan en `main` y se llevan a la otra rama con `git merge`. El detalle de esta convención y del flujo de trabajo está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) y [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+</div>
 
 ---
 
@@ -395,12 +286,12 @@ No hay test runner automatizado: la validación se hace en hardware. El JS del p
 
 Toda la documentación técnica vive en **[`docs/`](docs/README.md)**:
 
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — diseño técnico a fondo: decisiones, trade-offs, caveats, máquina de estados del portal, modelo de BD y estrategia TLS para el C3.
-- **[docs/API.md](docs/API.md)** — referencia completa de la API HTTP: rutas, payloads, validaciones, catálogo de errores y ejemplos con `curl`.
-- **[docs/HARDWARE.md](docs/HARDWARE.md)** — mapa de pines, PWM, RTC, SSR, conectividad e instalación eléctrica.
-- **[docs/BACKEND.md](docs/BACKEND.md)** — diseño del backend (FastAPI + Postgres/Timescale + MQTT + S3): decisiones, modelo de datos y contratos de API. Es la referencia para implementarlo.
-- **[docs/ROADMAP.md](docs/ROADMAP.md)** — plan de migración del firmware a ESP-IDF por fases: motivación, clasificación del código actual, mapeo de APIs Arduino → ESP-IDF y criterios de verificación.
-- **[pythonServer/README.md](pythonServer/README.md)** — cómo levantar el backend local (FastAPI + Postgres/Timescale, MinIO, Mosquitto).
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — diseño técnico y **decisiones de ingeniería**: trade-offs, máquina de estados del portal, convención de regeneración del portal, modelo de BD y estrategia TLS.
+- **[docs/API.md](docs/API.md)** — referencia completa de la API HTTP: rutas, payloads, validaciones, errores y ejemplos con `curl`.
+- **[docs/HARDWARE.md](docs/HARDWARE.md)** — mapa de pines, PWM, RTC, etapa de potencia, conectividad e instalación eléctrica.
+- **[docs/BACKEND.md](docs/BACKEND.md)** — diseño del backend (FastAPI + Postgres/Timescale + MQTT + S3): modelo de datos y contratos de API.
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — **estado del proyecto** (qué funciona hoy) y plan de migración del firmware a ESP-IDF por fases.
+- **[pythonServer/README.md](pythonServer/README.md)** — cómo levantar el backend local.
 
 </div>
 
