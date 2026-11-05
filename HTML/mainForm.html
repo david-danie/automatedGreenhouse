@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="tierra">
+<html lang="es" data-theme="invernadero">
 
 <head>
     <meta charset="UTF-8">
@@ -108,30 +108,32 @@
            ===================================================================== */
 
         /* =====================================================================
-           1. PALETA — "tierra" (tema claro por defecto de la V2)
-           Cálido botánico: crema/arena + verde salvia + terracota. Define las 18
-           variables del sistema (+ --primary-soft). Para probar otra paleta, ver
-           HTML/dev/paletas-guardadas.css y cambiar el data-theme del <html>. */
-        [data-theme="tierra"] {
-            --bg:            #f3ede2;
-            --surface:       #fffdf8;
-            --surface-2:     #f7f1e6;
-            --border:        #e0d5c2;
-            --text:          #3a2f24;
-            --text-dim:      #7a6b58;
-            --primary:       #6b8e5a;
-            --primary-2:     #57764a;
-            --primary-soft:  #dde8d4;
+           1. PALETA — "invernadero" (tema claro activo del portal)
+           Verde natural: fondo gris-verdoso claro, superficies blancas, primario
+           verde hoja, acento azul y secundario coral (espectros azul/rojo). Define
+           las 18 variables del sistema (+ --primary-soft). Hay más paletas (claras
+           y oscuras) en HTML/dev/paletas-guardadas.css; para cambiar el tema del
+           portal se sustituye este bloque y el data-theme del <html>. */
+        [data-theme="invernadero"] {
+            --bg:            #eef3ec;
+            --surface:       #ffffff;
+            --surface-2:     #f4f8f2;
+            --border:        #d3e2cf;
+            --text:          #1f2d20;
+            --text-dim:      #5c6f5a;
+            --primary:       #2e7d32;
+            --primary-2:     #256628;
+            --primary-soft:  #cfe6d0;
             --on-primary:    #ffffff;
-            --secondary:     #c1613a;
-            --secondary-2:   #a44f2d;
+            --secondary:     #e5533d;
+            --secondary-2:   #c8412e;
             --on-secondary:  #ffffff;
-            --accent:        #4a86a8;
-            --ok-bg:         #eaf1e3;
-            --ok-text:       #4a6b39;
-            --err-bg:        #f7e6df;
-            --err-text:      #9c4426;
-            --shadow:        0 6px 24px rgba(90, 75, 55, .14);
+            --accent:        #2196f3;
+            --ok-bg:         #e6f4ea;
+            --ok-text:       #1b5e20;
+            --err-bg:        #fdecea;
+            --err-text:      #b3261e;
+            --shadow:        0 6px 24px rgba(46, 125, 50, .12);
         }
 
         /* Tipografía: se usa la fuente de UI del sistema (SF en iOS/macOS,
@@ -170,9 +172,13 @@
             /* Lavado de color sutil: del --bg a una mezcla de --bg con el primario
                de la paleta. Da vida sin introducir un color ajeno al tema. */
             background:
-                radial-gradient(1200px 600px at 50% -10%,
-                    color-mix(in srgb, var(--primary) 14%, var(--bg)) 0%,
-                    var(--bg) 60%);
+                radial-gradient(900px 500px at 50% -8%,
+                    color-mix(in srgb, var(--primary) 28%, var(--bg)) 0%,
+                    transparent 55%),
+                radial-gradient(800px 500px at 100% 110%,
+                    color-mix(in srgb, var(--secondary) 18%, var(--bg)) 0%,
+                    transparent 55%),
+                var(--bg);
             background-attachment: fixed;
         }
         /* Footer global de versión: metadato de referencia, mínimo y atenuado.
@@ -192,20 +198,28 @@
             background: var(--surface, #ffffff);
             border: 1px solid var(--border, #e2e8e5);
             border-radius: 16px;
+            overflow: hidden;   /* el header de color respeta las esquinas */
             box-shadow: var(--shadow, 0 8px 32px rgba(0, 0, 0, .12));
         }
-        /* Título del portal: centrado y en el color primario de la paleta, igual
-           que la V1. El color sale SIEMPRE de la paleta (--primary). */
+        /* Título del portal: BANDA de color a ancho completo arriba de la tarjeta.
+           El degradado y el texto salen SIEMPRE de la paleta (--primary/--primary-2
+           y --on-primary). Los márgenes negativos la extienden hasta el borde del
+           card, cancelando el padding de 28px (20px en móvil). */
         #title {
-            margin: 0 0 18px;
+            margin: -28px -28px 20px;
+            padding: 16px 20px;
             text-align: center;
             font-size: 24px;
             font-weight: 600;
-            color: var(--primary);
+            color: var(--on-primary, #fff);
+            background: linear-gradient(135deg,
+                var(--primary) 0%,
+                var(--primary-2, var(--primary)) 100%);
         }
         /* En pantallas chicas la tarjeta ocupa el ancho con menos padding. */
         @media (max-width: 480px) {
             #card { padding: 20px; border-radius: 12px; }
+            #title { margin: -20px -20px 16px; }   /* cancela el padding de 20px */
         }
 
         /* INVARIANTE DE VISTAS — NO ELIMINAR.
@@ -510,7 +524,11 @@
             margin-top: 20px;
         }
         .actions button {
-            flex: 1 1 auto;
+            /* base 0: todos los botones de la fila ocupan el MISMO ancho, sin
+               importar la longitud del texto ("Subir e instalar" vs "Volver",
+               "Crear usuario" vs "Salir"). Con flex-basis auto el de más texto
+               quedaba más ancho. */
+            flex: 1 1 0;
             min-width: 120px;
         }
         button.primary,
@@ -780,6 +798,25 @@
             background: var(--primary, #2e7d32);
             border-color: var(--primary, #2e7d32);
         }
+        /* Botón "Salir": mismo tratamiento que los otros nav-item pero en el ROJO
+           del tema. No existe un --secondary-soft, así que el "rojo aclarado" del
+           reposo se deriva mezclando --secondary con --surface (mismo papel que
+           --primary-soft para el verde), y el texto/borde usan --secondary-2 (el
+           rojo oscuro de la paleta) para un contraste al nivel del verde o mejor.
+           Sin colores literales nuevos: todo sale de la paleta activa. */
+        #btnExit {
+            background: color-mix(in srgb, var(--secondary) 16%, var(--surface));
+            border-color: var(--secondary-2, var(--secondary));
+            color: var(--secondary-2, var(--secondary));
+        }
+        #btnExit:hover,
+        #btnExit:focus-visible {
+            color: var(--on-secondary, #fff);
+            background: var(--secondary);
+            border-color: var(--secondary);
+        }
+        /* El ícono Wi-Fi conectado hereda el color del texto; en Salir eso ya es
+           --secondary. Nada más que ajustar. */
         .nav-label { line-height: 1; }
 
         /* =====================================================================
@@ -887,35 +924,14 @@
         /* Los sliders y el porcentaje del espectro no deben empujar el ancho. */
         .field output { white-space: nowrap; }
 
-        /* VIDA EN LA TARJETA (temas claros) — sombra con cuerpo + filo de color.
-           Igual que el fondo: todo sale de las variables de la paleta, así que no
-           se modifica ningún color definido en las paletas. El oscuro se excluye. */
+        /* VIDA EN LA TARJETA (temas claros) — sombra con cuerpo, teñida con el
+           primario de la paleta (no negro). El header de color del título (#title)
+           aporta el golpe de color; aquí se suma profundidad. El oscuro se excluye
+           (su --shadow negra ya le va mejor sobre fondo oscuro). */
         body:not([data-theme="verde-oscuro"]) #card {
-            position: relative;
-            /* Dos capas de sombra teñidas con el primario de la paleta (no negro):
-               una de contacto, corta y definida, y otra ambiental, amplia y suave.
-               Más presencia que --shadow, pero sin dramatismo. */
             box-shadow:
-                0 1px 2px color-mix(in srgb, var(--primary) 22%, transparent),
-                0 10px 30px -8px color-mix(in srgb, var(--primary) 26%, transparent);
-        }
-        /* Filo superior: una línea fina primario -> secundario en el borde de
-           arriba de la tarjeta. Es el detalle que más "despierta" la UI sin
-           recargarla. Va en ::before para no tocar el layout del contenido. */
-        body:not([data-theme="verde-oscuro"]) #card::before {
-            content: "";
-            position: absolute;
-            inset: 0 0 auto 0;          /* pegado al borde superior */
-            height: 3px;
-            border-radius: 16px 16px 0 0;
-            background: linear-gradient(90deg,
-                var(--primary) 0%,
-                color-mix(in srgb, var(--primary) 55%, var(--secondary)) 100%);
-        }
-        @media (max-width: 480px) {
-            body:not([data-theme="verde-oscuro"]) #card::before {
-                border-radius: 12px 12px 0 0;   /* coincide con el radio chico */
-            }
+                0 2px 4px color-mix(in srgb, var(--primary) 20%, transparent),
+                0 14px 36px -10px color-mix(in srgb, var(--primary) 34%, transparent);
         }
     </style>
 </head>
