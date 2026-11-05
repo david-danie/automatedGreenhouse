@@ -12,6 +12,40 @@ completo está en [`README.md`](README.md).
 
 ---
 
+## Decisiones de ingeniería (resumen)
+
+Lo interesante de un sistema embebido no es *qué* hace, sino *cómo* resuelve los problemas
+que impone el hardware (1 núcleo RISC-V @160 MHz, RAM y flash limitadas). Este proyecto es un
+sistema **de extremo a extremo** bajo esas restricciones:
+
+- **Firmware en C++** (ESP32-C3): PWM multicanal, relés, RTC por I²C, persistencia en NVS,
+  servidor HTTP y DNS captivo.
+- **Frontend embebido**: una SPA completa (máquina de estados) en un solo HTML con vanilla JS,
+  servida desde el flash del dispositivo — sin build, sin dependencias.
+- **Diseño con trade-offs documentados**: cada decisión no trivial está razonada en este
+  documento (enlaces en la tabla).
+- **Mentalidad de producto**: UX cuidada, seguridad por capas y un roadmap de backend/OTA
+  pensado para el hardware.
+
+Las decisiones más relevantes, cada una con enlace a su detalle:
+
+| Reto | Solución | Detalle |
+|------|----------|---------|
+| Que el riego sobreviva cortes de luz | Scheduling **stateless**: el encendido se recalcula desde un contador continuo de horas derivado del RTC (`epochHours % intervalo`); cubre riego sub-diario y espaciado de varios días sin un contador que se pierda al apagar. | [Frecuencias](#frecuencias-de-riegoventilación-irrh--venth) |
+| Edad del cultivo correcta tras estar apagado | `día`/`semana` se **derivan del calendario real** (ancla `cropStart` en NVS), no de un contador; el cultivo "sigue envejeciendo" sin desgastar flash cada noche. | [Edad del cultivo](#edad-del-cultivo-dia--semana) |
+| Conectar a Wi-Fi sin congelar el portal | Conexión STA **no bloqueante** + **polling** desde el front: el `POST` arranca el intento y responde al instante; el cliente confirma vía `/getparams`. | [Conexión no bloqueante](#conexión-no-bloqueante--polling) |
+| No guardar una contraseña Wi-Fi que no sirve | **Persistencia diferida**: las credenciales se escriben en NVS *solo* al llegar a `WL_CONNECTED`. | [Persistencia diferida](#persistencia-diferida-solo-si-conecta) |
+| Autenticación sin reenviar credenciales | **Token de sesión** de 128 bits (`esp_random()`), TTL fijo en RAM (muere con el reboot, expiración por `millis()` a prueba de wrap-around). AP cifrado con WPA2-PSK. | [Sesión con token](#sesión-persistente-con-token-implementada) |
+| Validación idéntica en navegador y dispositivo | Reglas replicadas bit a bit front↔firmware, contando por **carácter UTF-8** (no bytes), para que acentos y ñ no descuadren los límites entre JS y C++. | [Reglas de validación](#reglas-de-validación-deben-coincidir-front--firmware) |
+| Servir el portal sin agotar el heap | `send_P` entrega el portal (~16 KB gzip) directo desde flash; evita el pico de un `String` temporal que podía fallar en AP+STA. | [gzip](#servir-el-html-comprimido-gzip) |
+| Menos flash y carga más rápida | El HTML fuente se regenera sin comentarios y **comprimido con gzip** al artefacto del ESP32 (de ~93 KB a ~16 KB, −83 %); `handleRoot` lo sirve con `Content-Encoding: gzip`. | [gzip](#servir-el-html-comprimido-gzip) |
+| Seguridad del portal | Contraseña con **PBKDF2-HMAC-SHA256**, reset de fábrica restringido a la interfaz del AP y **límite de intentos** de login. | [Huecos de seguridad](#huecos-de-seguridad-identificados-y-su-resolución) |
+
+> Para el estado de cada capacidad (qué está verificado, en curso o planeado) ver
+> [ROADMAP.md § Estado actual](ROADMAP.md#estado-actual).
+
+---
+
 ## Estructura
 
 ```
@@ -48,6 +82,38 @@ HTML/
   endpoints con datos simulados y sin validar token. Igual que el `.h`, **no se edita a
   mano**: se regenera desde el fuente. El escenario simulado se controla con las banderas del
   bloque `MOCK.params` del propio archivo generado.
+
+### Flujo de trabajo del portal (regenerar y promover)
+
+El formulario tiene **una pista activa** (la que sirve el dispositivo) y los artefactos se
+regeneran de su fuente, **nunca al revés**:
+
+- **Activa** (sirve el ESP32): `HTML/mainForm.html`
+- **Desarrollo** (próxima ronda de rediseño, aún no activa): `HTML/dev/mainForm.html`
+- **Archivada** (portal anterior, ya no se usa): `HTML/deprecated/mainForm.html`
+
+```bash
+# Previews para revisar en el navegador sin dispositivo (cada uno inyecta su propio
+# mock de fetch/XHR que simula el firmware):
+python3 HTML/scripts/gen_preview.py      # -> HTML/mainForm.preview.html      (activa)
+python3 HTML/scripts/gen_preview_dev.py  # -> HTML/dev/mainForm.preview.html  (desarrollo)
+
+# Regenerar el artefacto embebido que sirve el ESP32 (un solo .h):
+python3 HTML/scripts/gen_mainform.py        # -> mainForm.h desde la pista ACTIVA
+python3 HTML/scripts/gen_mainform.py --dev  # previsualiza el .h desde DESARROLLO (sin promover)
+```
+
+Cuando una ronda de desarrollo se da por buena, se **promueve**: su fuente pasa a
+`HTML/mainForm.html`, la anterior baja a `HTML/deprecated/`, y se regenera `mainForm.h`. Si
+existe `firmware/main/` (rama `esp-idf-migration`), `gen_mainform.py` regenera también
+`firmware/main/mainForm.h` en la misma ejecución, para que ambos firmwares sirvan el mismo
+portal.
+
+**Dos bases de firmware y documentación común.** `ESP32_controller/` (Arduino, estable, rama
+`main`) y `firmware/` (ESP-IDF, migración, rama `esp-idf-migration`) comparten portal, backend,
+hardware y documentación: lo común se edita en `main` y se lleva a `esp-idf-migration` con
+`git merge main`; lo propio del firmware ESP-IDF vive en `firmware/README.md`. El plan y el
+estado de la migración están en [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
