@@ -7,7 +7,7 @@
 // Reemplaza ledcAttachChannel/ledcWrite y pinMode/digitalWrite de Arduino.
 //   - Azul y rojo: PWM por LEDC (1 kHz, 8 bits). La API recibe 0-100 % y escala
 //     internamente a 0-maxDutyCycle (como el map() del firmware Arduino).
-//   - Blanco, bomba, ventilador, buzzer: salidas digitales con la polaridad
+//   - Lámpara, bomba, ventilador, buzzer: salidas digitales con la polaridad
 //     centralizada en deviceOn/deviceOff (Constants.h).
 //
 // La inicialización va en begin() (llamado desde el arranque de la app), NO en
@@ -28,7 +28,7 @@ void setBlueDuty(uint8_t pct);
 void setRedDuty(uint8_t pct);
 
 // Salidas digitales ON/OFF (true = encender, con la polaridad deviceOn/deviceOff).
-void setWhite(bool on);
+void setLamp(bool on);
 void setPump(bool on);
 void setFan(bool on);
 void setBuzzer(bool on);

@@ -96,7 +96,7 @@ static std::string buildParamsJson(const std::string& token) {
         doc["fpOff"]     = cfg.photoperiodOff;
         doc["ledAzul"]   = cfg.blueDutyCycle;
         doc["ledRojo"]   = cfg.redDutyCycle;
-        doc["ledBlanco"] = cfg.whiteLedOn;
+        doc["lampara"] = cfg.lampOn;
         doc["irrH"]      = cfg.irrigationFrequency;
         doc["irrM"]      = cfg.irrigationDuration;
         doc["ventH"]     = cfg.ventilationFrequency;

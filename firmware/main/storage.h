@@ -33,7 +33,7 @@ struct CropConfig {
     uint8_t  photoperiodOff;     // 0-23
     uint8_t  blueDutyCycle;      // 0-100
     uint8_t  redDutyCycle;       // 0-100
-    uint8_t  whiteLedOn;         // 0/1
+    uint8_t  lampOn;         // 0/1
     uint8_t  irrigationDuration; // 0-59 min
     uint8_t  ventilationDuration;// 0-59 min
     uint8_t  _reserved;          // alineación / crecimiento futuro

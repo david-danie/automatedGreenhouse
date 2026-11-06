@@ -69,8 +69,8 @@ esp_err_t send(httpd_req_t* req, requestStatus status) {
             body = "{\"status\":false,\"message\":\"Con la ventilación activa la duración debe ser de al menos 1 minuto. Para desactivarla, elige la frecuencia 'Apagado'.\"}"; break;
         case INVALID_LED_VALUE:
             body = "{\"status\":false,\"message\":\"Los espectros azul y rojo deben estar entre 0 y 100%.\"}"; break;
-        case INVALID_WHITE_LED_VALUE:
-            body = "{\"status\":false,\"message\":\"La luz blanca solo acepta 0 (apagada) o 1 (encendida).\"}"; break;
+        case INVALID_LAMP_VALUE:
+            body = "{\"status\":false,\"message\":\"La lámpara solo acepta 0 (apagada) o 1 (encendida).\"}"; break;
         case INVALID_SECOND_FORMAT:
             body = "{\"status\":false,\"message\":\"El campo segundo debe ser un entero sin signo (0-59).\"}"; break;
         case INVALID_MINUTE_FORMAT:

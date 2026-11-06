@@ -45,11 +45,11 @@ void update(const CropConfig& cfg, const uint8_t* t, bool rtcValid) {
     bool luzEncendida = (on < off) ? (h >= on && h < off) : (h >= on || h < off);
 
     if (luzEncendida) {
-        actuators::setWhite(cfg.whiteLedOn > 0);
+        actuators::setLamp(cfg.lampOn > 0);
         actuators::setBlueDuty(cfg.blueDutyCycle);   // 0-100 %
         actuators::setRedDuty(cfg.redDutyCycle);
     } else {
-        actuators::setWhite(false);
+        actuators::setLamp(false);
         actuators::setBlueDuty(0);
         actuators::setRedDuty(0);
     }

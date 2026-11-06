@@ -6,7 +6,7 @@
 
 // Niveles lógicos de salida. En IDF no existen HIGH/LOW de Arduino; se definen
 // como 1/0 y se usan con gpio_set_level().
-// ===== Polaridad de las salidas ON/OFF (relés/contactores y LED blanco) =====
+// ===== Polaridad de las salidas ON/OFF (relés/contactores y lámpara) =====
 // El nivel que ENCIENDE vive SOLO aquí. Configuración actual: LÓGICA DIRECTA
 // (el pin en alto enciende). Si el hardware fuese activo en bajo, basta
 // intercambiar estas dos líneas y todo el firmware queda coherente.
@@ -14,7 +14,7 @@ const uint32_t deviceOn  = 1;
 const uint32_t deviceOff = 0;
 
 // ===== Pines (ESP32-C3) =====
-const int whiteLedPin = 0;
+const int lampPin = 0;
 const int blueLedPin  = 1;
 const int redLedPin   = 2;
 const int buzzerPin   = 3;
@@ -22,7 +22,7 @@ const int fanPin      = 7;
 const int waterPumpPin = 10;
 
 // ===== PWM (LEDC) =====
-// Solo azul y rojo son PWM; el blanco es salida digital (GPIO 0), sin canal.
+// Solo azul y rojo son PWM; la lámpara es salida digital ON/OFF (GPIO 0), sin canal.
 const int blueChannel = 1;          // LEDC channel para el azul
 const int redChannel  = 2;          // LEDC channel para el rojo
 const int pwmFrequency = 1000;      // Hz
@@ -38,7 +38,7 @@ const uint32_t SESSION_TTL_MS = 30UL * 60UL * 1000UL; // 30 min
 // quitar o reordenar enumeradores reinterpreta lo ya guardado. Renombrar es
 // seguro; mover/cambiar la cantidad, no (borra la flash antes de cargar).
 //   ledAzul -> blueDutyCycle (PWM 0-100), ledRojo -> redDutyCycle (PWM 0-100),
-//   ledBlanco -> whiteLedOn (ON/OFF 0/1, salida digital).
+//   lampara   -> lampOn (ON/OFF 0/1, salida digital).
 enum SystemStatus : uint8_t {
     hasRegisteredUser = 1,
     hasWifiCredentials,
@@ -47,7 +47,7 @@ enum SystemStatus : uint8_t {
     photoperiodOff,           // hora de apagado de las luces (0-23)
     blueDutyCycle,
     redDutyCycle,
-    whiteLedOn,               // LED blanco digital (GPIO 0): 0/1, >0 enciende
+    lampOn,               // Lámpara digital (GPIO 0): 0/1, >0 enciende
     irrigationDuration,       // minutos de riego por activación (0-59)
     ventilationDuration,      // minutos de ventilación por activación (0-59)
     systemStatusCount         // centinela: marca el tamaño necesario
@@ -143,7 +143,7 @@ enum requestStatus {
     INVALID_IRRIGATION_DURATION,
     INVALID_VENTILATION_DURATION,
     INVALID_LED_VALUE,
-    INVALID_WHITE_LED_VALUE,
+    INVALID_LAMP_VALUE,
 
     INVALID_SECOND_FORMAT,
     INVALID_MINUTE_FORMAT,

@@ -57,7 +57,7 @@ void begin() {
     ledc_channel_config(&red);
 
     // ---- Salidas digitales ----
-    gpioOutput(whiteLedPin);
+    gpioOutput(lampPin);
     gpioOutput(waterPumpPin);
     gpioOutput(fanPin);
     gpioOutput(buzzerPin);
@@ -75,13 +75,13 @@ static void setDuty(ledc_channel_t ch, uint32_t duty) {
 void setBlueDuty(uint8_t pct) { setDuty(CH_BLUE, pctToDuty(pct)); }
 void setRedDuty(uint8_t pct)  { setDuty(CH_RED,  pctToDuty(pct)); }
 
-void setWhite(bool on)  { gpio_set_level((gpio_num_t)whiteLedPin,  on ? deviceOn : deviceOff); }
+void setLamp(bool on)  { gpio_set_level((gpio_num_t)lampPin,  on ? deviceOn : deviceOff); }
 void setPump(bool on)   { gpio_set_level((gpio_num_t)waterPumpPin, on ? deviceOn : deviceOff); }
 void setFan(bool on)    { gpio_set_level((gpio_num_t)fanPin,       on ? deviceOn : deviceOff); }
 void setBuzzer(bool on) { gpio_set_level((gpio_num_t)buzzerPin,    on ? deviceOn : deviceOff); }
 
 void allOff() {
-    setWhite(false);
+    setLamp(false);
     setDuty(CH_BLUE, 0);
     setDuty(CH_RED, 0);
     setPump(false);

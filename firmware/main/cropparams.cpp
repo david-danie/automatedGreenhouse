@@ -29,7 +29,7 @@ requestStatus validateAndSave(const std::string& body) {
     if (deserializeJson(doc, body)) return INVALID_JSON;
 
     const char* req[] = {"planta","enable","fpOn","fpOff","ledAzul","ledRojo",
-                         "ledBlanco","irrH","irrM","ventH","ventM"};
+                         "lampara","irrH","irrM","ventH","ventM"};
     for (auto k : req) if (!doc.containsKey(k)) return MISSING_FIELDS;
 
     // Autorización por token de sesión vigente.
@@ -68,12 +68,12 @@ requestStatus validateAndSave(const std::string& body) {
     if ((uint16_t)doc["ventH"] > 0 && (uint8_t)doc["ventM"] == 0)
         return INVALID_VENTILATION_DURATION;
 
-    // Espectros PWM 0-100; blanco digital 0/1.
+    // Espectros PWM 0-100; lámpara digital 0/1.
     if (!doc["ledAzul"].is<uint8_t>() || doc["ledAzul"] > 100 ||
         !doc["ledRojo"].is<uint8_t>() || doc["ledRojo"] > 100)
         return INVALID_LED_VALUE;
-    if (!doc["ledBlanco"].is<uint8_t>() || doc["ledBlanco"] > 1)
-        return INVALID_WHITE_LED_VALUE;
+    if (!doc["lampara"].is<uint8_t>() || doc["lampara"] > 1)
+        return INVALID_LAMP_VALUE;
 
     // Fecha/hora (para sincronizar el RTC).
     if (!doc["seg"].is<uint8_t>()   || doc["seg"]   > 59) return INVALID_SECOND_FORMAT;
@@ -94,7 +94,7 @@ requestStatus validateAndSave(const std::string& body) {
     cfg.photoperiodOff       = doc["fpOff"] | 0;
     cfg.blueDutyCycle        = doc["ledAzul"]  | 0;
     cfg.redDutyCycle         = doc["ledRojo"]  | 0;
-    cfg.whiteLedOn           = doc["ledBlanco"]| 0;
+    cfg.lampOn           = doc["lampara"]| 0;
     cfg.irrigationFrequency  = doc["irrH"]  | 0;
     cfg.irrigationDuration   = doc["irrM"]  | 0;
     cfg.ventilationFrequency = doc["ventH"] | 0;
