@@ -253,6 +253,17 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
           el log debe decir "DNS captivo escuchando en 192.168.4.1:53 (solo AP)";
           si sale "bind ... falló" reintentando, confirmar que termina ligándose
           (la IP del AP puede tardar en asignarse).
+  [ ] PINES DE STRAPPING (GPIO 2, 8 y 9) — comprobar en la placa que arranca bien
+      (ver docs/HARDWARE.md, nota de strapping). SDA/SCL del DS3231 están en
+      GPIO 8/9 y el PWM rojo en GPIO 2:
+        - GPIO 9 (SCL): en bajo durante el reset el chip entra al bootloader serie
+          y NO arranca la aplicación. Confirmar que nada del bus lo fuerce a bajo
+          y si el módulo DS3231 trae pull-ups de I2C (ayudan a mantenerlo en alto).
+        - GPIO 8 (SDA): se ignora en arranque normal; GPIO 8 = 0 junto con
+          GPIO 9 = 0 es una combinación inválida.
+        - GPIO 2 (PWM rojo): con el pull-down de 100k del gate el arranque debe ser
+          normal; reiniciar varias veces con el MOSFET/LED conectado.
+        - Si algo falla: reubicar esa señal a un GPIO no-strapping.
 
 ---- PENDIENTE DE DECIDIR (firmware IDF, no trabajado) ---------------------
   [ ] '/exit' en Arduino acepta cualquier método; en IDF sigue siendo solo GET.
@@ -261,6 +272,65 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
   [ ] Caso borde (también en Arduino): si la red de casa usa 192.168.4.0/24, el
       ESP32 tendría dos interfaces en la misma subred y el filtro "solo por el AP"
       (y fromAP) podría confundirse. Valorar si cambiar la subred del AP.
+
+---- PENDIENTE DE CERRAR (hardware y documentación) ------------------------
+ Salidas PWM de los LED azul/rojo (GPIO 1 y 2). Se dejan COMO ESTÁN por ahora:
+ MOSFET lógico N-channel conectado directo al GPIO (3.3 V), sin etapa
+ intermedia (docs/HARDWARE.md § Control de potencia PWM).
+
+  [ ] Decidir si se amplifica la señal de 3.3 V a 5 V para el gate. Motivo: hay
+      MOSFET de potencia que no conmutan bien con 3.3 V. Idea evaluada, NO
+      implementada:
+        - Buffer NO inversor de la familia 74AHCT (74AHCT1G125 x2, el doble
+          74AHCT2G125 o el cuádruple 74AHCT125), alimentado a 5 V del buck.
+          Las entradas TTL (VIH ~2 V) aceptan 3.3 V y la salida sube a 5 V.
+          No invierte: GPIO bajo = LED apagado (apagado seguro en boot).
+        - Por canal: GPIO -> A (pull-down 100k en la entrada); OE a GND;
+          Y -> 47-100 ohm -> gate; pull-down 100k en el gate; 100 nF en Vcc.
+        - CUIDADO: tiene que ser HCT/AHCT, NO HC/AHC (a 5 V esas piden ~3.5 V
+          de entrada y los 3.3 V del ESP32 no alcanzan de forma confiable).
+        - 5 V sirve para MOSFET "logic-level" (RDS(on) dada a 4.5-5 V, tipo
+          IRLZ44N). Uno estándar de 10 V (tipo IRFZ44N) seguiría sin encender
+          del todo: ese necesita un driver de 10-12 V.
+        - El buffer entrega ~8 mA: el flanco es del orden de microsegundos. En
+          el canal azul (~4 A @ 24 V) hay que calcular las pérdidas de
+          conmutación con el MOSFET elegido; si salen altas, usar un driver de
+          compuerta (clase TC4427 / MCP1407) en lugar del buffer.
+        - Descartado: un solo AO3400A con pull-up a 5 V. Invierte la señal y,
+          con el GPIO en bajo durante el boot, deja la compuerta a 5 V (LED al
+          100 %). En dos etapas en cascada sí sería seguro (más componentes).
+        - SIN VERIFICAR: VOH mínimo del ESP32-C3 (recuerdo ~2.6 V; debe superar
+          los 2.0 V de entrada del buffer; revisar "DC Characteristics" del
+          datasheet), disponibilidad en JLCPCB y capacidad del riel de 5 V.
+        - Si se adopta, actualizar docs/HARDWARE.md: fila "PWM LED" de las
+          decisiones (hoy dice que conmuta directo desde 3.3 V), esquemático del
+          canal, diagrama de bloques y lista de componentes.
+  [ ] Tipo de arreglo LED: voltaje constante (24 V) vs driver de corriente
+      constante. Define la topología del canal PWM (con driver, el PWM va a su
+      entrada de dimming y no al MOSFET).
+  [ ] MOSFET del canal azul: tentativo hasta definir lo anterior (IRLZ44N o
+      AOD4184). Pendiente confirmar en datasheet que conmuta bien con
+      Vgs = 3.3 V (hoy el documento solo advierte del AO3400A).
+  [ ] Esquemáticos reales: faltan docs/img/pwm_led_sch.png,
+      salida_digital_sch.png y buzzer_sch.png (3 <!-- TODO --> en
+      docs/HARDWARE.md; hoy hay diagramas ASCII).
+  [ ] Punto de conexión para los LED del usuario y límites de voltaje/corriente
+      por canal (hoy solo aparece como nota dentro de un TODO).
+  [ ] Bobina del contactor: confirmar que se consiguen con bobina 24 VCD y su
+      consumo (retención y arranque).
+  [ ] Fuente 24 V / 150 W: se dimensionó con la referencia de LED PWM
+      (60-120 W), que ahora es OPCIONAL. Revisar si el criterio de la fuente
+      sigue siendo ese.
+
+ Documentación:
+  [ ] README.en.md: no tiene la reestructura del README en español (Qué controla
+      y cómo, Configuración, Estado -> ROADMAP). Solo se alinearon la lámpara
+      y la polaridad (lógica directa).
+  [ ] README.md: la sección de Ventilación conserva la redacción anterior
+      (iluminación y riego ya están reescritas).
+  [ ] Duración de riego/ventilación: el portal y el firmware topan en 59 min
+      (irrM / ventM). Decidir si subirlo (cambio de firmware y portal, no solo
+      de documentación).
 
 ---- TAREA DE CÓDIGO (hacer en MAC) ---------------------------------------
   [ ] Días/semanas del cultivo en el SERIAL: hoy el dashboard los calcula en el
