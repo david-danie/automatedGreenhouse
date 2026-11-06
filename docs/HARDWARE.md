@@ -46,7 +46,7 @@ Definido en `ESP32_controller/Constants.h`.
 
 ## Control de potencia PWM
 
-La modulación por ancho de pulso se usa aquí para regular la intensidad de cada canal LED de forma independiente, permitiendo adaptar el espectro a la etapa del cultivo — más azul en vegetativo, más rojo en floración.
+La modulación por ancho de pulso se usa aquí para regular la intensidad de cada canal LED de forma independiente, permitiendo adaptar el espectro a la etapa del cultivo — más azul en vegetativo, más rojo en floración. Es una función **opcional**, pensada para usuarios con más experiencia: la iluminación principal es la lámpara ON/OFF (GPIO 0), que no usa PWM.
 
 | Parámetro | Valor |
 |---|---|
@@ -89,7 +89,7 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 | Tema | Decisión | Por qué |
 |---|---|---|
 | **Fuente única** | **24 VCD** | A 120 W, 24 V tira ~5 A vs ~10 A a 12 V → mitad de corriente, ¼ de pérdidas (I²R), pistas y conectores más chicos, menos calor. A >60 W las fuentes de 24 V son tan comunes como las de 12 V. Una sola fuente alimenta LEDs, bobinas de contactor y (vía buck) el MCU. |
-| **Dimensionado LED** | 60–120 W para 1–2 m², relación **1:5 azul:rojo con azul predominante** | Azul ≈ 100 W (~4.2 A @ 24 V, canal fuerte); rojo ≈ 20 W (~0.85 A). El hardware se dimensiona al **peor caso: cada canal al 100 %**. |
+| **Dimensionado LED (canales PWM, opcional)** | Referencia de diseño: 60–120 W para 1–2 m², relación **5:1 azul:rojo, con azul predominante** | Azul ≈ 100 W (~4.2 A @ 24 V, canal fuerte); rojo ≈ 20 W (~0.85 A). Los canales se dimensionan al **peor caso: cada canal al 100 %**. Es solo una referencia: usar los canales PWM, y con qué potencia de LED, queda **a criterio del usuario**; la iluminación principal es la lámpara ON/OFF (GPIO 0). |
 | **Salidas digitales (vent/bomba/lámpara)** | **Opto PC817 + MOSFET lógico** acciona un **relé/contactor con bobina CD (5/12/24 V, a elección del usuario)**; **flyback** en la bobina y **snubber RC** en los contactos de CA | Aislamiento galvánico entre control (3.3 V) y potencia: el opto separa `GND_control` de `GND_potencia` (jumper opcional para fuente única). Mismo circuito para los tres voltajes de bobina. |
 | **PWM LED (azul, rojo)** | **MOSFET lógico N-channel directo** (sin opto) | A 1 kHz un optoacoplador común (PC817) deforma la señal. El MOSFET lógico conmuta directo desde 3.3 V. |
 | **MCU 3.3 V** | **Buck 24→5 V (→3.3 V)**, no lineal | Un lineal 24→3.3 disiparía demasiado; se usa un convertidor conmutado (p. ej. MP1584). |
@@ -151,9 +151,22 @@ Aplica si las tiras/arreglos son de **voltaje constante a 24 V**. Un canal por c
   indicador visual, y un LED colgado del PWM parpadearía a 1 kHz (brillo según el duty),
   confuso como indicador de estado.
 
-> **Nota de pines (strapping):** el PWM rojo está en **GPIO 2**, que en el ESP32-C3 es
-> *strapping pin* de boot. Un pull-down de 100 kΩ (alta impedancia) no suele afectar el
-> arranque, pero conviene verificarlo; si da problemas, mover ese canal a un GPIO no-strapping.
+> **Nota de pines (strapping):** en el ESP32-C3 los pines de *strapping* de boot son
+> **GPIO 2, 8 y 9**, y el diseño usa los tres: el **PWM rojo (GPIO 2)** y el **bus I²C del
+> DS3231 (SDA GPIO 8 / SCL GPIO 9)**.
+>
+> - **GPIO 9** decide el arranque: en alto al reiniciar, el chip ejecuta el programa; en bajo,
+>   entra al bootloader serie y no arranca la aplicación. Tiene un pull-up interno (~45 kΩ), y
+>   si el módulo DS3231 trae pull-ups de I²C también lo mantienen en alto. Hay que comprobar
+>   que nada del bus lo fuerce a bajo durante el reset.
+> - **GPIO 8** solo importa para entrar al bootloader: en arranque normal (GPIO 9 en alto)
+>   se ignora. La combinación GPIO 8 = 0 y GPIO 9 = 0 es inválida.
+> - **GPIO 2**: un pull-down de 100 kΩ (alta impedancia) no suele afectar el arranque, pero
+>   conviene verificarlo (ver "Strapping Pins" en el datasheet del ESP32-C3).
+>
+> Si alguno da problemas de arranque, reubicar esa señal a un GPIO no-strapping. Esto **no se
+> ha verificado en la placa**; la descripción de GPIO 8/9 sale de la documentación de
+> Espressif (boot mode selection).
 
 ### Esquemático — salida digital (opto + MOSFET + contactor)
 
@@ -255,9 +268,8 @@ dominios de alimentación y todos los componentes. Las otras dos salidas digital
         para 5/12/24). El indicador PRINCIPAL ya está en el lado de control (R fija).
 ```
 
- Los dos dominios comparten SOLO el enlace óptico del PC817; sus tierras
- (GND_control / GND_potencia) NO se unen en el PCB.
-```
+Los dos dominios comparten SOLO el enlace óptico del PC817; sus tierras
+(`GND_control` / `GND_potencia`) NO se unen en el PCB.
 
 ### Esquemático — buzzer (GPIO 3)
 
