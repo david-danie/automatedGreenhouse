@@ -72,7 +72,7 @@ El sistema ofrece dos niveles de control de iluminación:
 
 <div align="justify">
 
-El sistema permite automatizar el riego mediante el encendido y apagado de una bomba o electroválvula, por lo que puede adaptarse a distintos métodos de riego, como goteo, gravedad, NFT o aspersión.
+El sistema permite automatizar el riego mediante el encendido y apagado de una bomba o electroválvula (GPIO 10), por lo que puede adaptarse a distintos métodos de riego, como goteo, gravedad, NFT o aspersión.
 
 La programación es flexible y permite ajustar dos aspectos de forma independiente:
 
