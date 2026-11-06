@@ -125,9 +125,9 @@ Todo se ajusta desde el portal y se **aplica en vivo**, sin reiniciar el disposi
 | Espectro **rojo** *(avanzado, opcional)* | 0–100 % | PWM; se escala a 0–255 en el firmware |
 | **Fotoperiodo** | Hora de encendido y apagado | Admite cruce de medianoche |
 | **Riego** — frecuencia | De cada hora a una vez por semana (`0` = apagado) | Intervalo en horas; scheduling desde el RTC |
-| **Riego** — duración | Minutos por ciclo | — |
+| **Riego** — duración | 0–59 min por ciclo | Debe ser al menos 1 si la frecuencia no es 0 |
 | **Ventilación** — frecuencia | De cada hora a una vez por semana (`0` = apagado) | Intervalo en horas |
-| **Ventilación** — duración | Minutos por ciclo | — |
+| **Ventilación** — duración | 0–59 min por ciclo | Debe ser al menos 1 si la frecuencia no es 0 |
 | **Hora del dispositivo** | Fecha y hora | Se sincroniza desde el navegador al RTC DS3231 |
 | **Interruptor general** (`enable`) | ON / OFF | OFF inhibe todos los actuadores |
 | **Red Wi-Fi del usuario** | SSID + contraseña | AP+STA condicional; para nube/telemetría a futuro |
