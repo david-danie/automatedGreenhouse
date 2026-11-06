@@ -19,9 +19,9 @@ Controlador **embebido** para cultivo indoor sobre **ESP32-C3**: regula iluminac
 ## CONTENIDO
 
 * [QUÉ CONTROLA Y CÓMO.](#qué-controla-y-cómo)
-  - [Iluminación.](#iluminación)
-  - [Riego.](#riego)
-  - [Ventilación / extracción.](#ventilación--extracción)
+  - [ILUMINACIÓN.](#iluminación)
+  - [RIEGO.](#riego)
+  - [VENTILACIÓN / EXTRACCIÓN.](#ventilación--extracción)
 * [CONFIGURACIÓN DISPONIBLE.](#configuración-disponible)
 * [HARDWARE.](#hardware)
 * [EL PORTAL.](#el-portal)

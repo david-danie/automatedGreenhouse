@@ -213,6 +213,20 @@ Uso este archivo como puente entre las dos máquinas:
 Al cambiar de máquina: git pull antes de empezar, git push al terminar.
 
 ---- PENDIENTE DE HACER EN UBUNTU (placa) ----------------------------------
+  [ ] RENOMBRADO "LED blanco" -> "Lámpara" (hecho en Mac SIN compilar, en AMBOS
+      firmwares). Probar:
+        - Compilar el sketch Arduino (arduino-cli compile ... ESP32_controller) y,
+          aparte, firmware/ con idf.py build: deben compilar sin errores
+          (símbolos nuevos: lampPin, lampOn, INVALID_LAMP_VALUE, actuators::setLamp).
+        - Portal: el interruptor "Lámpara" enciende/apaga el GPIO 0; el dashboard
+          muestra "Encendida/Apagada" bajo la columna "Lámpara".
+        - Contrato: POST /newparams con "lampara":1 guarda; con "ledBlanco" (clave
+          vieja) debe responder MISSING_FIELDS; con "lampara":2 -> INVALID_LAMP_VALUE.
+        - GET /getparams devuelve "lampara" (no "ledBlanco").
+        - Tras flashear el firmware nuevo sobre uno viejo, la configuración guardada
+          debe seguir leyéndose (el índice del enum/struct no cambió, solo el nombre).
+      NOTA backend: la columna led_b (pythonServer) NO se renombró; el firmware aún
+      no envía config al backend. Decidir si renombrarla (requiere migración Alembic).
   [ ] Instalar extensión ESP-IDF v5.5 y compilar firmware/ (idf.py build).
   [ ] Capturar el log de la 1a build (errores) y pegarlo abajo.
   [ ] Verificar en serial que días/semanas del cultivo coincidan con el dashboard
