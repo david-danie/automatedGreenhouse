@@ -61,7 +61,7 @@ MOCK = r"""    <!-- ============================================================
                 planta: "Albahaca",
                 enable: true,
                 fpOn: 18, fpOff: 6,
-                ledAzul: 70, ledRojo: 45, ledBlanco: 1,
+                ledAzul: 70, ledRojo: 45, lampara: 1,
                 irrH: 3, irrM: 15, ventH: 6, ventM: 20,
                 dia: 34, semana: 5
             },
@@ -112,7 +112,7 @@ MOCK = r"""    <!-- ============================================================
                 // Emula el firmware: borra datos del cultivo, conserva cuenta y Wi-Fi.
                 Object.assign(MOCK.params, {
                     planta: "", enable: false, fpOn: 0, fpOff: 0,
-                    ledAzul: 0, ledRojo: 0, ledBlanco: 0,
+                    ledAzul: 0, ledRojo: 0, lampara: 0,
                     irrH: 0, irrM: 0, ventH: 0, ventM: 0,
                     dia: 0, semana: 0
                 });

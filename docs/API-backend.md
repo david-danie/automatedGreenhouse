@@ -197,7 +197,7 @@ Inserta una **fila nueva** en `device_configs` (histórico); **no** actualiza la
 | `fp_off` | 0–23 | Hora de apagado |
 | `led_a` | 0–100 | Espectro azul (%) |
 | `led_r` | 0–100 | Espectro rojo (%) |
-| `led_b` | 0 / 1 | Luz blanca ON/OFF (el LED blanco es digital, no PWM) |
+| `led_b` | 0 / 1 | Lámpara ON/OFF (salida digital, no PWM). Corresponde a la clave `lampara` del dispositivo |
 | `irr_h` | ≥ 0 | Intervalo de riego en horas |
 | `irr_m` | 0–59 | Duración del riego (min) |
 | `vent_h` | ≥ 0 | Intervalo de ventilación en horas |

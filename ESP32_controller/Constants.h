@@ -4,7 +4,7 @@
 #include <Arduino.h>   // HIGH/LOW: este header define niveles lógicos, así que no
                        // depende del orden de inclusión de quien lo use.
 
-// ===== Polaridad de las salidas ON/OFF (relés y LED blanco) =====
+// ===== Polaridad de las salidas ON/OFF (relés y lámpara) =====
 // El nivel que ENCIENDE vive SOLO aquí. Antes estaba repartido como HIGH/LOW
 // literales en cinco sitios (constructor, allDevicesOff, turnOnDevices y
 // manageDevice), y cambiar de módulos "activos en bajo" a "activos en alto"
@@ -18,7 +18,7 @@ const uint8_t deviceOn  = HIGH;
 const uint8_t deviceOff = LOW;
 
 // Pines ESP32 DEV
-/*const byte whiteLedPin = 2; // Cambia según tus conexiones
+/*const byte lampPin = 2; // Cambia según tus conexiones
 const byte blueLedPin = 14;
 const byte redLedPin = 15;
 const byte buzzerPin = 4;
@@ -26,15 +26,15 @@ const byte waterPumpPin = 16;
 const byte fanPin = 17;*/
 
 // Pines ESP32-C3
-const uint8_t whiteLedPin = 0;      // Cambia según tus conexiones
+const uint8_t lampPin = 0;      // Lámpara (ON/OFF). Cambia según tus conexiones
 const uint8_t blueLedPin = 1;
 const uint8_t redLedPin = 2;
 const uint8_t buzzerPin = 3;
 const uint8_t fanPin = 7;
 const uint8_t waterPumpPin = 10;
 
-// Canales PWM. Solo azul y rojo son PWM; el blanco es salida digital (GPIO 0), así
-// que no tiene canal asignado.
+// Canales PWM. Solo azul y rojo son PWM; la lámpara es salida digital ON/OFF (GPIO 0),
+// así que no tiene canal asignado.
 const uint8_t blueChannel = 1;      // Canal asignado a pwmPin2
 const uint8_t redChannel = 2;       // Canal asignado a pwmPin3
 
@@ -63,7 +63,7 @@ const uint32_t SESSION_TTL_MS = 30UL * 60UL * 1000UL; // 30 min
 // Correspondencia con las claves JSON del portal:
 //   ledAzul   -> blueDutyCycle    (PWM, 0-100 %)
 //   ledRojo   -> redDutyCycle     (PWM, 0-100 %)
-//   ledBlanco -> whiteLedOn       (ON/OFF, 0/1: salida digital, no PWM)
+//   lampara   -> lampOn           (ON/OFF, 0/1: salida digital, no PWM)
 enum SystemStatus : uint8_t {
     hasRegisteredUser = 1,
     hasWifiCredentials,
@@ -72,7 +72,7 @@ enum SystemStatus : uint8_t {
     photoperiodOff,           // hora de apagado de las luces (0-23)
     blueDutyCycle,
     redDutyCycle,
-    whiteLedOn,               // LED blanco: salida DIGITAL (GPIO 0), no PWM. Se
+    lampOn,               // Lámpara: salida DIGITAL (GPIO 0), no PWM. Se
                               // guarda normalizado a 0/1; cualquier valor > 0 enciende.
     irrigationFrequency,
     irrigationDuration,
@@ -229,7 +229,7 @@ enum requestStatus {
     INVALID_IRRIGATION_DURATION,
     INVALID_VENTILATION_DURATION,
     INVALID_LED_VALUE,          // azul/rojo fuera de 0-100 (canales PWM)
-    INVALID_WHITE_LED_VALUE,    // blanco distinto de 0/1 (salida digital, ON/OFF)
+    INVALID_LAMP_VALUE,    // lámpara distinta de 0/1 (salida digital, ON/OFF)
 
     INVALID_SECOND_FORMAT,
     INVALID_MINUTE_FORMAT,

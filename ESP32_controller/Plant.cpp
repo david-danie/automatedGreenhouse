@@ -26,7 +26,7 @@ void Plant::begin(){
   ledcAttachChannel(blueLedPin, pwmFrequency, pwmResolution, blueChannel);
   ledcAttachChannel(redLedPin, pwmFrequency, pwmResolution, redChannel);
 
-  pinMode(whiteLedPin, OUTPUT);
+  pinMode(lampPin, OUTPUT);
   pinMode(waterPumpPin, OUTPUT);
   pinMode(fanPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
@@ -211,7 +211,7 @@ requestStatus Plant::validateCropParameters(const String& body){
       !doc.containsKey("fpOff")     ||
       !doc.containsKey("ledAzul")   ||
       !doc.containsKey("ledRojo")   ||
-      !doc.containsKey("ledBlanco") ||
+      !doc.containsKey("lampara") ||
       !doc.containsKey("irrH")      ||
       !doc.containsKey("irrM")      ||
       !doc.containsKey("ventH")     ||
@@ -274,12 +274,12 @@ requestStatus Plant::validateCropParameters(const String& body){
       !doc["ledRojo"].is<uint8_t>() || doc["ledRojo"] > 100)
     return INVALID_LED_VALUE;
 
-  // Blanco (ledBlanco): salida DIGITAL, solo 0 o 1. Antes se aceptaba 0-100 y se
+  // Lámpara (lampara): salida DIGITAL, solo 0 o 1. Antes se aceptaba 0-100 y se
   // normalizaba, lo que dejaba pasar un 47 como "encendida" — el contrato decía
   // 0/1 pero la implementación no lo exigía. Ambos portales ya envían
   // `checked ? 1 : 0`, así que exigirlo no rompe ningún cliente.
-  if (!doc["ledBlanco"].is<uint8_t>() || doc["ledBlanco"] > 1)
-    return INVALID_WHITE_LED_VALUE;
+  if (!doc["lampara"].is<uint8_t>() || doc["lampara"] > 1)
+    return INVALID_LAMP_VALUE;
 
   // Validaciones combinadas (tipo + rango en una sola línea)
   if (!doc["seg"].is<uint8_t>() || doc["seg"] > 59)           
@@ -300,11 +300,11 @@ requestStatus Plant::validateCropParameters(const String& body){
   _systemStatus[systemEnable] = doc["enable"] | false;
   _systemStatus[photoperiodOn] = doc["fpOn"] | 0;
   _systemStatus[photoperiodOff] = doc["fpOff"] | 0;
-  // El blanco ya viene validado como 0/1 estricto, así que se guarda tal cual:
+  // La lámpara ya viene validada como 0/1 estricto, así que se guarda tal cual:
   // el estado interno y lo que reporta /getparams quedan siempre en 0/1.
   _systemStatus[blueDutyCycle] = doc["ledAzul"] | 0;
   _systemStatus[redDutyCycle] = doc["ledRojo"] | 0;
-  _systemStatus[whiteLedOn] = doc["ledBlanco"] | 0;
+  _systemStatus[lampOn] = doc["lampara"] | 0;
   _systemStatus[irrigationFrequency] = doc["irrH"] | 0;
   _systemStatus[irrigationDuration] = doc["irrM"] | 0;
   _systemStatus[ventilationFrequency] = doc["ventH"] | 0;
@@ -398,7 +398,7 @@ requestStatus Plant::startNewCrop(const String& body) {
 // Apaga todos los actuadores de golpe. La polaridad de las salidas ON/OFF vive en
 // deviceOn/deviceOff (Constants.h). Los canales PWM van a duty 0.
 void Plant::allDevicesOff() {
-  digitalWrite(whiteLedPin, deviceOff);
+  digitalWrite(lampPin, deviceOff);
   ledcWrite(blueChannel, zero);
   ledcWrite(redChannel, zero);
   digitalWrite(waterPumpPin, deviceOff);
@@ -467,12 +467,12 @@ void Plant::turnOnDevices(){
 
   if (luzEncendida) {
     // Ajusta las luces según los duty cycles configurados
-    digitalWrite(whiteLedPin, _systemStatus[whiteLedOn] > 0 ? deviceOn : deviceOff);
+    digitalWrite(lampPin, _systemStatus[lampOn] > 0 ? deviceOn : deviceOff);
     ledcWrite(blueChannel, map(_systemStatus[blueDutyCycle], 0, 100, 0, maxDutyCycle));
     ledcWrite(redChannel, map(_systemStatus[redDutyCycle], 0, 100, 0, maxDutyCycle));
   } else {
     // Apaga todas las luces
-    digitalWrite(whiteLedPin, deviceOff);
+    digitalWrite(lampPin, deviceOff);
     ledcWrite(blueChannel, zero);
     ledcWrite(redChannel, zero);
   }
@@ -580,7 +580,7 @@ String Plant::buildParamsJson(const String& token) {
     doc["fpOff"]  = _systemStatus[photoperiodOff];
     doc["ledAzul"]   = _systemStatus[blueDutyCycle];   // PWM 0-100 %
     doc["ledRojo"]   = _systemStatus[redDutyCycle];    // PWM 0-100 %
-    doc["ledBlanco"] = _systemStatus[whiteLedOn];      // ON/OFF 0/1
+    doc["lampara"] = _systemStatus[lampOn];      // ON/OFF 0/1
     doc["irrH"]   = _systemStatus[irrigationFrequency];
     doc["irrM"]   = _systemStatus[irrigationDuration];
     doc["ventH"]  = _systemStatus[ventilationFrequency];
@@ -1037,7 +1037,7 @@ void Plant::hardReset() {
 void Plant::printSystemData() {
   // Solo imprime la copia en RAM de _currentTime; el refresco desde el RTC (I²C)
   // lo hace loop() en un único task, para no compartir el bus Wire entre tareas.
-  // Los valores crudos que ya no son "porcentaje/horas directas" (LED blanco
+  // Los valores crudos que ya no son "porcentaje/horas directas" (lámpara
   // ON/OFF, frecuencias con semántica de intervalo) se traducen a texto legible.
 
   int cropDayAge = cropDayFromRtc();  // derivado del RTC + ancla (getCurrentTime ya corrió arriba)
@@ -1071,10 +1071,10 @@ void Plant::printSystemData() {
                 cropWeekAge, cropDayOfWeek);
 
   // -- Actuadores --
-  Serial.printf(" Luz      ·  %02dh-%02dh  Blanca %s   Azul %d%%  Roja %d%%\n",
+  Serial.printf(" Luz      ·  %02dh-%02dh  Lampara %s   Azul %d%%  Roja %d%%\n",
                 _systemStatus[photoperiodOn],
                 _systemStatus[photoperiodOff],
-                _systemStatus[whiteLedOn] > 0 ? "ON" : "OFF",
+                _systemStatus[lampOn] > 0 ? "ON" : "OFF",
                 _systemStatus[blueDutyCycle],
                 _systemStatus[redDutyCycle]);
                 
@@ -1153,8 +1153,8 @@ HttpResponse buildHttpResponse(requestStatus status) {
         return {400, "application/json", "{\"status\":false,\"message\":\"Con la ventilación activa la duración debe ser de al menos 1 minuto. Para desactivarla, elige la frecuencia 'Apagado'.\"}"};
     case INVALID_LED_VALUE:
         return {400, "application/json", "{\"status\":false,\"message\":\"Los espectros azul y rojo deben estar entre 0 y 100%.\"}"};
-    case INVALID_WHITE_LED_VALUE:
-        return {400, "application/json", "{\"status\":false,\"message\":\"La luz blanca solo acepta 0 (apagada) o 1 (encendida).\"}"};
+    case INVALID_LAMP_VALUE:
+        return {400, "application/json", "{\"status\":false,\"message\":\"La lámpara solo acepta 0 (apagada) o 1 (encendida).\"}"};
 
     case INVALID_SECOND_FORMAT:
         return {400, "application/json", "{\"status\":false,\"message\":\"El campo segundo debe ser un entero sin signo (0-59).\"}"};

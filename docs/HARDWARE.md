@@ -24,7 +24,7 @@ Definido en `ESP32_controller/Constants.h`.
 
 | Componente | GPIO | Tipo | Notas |
 |---|---|---|---|
-| LED blanco | 0 | Digital | Lógica directa (`HIGH` = encendido) |
+| Lámpara | 0 | Digital | Control principal de iluminación, ON/OFF. Lógica directa (`HIGH` = encendido) |
 | LED azul | 1 | PWM canal 1 | 0–100 % desde el portal |
 | LED rojo | 2 | PWM canal 2 | 0–100 % desde el portal |
 | Buzzer | 3 | Digital | Señalización sonora no bloqueante (ver [vocabulario de pitidos](#vocabulario-de-pitidos)) |
@@ -40,7 +40,7 @@ Definido en `ESP32_controller/Constants.h`.
 
 **La inicialización de hardware NO va en el constructor:** `Plant planta;` es un objeto global, así que su constructor corre durante la inicialización estática de C++, antes de que el framework de Arduino termine de preparar los periféricos. Configurar GPIO o LEDC ahí puede fallar en silencio o quedar sobrescrito, dejando un pin como entrada flotante en lugar de salida firme; el síntoma típico es un relé o LED con **brillo débil** que no conmuta bien. Por eso `pinMode`, `ledcAttachChannel` y el estado inicial se hacen en `begin()`, invocado desde `setup()`.
 
-**Un solo canal digital para el blanco:** el blanco no tiene PWM asignado, así que solo admite ON/OFF. El portal envía `0` o `1` y el firmware evalúa `> 0`. Los espectros azul y rojo sí son regulables, que es donde la granularidad importa para el PAR.
+**Un solo canal digital para la lámpara:** la lámpara no tiene PWM asignado, así que solo admite ON/OFF; por eso sirve con lámparas de cultivo comerciales que se manejen con un control ON/OFF simple. Los canales PWM azul y rojo son opcionales, para quien quiera controlar esos espectros con más precisión. El portal envía `0` o `1` y el firmware evalúa `> 0`. Los espectros azul y rojo sí son regulables, que es donde la granularidad importa para el PAR.
 
 ---
 
@@ -90,7 +90,7 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 |---|---|---|
 | **Fuente única** | **24 VCD** | A 120 W, 24 V tira ~5 A vs ~10 A a 12 V → mitad de corriente, ¼ de pérdidas (I²R), pistas y conectores más chicos, menos calor. A >60 W las fuentes de 24 V son tan comunes como las de 12 V. Una sola fuente alimenta LEDs, bobinas de contactor y (vía buck) el MCU. |
 | **Dimensionado LED** | 60–120 W para 1–2 m², relación **1:5 azul:rojo con azul predominante** | Azul ≈ 100 W (~4.2 A @ 24 V, canal fuerte); rojo ≈ 20 W (~0.85 A). El hardware se dimensiona al **peor caso: cada canal al 100 %**. |
-| **Salidas digitales (vent/bomba/blanco)** | **Opto PC817 + MOSFET lógico** acciona un **relé/contactor con bobina CD (5/12/24 V, a elección del usuario)**; **flyback** en la bobina y **snubber RC** en los contactos de CA | Aislamiento galvánico entre control (3.3 V) y potencia: el opto separa `GND_control` de `GND_potencia` (jumper opcional para fuente única). Mismo circuito para los tres voltajes de bobina. |
+| **Salidas digitales (vent/bomba/lámpara)** | **Opto PC817 + MOSFET lógico** acciona un **relé/contactor con bobina CD (5/12/24 V, a elección del usuario)**; **flyback** en la bobina y **snubber RC** en los contactos de CA | Aislamiento galvánico entre control (3.3 V) y potencia: el opto separa `GND_control` de `GND_potencia` (jumper opcional para fuente única). Mismo circuito para los tres voltajes de bobina. |
 | **PWM LED (azul, rojo)** | **MOSFET lógico N-channel directo** (sin opto) | A 1 kHz un optoacoplador común (PC817) deforma la señal. El MOSFET lógico conmuta directo desde 3.3 V. |
 | **MCU 3.3 V** | **Buck 24→5 V (→3.3 V)**, no lineal | Un lineal 24→3.3 disiparía demasiado; se usa un convertidor conmutado (p. ej. MP1584). |
 
@@ -160,7 +160,7 @@ Aplica si las tiras/arreglos son de **voltaje constante a 24 V**. Un canal por c
 <!-- TODO: reemplazar el diagrama ASCII de abajo por la captura del esquemático real.
      ![Salida digital (control + potencia)](./img/salida_digital_sch.png) -->
 
-Aplica a ventilador, bomba y lámpara blanca (GPIO 7, 10, 0). Aislamiento galvánico: el opto
+Aplica a ventilador, bomba y lámpara (GPIO 7, 10, 0). Aislamiento galvánico: el opto
 separa el dominio de control (3.3 V, `GND_control`) del de potencia (`GND_potencia`).
 
 **Compatible con bobina de 5, 12 o 24 VCD.** El circuito opto + MOSFET + flyback es idéntico
@@ -224,7 +224,7 @@ energiza la bobina. Todo el lado derecho está en `GND_potencia`.
 
 Cadena completa de una salida (p. ej. la bomba, GPIO 10), extremo a extremo, con los dos
 dominios de alimentación y todos los componentes. Las otras dos salidas digitales
-(ventilador GPIO 7, blanco GPIO 0) son idénticas.
+(ventilador GPIO 7, lámpara GPIO 0) son idénticas.
 
 ```
    ┌─────────────── DOMINIO CONTROL (3.3 V · GND_control) ───────────────┐
