@@ -118,10 +118,10 @@ estado de la migración están en [`ROADMAP.md`](ROADMAP.md).
 ---
 
 ## Hardware (ESP32-C3, ver `Constants.h`)
-- LED blanco → GPIO 0 (salida digital, lógica directa: nivel alto enciende), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
+- Lámpara → GPIO 0 (salida digital ON/OFF, lógica directa: nivel alto enciende), LED azul → GPIO 1 (canal 1), LED rojo → GPIO 2 (canal 2)
 - Buzzer → GPIO 3, ventilador → GPIO 7, bomba de agua → GPIO 10
-- PWM: 1 kHz, 8 bits (duty 0–255) en azul y rojo; se envían como 0–100 % y se escalan internamente. El blanco es digital: el portal manda `0`/`1` y el firmware evalúa `> 0`.
-- **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara, la blanca**; los espectros azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Luz Blanca** va destacada al frente (la "lámpara principal") y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"**, ambos **dentro de un mismo recuadro** (la sección *Iluminación*). La jerarquía la da la **tipografía** (tamaño/peso/color), no recuadros distintos por bloque. El colapsable se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledAzul`/`ledRojo` sliders 0–100, `ledBlanco` toggle 0/1) conservan su contrato con el firmware.
+- PWM: 1 kHz, 8 bits (duty 0–255) en azul y rojo; se envían como 0–100 % y se escalan internamente. La lámpara es digital: el portal manda `0`/`1` y el firmware evalúa `> 0`.
+- **Jerarquía de iluminación (producto):** el hardware principal contempla **una sola lámpara con control ON/OFF** (pin *Lámpara*), lo que permite usar lámparas de cultivo comerciales; los canales PWM azul y rojo son un extra para el cultivador avanzado, no el control primario. El portal refleja esto en la vista `edit`: la **Lámpara** va destacada al frente (el control principal) y **Azul/Rojo** viven en un bloque colapsable **"Espectros avanzados (opcional)"**, ambos **dentro de un mismo recuadro** (la sección *Iluminación*). La jerarquía la da la **tipografía** (tamaño/peso/color), no recuadros distintos por bloque. El colapsable se auto-expande si el cultivo ya tiene azul o rojo > 0. Es solo presentación: los tres campos (`ledAzul`/`ledRojo` sliders 0–100, `lampara` toggle 0/1) conservan su contrato con el firmware.
 - RTC externo **DS3231** por I²C (dirección `0x68`); la hora se sincroniza desde el navegador en `/newparams`.
 
 ---
@@ -953,12 +953,12 @@ Los campos de LED **no se llaman igual** en los dos contratos:
 |---|---|
 | `ledAzul` (0–100) | `led_a` |
 | `ledRojo` (0–100) | `led_r` |
-| `ledBlanco` (0/1) | `led_b` |
+| `lampara` (0/1) | `led_b` |
 
 El backend define `led_a/led_r/led_b` en `models.py`, `schema.sql`, la migración
 `001_initial_schema.py` y los routers (`devices.py` valida `led_b` como `ge=0, le=1`, igual
 que el firmware). **Cuando se implemente el envío de configuración al backend habrá que
-mapear explícitamente** `ledAzul→led_a`, `ledRojo→led_r`, `ledBlanco→led_b`, o renombrar las
+mapear explícitamente** `ledAzul→led_a`, `ledRojo→led_r`, `lampara→led_b`, o renombrar las
 columnas con una migración. Hoy no hay incompatibilidad activa: el firmware todavía no envía
 configuración al backend.
 

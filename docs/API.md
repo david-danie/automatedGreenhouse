@@ -115,7 +115,7 @@ Estado del dispositivo. Es la primera llamada que hace el front para decidir qu�
 | `fpOff` | 0–23 | Hora de apagado del fotoperiodo |
 | `ledAzul` | 0–100 | Espectro azul (%) |
 | `ledRojo` | 0–100 | Espectro rojo (%) |
-| `ledBlanco` | 0 / 1 | Luz blanca ON/OFF (ver [nota sobre `ledBlanco`](#nota-sobre-ledblanco)) |
+| `lampara` | 0 / 1 | Lámpara ON/OFF (ver [nota sobre `lampara`](#nota-sobre-lampara)) |
 | `irrH` | horas | Intervalo de riego (ver [nota de frecuencias](#nota-de-frecuencias)) |
 | `irrM` | 0–59 | Duración del riego (min) |
 | `ventH` | horas | Intervalo de ventilación |
@@ -203,7 +203,7 @@ Guarda los parámetros del cultivo y sincroniza el RTC. **Requiere token.** Los 
 | Handler | `handleNewParameters` → `Plant::validateCropParameters` |
 
 Todas las claves son obligatorias. La ausencia de una de las **11 claves de cultivo**
-(`planta`, `enable`, `fpOn`, `fpOff`, `ledAzul`, `ledRojo`, `ledBlanco`, `irrH`, `irrM`,
+(`planta`, `enable`, `fpOn`, `fpOff`, `ledAzul`, `ledRojo`, `lampara`, `irrH`, `irrM`,
 `ventH`, `ventM`) devuelve `MISSING_FIELDS`; la ausencia de `token` devuelve
 `INVALID_SESSION`. Las **7 claves de fecha/hora** (`seg`, `min`, `hr`, `diaSem`, `dia`,
 `mes`, `anio`) no se comprueban por presencia: si faltan, fallan la validación de tipo y
@@ -219,7 +219,7 @@ devuelven el `INVALID_*_FORMAT` correspondiente.
 | `fpOff` | 0–23 | El ciclo puede cruzar medianoche |
 | `ledAzul` | 0–100 | Espectro azul (%) |
 | `ledRojo` | 0–100 | Espectro rojo (%) |
-| `ledBlanco` | 0 / 1 | Luz blanca ON/OFF (**estricto**: cualquier otro valor → `INVALID_WHITE_LED_VALUE`) |
+| `lampara` | 0 / 1 | Lámpara ON/OFF (**estricto**: cualquier otro valor → `INVALID_LAMP_VALUE`) |
 | `irrH` | `validFrequencies` | Intervalo en horas |
 | `irrM` | 0–59 | Duración en minutos. **Debe ser ≥ 1 si `irrH > 0`** (ver [nota de duración](#nota-sobre-frecuencia-y-duración)) |
 | `ventH` | `validFrequencies` | Intervalo en horas |
@@ -249,7 +249,7 @@ devuelven el `INVALID_*_FORMAT` correspondiente.
 {
   "planta": "Albahaca", "enable": true,
   "fpOn": 18, "fpOff": 6,
-  "ledAzul": 70, "ledRojo": 45, "ledBlanco": 1,
+  "ledAzul": 70, "ledRojo": 45, "lampara": 1,
   "irrH": 3, "irrM": 15, "ventH": 4, "ventM": 20,
   "token": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
   "seg": 15, "min": 30, "hr": 10,
@@ -461,17 +461,19 @@ El OSF es el que distingue una hora real de un valor por defecto: un DS3231 sin 
 
 ---
 
-## Nota sobre `ledBlanco`
+## Nota sobre `lampara`
 
-El LED blanco está en **GPIO 0 como salida digital**, no como canal PWM: solo tiene dos estados.
+La lámpara es el **control principal de iluminación**. Está en **GPIO 0 como salida digital**, no como canal PWM: solo tiene dos estados (encendida/apagada). Eso permite usar lámparas de cultivo comerciales que se manejen con un control ON/OFF simple, a través de la etapa de potencia (relé/contactor; ver [`HARDWARE.md`](HARDWARE.md)). Los canales PWM azul y rojo son un extra para quien quiera controlar esos espectros con precisión.
+
+> **Cambio de nombre:** esta clave se llamaba `ledBlanco` y el error `INVALID_WHITE_LED_VALUE`. Un cliente que aún envíe `ledBlanco` recibe `MISSING_FIELDS`.
 
 - El portal envía `0` o `1`.
-- El firmware **exige** `0` o `1`: cualquier otro valor se rechaza con `INVALID_WHITE_LED_VALUE` (400). La validación tiene su propio estado, separado de `INVALID_LED_VALUE`, que cubre solo los espectros azul y rojo.
-- Internamente se guarda tal cual en `_systemStatus[whiteLedOn]` y se aplica con **lógica directa**: `deviceOn` (nivel alto) enciende. La polaridad de todas las salidas ON/OFF está centralizada en `deviceOn`/`deviceOff` (`Constants.h`). `/getparams` siempre devuelve `0` o `1`.
+- El firmware **exige** `0` o `1`: cualquier otro valor se rechaza con `INVALID_LAMP_VALUE` (400). La validación tiene su propio estado, separado de `INVALID_LED_VALUE`, que cubre solo los espectros azul y rojo.
+- Internamente se guarda tal cual en `_systemStatus[lampOn]` y se aplica con **lógica directa**: `deviceOn` (nivel alto) enciende. La polaridad de todas las salidas ON/OFF está centralizada en `deviceOn`/`deviceOff` (`Constants.h`). `/getparams` siempre devuelve `0` o `1`.
 
 Los canales azul (`ledAzul`) y rojo (`ledRojo`) sí son PWM y usan el rango 0–100 % completo, escalado internamente a 0–255.
 
-> **Nombres y contrato:** las claves son `ledAzul`, `ledRojo` (`0–100`, PWM) y `ledBlanco` (`0/1` estricto, salida digital). `ledBlanco` distinto de `0/1` devuelve `INVALID_WHITE_LED_VALUE`. Cualquier otro nombre de clave produce `MISSING_FIELDS` (falta una obligatoria).
+> **Nombres y contrato:** las claves son `ledAzul`, `ledRojo` (`0–100`, PWM) y `lampara` (`0/1` estricto, salida digital). `lampara` distinto de `0/1` devuelve `INVALID_LAMP_VALUE`. Cualquier otro nombre de clave produce `MISSING_FIELDS` (falta una obligatoria).
 
 ---
 
@@ -540,7 +542,7 @@ Definido en `buildHttpResponse()` (`Plant.cpp`).
 | `INVALID_IRRIGATION_DURATION` | 400 | Con el riego activo la duración debe ser de al menos 1 minuto. Para desactivarlo, elige la frecuencia 'Apagado'. |
 | `INVALID_VENTILATION_DURATION` | 400 | Con la ventilación activa la duración debe ser de al menos 1 minuto. Para desactivarla, elige la frecuencia 'Apagado'. |
 | `INVALID_LED_VALUE` | 400 | Los espectros azul y rojo deben estar entre 0 y 100%. |
-| `INVALID_WHITE_LED_VALUE` | 400 | La luz blanca solo acepta 0 (apagada) o 1 (encendida). |
+| `INVALID_LAMP_VALUE` | 400 | La lámpara solo acepta 0 (apagada) o 1 (encendida). |
 
 ### Fecha y hora
 

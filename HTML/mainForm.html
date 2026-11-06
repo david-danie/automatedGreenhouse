@@ -362,7 +362,7 @@
         }
 
         /* Campo de INTERRUPTOR (checkbox): label a la izquierda, control a la
-           derecha, en una fila. Aplica a enable y a la luz blanca. */
+           derecha, en una fila. Aplica a enable y a la lámpara. */
         .field:has(input[type="checkbox"]) {
             flex-direction: row;
             align-items: center;
@@ -489,7 +489,7 @@
 
         /* "Espectro avanzado (opcional)": desplegable subordinado, SIN marco propio
            — vive dentro del recuadro de "Espectros de luz" (.spectrum-card). Solo
-           una línea superior lo separa de la luz blanca. */
+           una línea superior lo separa de la lámpara. */
         .spectrum-advanced {
             border-top: 1px solid var(--border, #d3e2cf);
             margin-top: 12px;
@@ -688,7 +688,7 @@
             min-width: 0;
             margin-bottom: 14px;
         }
-        /* Recuadro que agrupa los tres espectros (blanco + azul/rojo). */
+        /* Recuadro que agrupa la iluminación (lámpara + espectro azul/rojo). */
         .spectrum-card {
             background: var(--surface-2, #f4f8f2);
             border: 1px solid var(--border, #d3e2cf);
@@ -737,7 +737,7 @@
         }
         .dash-dot.is-blue  { background: var(--accent, #2196f3); }
         .dash-dot.is-red   { background: var(--secondary, #e5533d); }
-        .dash-dot.is-white { background: var(--surface, #fff); border: 1px solid var(--text-dim, #5c6f5a); }
+        .dash-dot.is-lamp { background: var(--surface, #fff); border: 1px solid var(--text-dim, #5c6f5a); }
         /* Punto AL LADO del valor (fila), no encima. */
         .dash-spectrum-top {
             display: inline-flex;
@@ -1021,10 +1021,10 @@
                     <div class="dash-spectrum">
                         <div class="dash-spectrum-col">
                             <span class="dash-spectrum-top">
-                                <span class="dash-dot is-white"></span>
-                                <span class="dash-stat-value"><strong id="dashLedB">—</strong></span>
+                                <span class="dash-dot is-lamp"></span>
+                                <span class="dash-stat-value"><strong id="dashLamp">—</strong></span>
                             </span>
-                            <span class="dash-stat-label">Blanco</span>
+                            <span class="dash-stat-label">Lámpara</span>
                         </div>
                         <div class="dash-spectrum-col">
                             <span class="dash-spectrum-top">
@@ -1140,18 +1140,20 @@
 
                 <div class="dash-block">
                     <h3>Espectros de luz</h3>
-                    <!-- Jerarquía: la luz blanca es el control PRINCIPAL (ON/OFF,
-                         salida digital en el firmware). El azul y el rojo son PWM
-                         avanzados y opcionales; van agrupados en un desplegable
-                         para no abrumar al usuario común, que solo prende el blanco.
+                    <!-- Jerarquía: la LÁMPARA es el control PRINCIPAL (ON/OFF,
+                         salida digital en el firmware): sirve con cualquier lámpara
+                         de cultivo que se maneje con un control ON/OFF. El azul y el
+                         rojo son PWM avanzados y opcionales; van agrupados en un
+                         desplegable para no abrumar al usuario común, que solo
+                         enciende y apaga la lámpara.
                          A diferencia del resto de secciones, los espectros SÍ van
                          dentro de un recuadro (.spectrum-card) que los agrupa. -->
                     <div class="spectrum-card">
                         <div class="field">
-                            <!-- El blanco es una salida ON/OFF en el firmware (no PWM):
+                            <!-- La lámpara es una salida ON/OFF en el firmware (no PWM):
                                  por eso es un interruptor y no un deslizador. -->
-                            <label for="ledBlanco">Luz blanca</label>
-                            <input type="checkbox" id="ledBlanco" name="ledBlanco">
+                            <label for="lampara">Lámpara</label>
+                            <input type="checkbox" id="lampara" name="lampara">
                         </div>
                         <details class="spectrum-advanced">
                             <summary>Espectro avanzado (opcional)</summary>
@@ -1647,7 +1649,7 @@
             }
             $("dashLedA").textContent = (p.ledAzul ?? 0) + "%";
             $("dashLedR").textContent = (p.ledRojo ?? 0) + "%";
-            $("dashLedB").textContent = Number(p.ledBlanco) > 0 ? "Encendida" : "Apagada";
+            $("dashLamp").textContent = Number(p.lampara) > 0 ? "Encendida" : "Apagada";
             $("dashRiego").innerHTML = fraseFrecuencia(p.irrH, p.irrM);
             $("dashVent").innerHTML = fraseFrecuencia(p.ventH, p.ventM);
 
@@ -1690,7 +1692,7 @@
             $("fpOff").value = sinConfig ? "" : (p.fpOff ?? "");
             $("ledAzul").value = p.ledAzul ?? 0;
             $("ledRojo").value = p.ledRojo ?? 0;
-            $("ledBlanco").checked = Number(p.ledBlanco) > 0;
+            $("lampara").checked = Number(p.lampara) > 0;
             $("irrH").value = p.irrH ?? 0;
             $("irrM").value = sinConfig ? "" : (p.irrM ?? "");
             $("ventH").value = p.ventH ?? 0;
@@ -1993,7 +1995,7 @@
                 fpOff: Number($("fpOff").value),
                 ledAzul: Number($("ledAzul").value),
                 ledRojo: Number($("ledRojo").value),
-                ledBlanco: $("ledBlanco").checked ? 1 : 0,   // blanco = ON/OFF
+                lampara: $("lampara").checked ? 1 : 0,   // lámpara = ON/OFF
                 irrH: Number($("irrH").value),
                 irrM: Number($("irrM").value),
                 ventH: Number($("ventH").value),

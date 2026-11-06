@@ -19,7 +19,7 @@ Controlador **embebido** para cultivo indoor sobre **ESP32-C3**: regula iluminac
 ## CONTENIDO
 
 * [QUÉ CONTROLA Y CÓMO.](#qué-controla-y-cómo)
-  - [ILUMINACIÓN.](#iluminación-por-espectro)
+  - [ILUMINACIÓN.](#iluminación)
   - [RIEGO.](#riego)
   - [VENTILACIÓN / EXTRACCIÓN.](#ventilación--extracción)
 * [CONFIGURACIÓN DISPONIBLE.](#configuración-disponible)
@@ -42,25 +42,30 @@ SmartPlant automatiza las tres tareas básicas de un cultivo protegido: **luz, r
 
 </div>
 
-#### ILUMINACIÓN POR ESPECTRO.
+#### ILUMINACIÓN.
 
 <div align="justify">
 
-Dentro del espectro solar, la radiación fotosintéticamente activa (PAR) —sobre todo los tonos **azul** y **rojo**— es la que más influye en el desarrollo de la planta. El sistema controla **2 canales PWM** (azul y rojo) a 1 kHz / 8 bits para regular la intensidad de cada espectro de forma granular, más un **canal digital ON/OFF** para el blanco. El **fotoperiodo es configurable y admite cruce de medianoche** (p. ej. encender a las 18:00 y apagar a las 06:00).
+La iluminación se maneja con **un pin principal y dos opcionales**:
+
+- **Lámpara (GPIO 0) — el control principal, ON/OFF.** Enciende y apaga la lámpara de cultivo según el **fotoperiodo** configurado, que admite cruce de medianoche (p. ej. encender a las 18:00 y apagar a las 06:00). Al ser un control ON/OFF simple, permite usar **una gran variedad de lámparas de cultivo disponibles en el mercado** que se manejen con ese tipo de control, conmutadas por la etapa de potencia (relé/contactor, ver [`docs/HARDWARE.md`](docs/HARDWARE.md)).
+- **Espectro azul y rojo (GPIO 1 y 2) — opcional, para usuarios avanzados.** Dos **canales PWM** (1 kHz, 8 bits) regulan la intensidad del LED azul y del rojo de forma granular (0–100 %), para quien quiera controlar con más precisión estos espectros. Son los tonos de la radiación fotosintéticamente activa (PAR) que más influyen en el desarrollo de la planta.
+
+La lámpara y los dos canales PWM comparten la misma ventana de fotoperiodo, y si el reloj (RTC) no tiene una hora fiable el sistema apaga todo por seguridad.
 
 </div>
 
 <br>
 <table align="center">
   <tr>
-    <th>LEDs rojos y azules.</th>
-    <th>LEDs blancos.</th>
+    <th>Lámparas rojo/azul.</th>
+    <th>Lámparas blancas.</th>
     <th>Otras lámparas.</th>
   </tr>
 </table>
 <div align="center">
-  <img src="./docs/img/hyd_l.jpg" alt="LEDs rojos y azules" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
-  <img src="./docs/img/phi_lw.jpg" alt="LEDs blancos" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
+  <img src="./docs/img/hyd_l.jpg" alt="Lámparas LED rojo y azul" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
+  <img src="./docs/img/phi_lw.jpg" alt="Lámparas LED blancas" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
   <img src="./docs/img/phi_so.jpg" alt="Otras lámparas" width="100" height="150"/>
 </div>
 <br>
@@ -110,9 +115,9 @@ Todo se ajusta desde el portal y se **aplica en vivo**, sin reiniciar el disposi
 
 | Parámetro | Rango / opciones | Notas |
 |-----------|------------------|-------|
-| Espectro **azul** | 0–100 % | PWM; se escala a 0–255 en el firmware |
-| Espectro **rojo** | 0–100 % | PWM; se escala a 0–255 en el firmware |
-| Luz **blanca** | ON / OFF | Canal digital (sin regulación) |
+| **Lámpara** | ON / OFF | Control principal de iluminación; canal digital (sin regulación) |
+| Espectro **azul** *(avanzado, opcional)* | 0–100 % | PWM; se escala a 0–255 en el firmware |
+| Espectro **rojo** *(avanzado, opcional)* | 0–100 % | PWM; se escala a 0–255 en el firmware |
 | **Fotoperiodo** | Hora de encendido y apagado | Admite cruce de medianoche |
 | **Riego** — frecuencia | De cada hora a cada 2 semanas (`0` = apagado) | Intervalo en horas; scheduling desde el RTC |
 | **Riego** — duración | Minutos por ciclo | — |
@@ -140,7 +145,7 @@ El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo,
 
 | Componente | GPIO | Notas |
 |-----------|------|-------|
-| LED blanco | 0 | Salida digital (lógica directa) |
+| Lámpara | 0 | Salida digital (lógica directa) |
 | LED azul | 1 | PWM canal 1 |
 | LED rojo | 2 | PWM canal 2 |
 | Buzzer | 3 | Señalización sonora |

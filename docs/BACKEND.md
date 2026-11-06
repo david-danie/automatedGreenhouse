@@ -173,7 +173,7 @@ Registra la configuración vigente del cultivo. Las llaves **espejan las del fir
 `201` → `{ "config_id": 88, "applied_at": "2026-08-24T17:04:00-06:00" }`
 
 Inserta una fila nueva en `device_configs`; **no** actualiza la anterior (es un histórico).
-`led_b` es `0`/`1`: el LED blanco del firmware es ON/OFF, no PWM.
+`led_b` es `0`/`1`: la lámpara del firmware (clave `lampara`) es ON/OFF, no PWM.
 
 #### `POST /devices/{id}/telemetry`
 

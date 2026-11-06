@@ -51,7 +51,7 @@ An **end-to-end embedded system** built under real hardware constraints
 ## 🔌 Features
 
 - 📶 **Wi-Fi captive portal** (AP "SmartPlant" with WPA2): configure it from any browser, nothing to install.
-- 💡 **Spectrum lighting** (blue / red via PWM, white ON/OFF), with a photoperiod that can cross midnight.
+- 💡 **Lighting**: a main **Lamp** output (ON/OFF, works with commercial grow lamps that use simple ON/OFF control) plus two optional PWM channels (blue / red) for advanced users, driven by a photoperiod that can cross midnight.
 - 💧 **Irrigation and ventilation** scheduled by interval (from hourly to weekly).
 - 🕒 **External DS3231 RTC**: time is synced from the browser.
 - 🌐 **User Wi-Fi connectivity** (conditional AP+STA mode) to enable cloud/telemetry later.
@@ -102,12 +102,12 @@ in a single HTML file; the firmware exposes a JSON API and applies config instan
 
 | Component | GPIO | Notes |
 |-----------|------|-------|
-| White LED | 0 | digital output (active-low) |
+| Lamp | 0 | digital output (direct logic: HIGH = on) |
 | Blue LED | 1 | PWM channel 1 |
 | Red LED | 2 | PWM channel 2 |
 | Buzzer | 3 | Audible signaling |
-| Fan | 7 | relay (active-low) |
-| Water pump | 10 | relay (active-low) |
+| Fan | 7 | relay (direct logic: HIGH = on) |
+| Water pump | 10 | relay (direct logic: HIGH = on) |
 | DS3231 RTC | I²C `0x68` | external clock |
 
 PWM at 1 kHz, 8-bit (0–255); spectra are sent 0–100 % and scaled internally.

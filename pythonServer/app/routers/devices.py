@@ -103,7 +103,7 @@ async def provision(body: ProvisionRequest, db: AsyncSession = Depends(get_db)):
 
 class ConfigRequest(BaseModel):
     """Config vigente del cultivo. Las llaves espejan las de /newparams del
-    firmware, en snake_case. `led_b` es 0/1 (el LED blanco es ON/OFF)."""
+    firmware, en snake_case. `led_b` es 0/1 (la lámpara es ON/OFF)."""
     planta: str
     enable: bool
     fp_on: int = Field(ge=0, le=23)
