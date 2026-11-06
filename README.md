@@ -46,12 +46,10 @@ SmartPlant automatiza las tres tareas básicas de un cultivo protegido: **luz, r
 
 <div align="justify">
 
-La iluminación se maneja con **un pin principal y dos opcionales**:
+El sistema ofrece dos niveles de control de iluminación:
 
-- **Lámpara (GPIO 0) — el control principal, ON/OFF.** Enciende y apaga la lámpara de cultivo según el **fotoperiodo** configurado, que admite cruce de medianoche (p. ej. encender a las 18:00 y apagar a las 06:00). Al ser un control ON/OFF simple, permite usar **una gran variedad de lámparas de cultivo disponibles en el mercado** que se manejen con ese tipo de control, conmutadas por la etapa de potencia (relé/contactor, ver [`docs/HARDWARE.md`](docs/HARDWARE.md)).
-- **Espectro azul y rojo (GPIO 1 y 2) — opcional, para usuarios avanzados.** Dos **canales PWM** (1 kHz, 8 bits) regulan la intensidad del LED azul y del rojo de forma granular (0–100 %), para quien quiera controlar con más precisión estos espectros. Son los tonos de la radiación fotosintéticamente activa (PAR) que más influyen en el desarrollo de la planta.
-
-La lámpara y los dos canales PWM comparten la misma ventana de fotoperiodo, y si el reloj (RTC) no tiene una hora fiable el sistema apaga todo por seguridad.
+- **Control de lámparas convencionales (GPIO 0):** permite encender y apagar una lámpara de cultivo mediante un horario programado (fotoperiodo, que admite cruzar la medianoche). Esto lo hace compatible con una gran variedad de lámparas disponibles en el mercado, sin necesidad de que tengan regulación de intensidad.
+- **Control independiente de espectros azul y rojo (opcional, GPIO 1 y 2):** para quienes buscan un mayor control sobre la iluminación, el sistema permite regular por separado la intensidad de los espectros azul y rojo (dimmer por PWM), adaptando la luz a las necesidades del cultivo.
 
 </div>
 
