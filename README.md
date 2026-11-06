@@ -72,7 +72,14 @@ El sistema ofrece dos niveles de control de iluminación:
 
 <div align="justify">
 
-El sistema generaliza el riego al **encendido/apagado de una bomba o electroválvula** por relé, aplicable a goteo, gravedad, NFT o aspersión. El encendido se decide con un **scheduling stateless** que recalcula los ciclos directamente desde el RTC (`epochHours % intervalo`): el riego se ejecuta correctamente incluso tras un corte de energía, sin depender de contadores persistidos.
+El sistema permite automatizar el riego mediante el encendido y apagado de una bomba o electroválvula, por lo que puede adaptarse a distintos métodos de riego, como goteo, gravedad, NFT o aspersión.
+
+La programación es flexible y permite ajustar dos aspectos de forma independiente:
+
+- **Frecuencia de riego:** define cada cuánto tiempo se activa el riego, desde intervalos de una hora hasta una vez por semana.
+- **Duración del riego:** establece cuántos minutos permanece activo el sistema en cada ciclo.
+
+Esta flexibilidad permite adaptar el funcionamiento a las características de cada instalación y a las necesidades del cultivo. Por ejemplo, un sistema con una bomba de alto caudal puede requerir riegos más cortos y espaciados, mientras que uno de goteo con menor caudal puede necesitar riegos más frecuentes.
 
 </div>
 
@@ -117,9 +124,9 @@ Todo se ajusta desde el portal y se **aplica en vivo**, sin reiniciar el disposi
 | Espectro **azul** *(avanzado, opcional)* | 0–100 % | PWM; se escala a 0–255 en el firmware |
 | Espectro **rojo** *(avanzado, opcional)* | 0–100 % | PWM; se escala a 0–255 en el firmware |
 | **Fotoperiodo** | Hora de encendido y apagado | Admite cruce de medianoche |
-| **Riego** — frecuencia | De cada hora a cada 2 semanas (`0` = apagado) | Intervalo en horas; scheduling desde el RTC |
+| **Riego** — frecuencia | De cada hora a una vez por semana (`0` = apagado) | Intervalo en horas; scheduling desde el RTC |
 | **Riego** — duración | Minutos por ciclo | — |
-| **Ventilación** — frecuencia | De cada hora a cada 2 semanas (`0` = apagado) | Intervalo en horas |
+| **Ventilación** — frecuencia | De cada hora a una vez por semana (`0` = apagado) | Intervalo en horas |
 | **Ventilación** — duración | Minutos por ciclo | — |
 | **Hora del dispositivo** | Fecha y hora | Se sincroniza desde el navegador al RTC DS3231 |
 | **Interruptor general** (`enable`) | ON / OFF | OFF inhibe todos los actuadores |
