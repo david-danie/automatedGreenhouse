@@ -14,8 +14,8 @@
 // Configuración actual: LÓGICA DIRECTA (el pin en alto enciende).
 // Si el hardware fuese de relés activos en bajo, basta intercambiar estas dos
 // líneas y TODO el firmware queda coherente.
-const uint8_t deviceOn  = HIGH;
-const uint8_t deviceOff = LOW;
+const uint8_t deviceOn  = LOW;
+const uint8_t deviceOff = HIGH;
 
 // Pines ESP32 DEV
 /*const byte lampPin = 2; // Cambia según tus conexiones
@@ -102,7 +102,7 @@ enum currentTime : uint8_t {
 // -> SUBIR ESTE VALOR en cada release que se vaya a distribuir por OTA.
 // (const char* const: puntero const, para que el header pueda incluirse en
 //  varias unidades de compilación sin colisión de símbolos en el enlazado.)
-const char* const firmwareVersion = "1.0.0";
+const char* const firmwareVersion = "1.0.1";
 
 // ===== Dirección del SoftAP =====
 // IP por defecto del SoftAP del ESP32 y única interfaz por la que se sirve el
