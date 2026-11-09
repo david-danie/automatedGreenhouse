@@ -266,15 +266,18 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
         - Si algo falla: reubicar esa señal a un GPIO no-strapping.
   [ ] POLARIDAD ACTIVA EN BAJO (firmware Arduino 1.0.1, commit be14ed7: deviceOn =
       LOW; replicada en el firmware IDF, sin compilar).
-      YA REPORTADO por el usuario: las salidas con opto (lámpara, bomba,
-      ventilador) funcionan activas en bajo en la placa (opto en sumidero). Falta:
-        - Buzzer con el circuito NUEVO (dos AO3400A, ver docs/HARDWARE.md): callado
-          en reposo y en el boot; suena en los pitidos. Es una PROPUESTA sin probar.
+      YA VERIFICADO en la placa: el LADO DE CONTROL (opto + LED indicador en
+      sumidero, +3.3 V -> 680 ohm -> LED -> GPIO): el LED indicador enciende con el
+      GPIO en bajo. El LADO DE POTENCIA y el buzzer AÚN NO están montados. Falta:
+        - Lado de potencia (fototransistor como seguidor de emisor -> 10k -> gate,
+          100k a GND_potencia, Zener 10 V BZX84C10, AO3400A): al montarlo, medir Vgs
+          con la bobina elegida (5 V: ~4.4 V; 12/24 V: ~10 V, NUNCA > 12 V) y que la
+          bobina se energice con el GPIO en bajo.
+        - Buzzer TMB12A05 con dos AO3400A (ver docs/HARDWARE.md): callado en reposo y
+          en el boot; suena en los pitidos.
         - Arranque en frío y reset: lámpara, bomba y ventilador APAGADOS todo el
           tiempo; vigilar un posible pulso al inicio de begin() (Arduino) o de
           actuators::begin() (IDF), y un posible chasquido del buzzer al energizar.
-        - LED indicador de cada salida (sumidero: +3.3 V -> 680 ohm -> LED -> GPIO):
-          confirmar que así está cableado y que enciende con la salida activa.
         - Firmware IDF: repetir la prueba de salidas (lámpara, bomba, ventilador,
           buzzer) con deviceOn = 0.
         - Canales PWM azul/rojo: sin cambios (duty alto = más luz).
@@ -337,17 +340,20 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
       sigue siendo ese.
 
  Polaridad activa en bajo (firmware 1.0.1):
-  [ ] Buzzer: circuito activo en bajo con dos AO3400A documentado como PROPUESTA
-      (docs/HARDWARE.md). Montarlo, probarlo y, si cambia, actualizar el doc.
+  [ ] Montar el lado de potencia de las salidas digitales y el buzzer TMB12A05 tal
+      como están en docs/HARDWARE.md (diseño, sin montar) y, si algo cambia,
+      actualizar el doc. NOTA: la versión anterior del doc tenía el colector del
+      fototransistor al gate (pull-up 10k) y el emisor a tierra: eso INVIERTE la
+      señal (carga encendida en el arranque) y a 24 V superaba el Vgs máximo del
+      AO3400A (±12 V). No usar ese circuito.
   [ ] Arranque: dentro de begin() (Arduino) y actuators::begin() (IDF) el pin puede
       quedar un instante en bajo (= encendido) entre configurarlo como salida y la
       primera escritura de deviceOff. Escribir deviceOff ANTES de configurar la
       dirección lo evitaría (no medido; no aplicado para no tocar código sin la
       placa a mano).
-  [ ] Valor de la resistencia del opto (330 ohm en el diseño) y conexión del LED
-      indicador: confirmar contra la placa y corregir el doc si difieren.
-  [ ] docs/HARDWARE.md: el índice enlaza #conectividad pero esa sección perdió su
-      encabezado ("## Conectividad"), así que el ancla está rota. Preexistente.
+  [ ] Valor de la resistencia del opto (330 ohm en el diseño): confirmar contra la
+      placa y corregir el doc si difiere (la conexión del LED indicador ya está
+      verificada).
 
  Documentación:
   [ ] README.en.md: no tiene la reestructura del README en español (Qué controla
