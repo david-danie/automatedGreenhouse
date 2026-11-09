@@ -153,7 +153,7 @@ recrearlos a mano en cada máquina:
 Sensores de temperatura/humedad.
 
 Recordatorios de hardware para el PCB (el DISEÑO cerrado de la etapa de potencia
-—opto activo en alto + MOSFET + flyback + snubber RC— está en docs/HARDWARE.md):
+—opto en sumidero (activo en bajo) + MOSFET + flyback + snubber RC— está en docs/HARDWARE.md):
   - Desacoplo local: 100 nF cerca de los pines de alimentación y 10–100 µF cerca
     de la entrada de la placa (Espressif recomienda >=10 µF en la entrada).
   - Fusible en la línea de CA de los contactos: dimensionado según la carga, el
@@ -264,16 +264,19 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
         - GPIO 2 (PWM rojo): con el pull-down de 100k del gate el arranque debe ser
           normal; reiniciar varias veces con el MOSFET/LED conectado.
         - Si algo falla: reubicar esa señal a un GPIO no-strapping.
-  [ ] POLARIDAD ACTIVA EN BAJO (firmware Arduino 1.0.1, commit be14ed7:
-      deviceOn = LOW). Probar con las cargas de prueba conectadas:
-        - Reset y arranque en frío: lámpara, bomba y ventilador deben quedar
-          APAGADOS durante todo el arranque (vigilar un posible pulso al inicio
-          de begin()).
-        - Lámpara/bomba/ventilador encienden al activarse desde el portal y
-          apagan al desactivarse (no al revés).
-        - Buzzer: debe estar callado en reposo y sonar en los pitidos. Con el
-          circuito documentado (MOSFET activo en alto) lo esperado es lo
-          CONTRARIO.
+  [ ] POLARIDAD ACTIVA EN BAJO (firmware Arduino 1.0.1, commit be14ed7: deviceOn =
+      LOW; replicada en el firmware IDF, sin compilar).
+      YA REPORTADO por el usuario: las salidas con opto (lámpara, bomba,
+      ventilador) funcionan activas en bajo en la placa (opto en sumidero). Falta:
+        - Buzzer con el circuito NUEVO (dos AO3400A, ver docs/HARDWARE.md): callado
+          en reposo y en el boot; suena en los pitidos. Es una PROPUESTA sin probar.
+        - Arranque en frío y reset: lámpara, bomba y ventilador APAGADOS todo el
+          tiempo; vigilar un posible pulso al inicio de begin() (Arduino) o de
+          actuators::begin() (IDF), y un posible chasquido del buzzer al energizar.
+        - LED indicador de cada salida (sumidero: +3.3 V -> 680 ohm -> LED -> GPIO):
+          confirmar que así está cableado y que enciende con la salida activa.
+        - Firmware IDF: repetir la prueba de salidas (lámpara, bomba, ventilador,
+          buzzer) con deviceOn = 0.
         - Canales PWM azul/rojo: sin cambios (duty alto = más luz).
 
 ---- PENDIENTE DE DECIDIR (firmware IDF, no trabajado) ---------------------
@@ -333,27 +336,16 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
       (60-120 W), que ahora es OPCIONAL. Revisar si el criterio de la fuente
       sigue siendo ese.
 
- Polaridad activa en bajo (firmware Arduino 1.0.1):
-  [ ] Adaptar el hardware o revisar el firmware. docs/HARDWARE.md tiene un aviso;
-      los esquemáticos de salida digital y de buzzer siguen siendo ACTIVOS EN ALTO
-      (GPIO -> ánodo del opto con pull-down de 10k; GPIO -> gate con pull-down de
-      100k). Con ese circuito y este firmware, "apagado" (GPIO en alto) energiza la
-      carga. Falta redibujar los esquemáticos.
-        - Idea para las salidas con opto, SIN verificar contra el circuito real:
-          invertir el lado de control del PC817 (+3.3 V -> R 330 -> ánodo,
-          cátodo -> GPIO). GPIO en bajo enciende y, en alta impedancia
-          (reset/boot), el LED del opto no tiene retorno y queda APAGADO, sin
-          necesitar pull-down.
-  [ ] BUZZER: comparte deviceOn/deviceOff con las salidas de potencia, pero su
-      circuito es otro (N-MOSFET activo en alto). Decidir: (a) constantes propias
-      (buzzerOn/buzzerOff) o (b) cambiar su circuito a activo en bajo.
-  [ ] Arranque: antes de begin() los GPIO están en alta impedancia; con activo en
-      bajo el circuito externo debe mantener "apagado" en ese estado (p. ej. un
-      pull-up). Dentro de begin(), escribir deviceOff ANTES de pinMode(OUTPUT)
-      evitaría el instante en bajo (no medido).
-  [ ] PARIDAD IDF: firmware/main/Constants.h sigue en lógica directa (deviceOn = 1)
-      y versión "1.0.0"; el Arduino pasó a activo en bajo y 1.0.1. Decidir y
-      replicar (actuators.cpp usa deviceOn/deviceOff; mismo cuidado con el buzzer).
+ Polaridad activa en bajo (firmware 1.0.1):
+  [ ] Buzzer: circuito activo en bajo con dos AO3400A documentado como PROPUESTA
+      (docs/HARDWARE.md). Montarlo, probarlo y, si cambia, actualizar el doc.
+  [ ] Arranque: dentro de begin() (Arduino) y actuators::begin() (IDF) el pin puede
+      quedar un instante en bajo (= encendido) entre configurarlo como salida y la
+      primera escritura de deviceOff. Escribir deviceOff ANTES de configurar la
+      dirección lo evitaría (no medido; no aplicado para no tocar código sin la
+      placa a mano).
+  [ ] Valor de la resistencia del opto (330 ohm en el diseño) y conexión del LED
+      indicador: confirmar contra la placa y corregir el doc si difieren.
   [ ] docs/HARDWARE.md: el índice enlaza #conectividad pero esa sección perdió su
       encabezado ("## Conectividad"), así que el ancla está rota. Preexistente.
 
