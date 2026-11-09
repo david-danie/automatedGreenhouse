@@ -11,11 +11,19 @@
 // obligaba a cazarlos uno por uno con el riesgo de dejar alguno al revés —que en
 // la bomba significa regar cuando debería estar apagada—.
 //
-// Configuración actual: LÓGICA DIRECTA (el pin en alto enciende).
-// Si el hardware fuese de relés activos en bajo, basta intercambiar estas dos
-// líneas y TODO el firmware queda coherente.
-const uint8_t deviceOn  = HIGH;
-const uint8_t deviceOff = LOW;
+// Configuración actual: LÓGICA INVERTIDA, ACTIVA EN BAJO (el pin en BAJO enciende
+// y en ALTO apaga). Antes era lógica directa (alto enciende). La usan todas las
+// salidas ON/OFF: lámpara, bomba, ventilador y buzzer. Los canales PWM azul/rojo NO
+// dependen de esto (duty alto = más luz).
+// Si el hardware fuese activo en alto, basta intercambiar estas dos líneas y TODO
+// el firmware queda coherente.
+//
+// OJO con el estado seguro: con activo en bajo, "apagado" es nivel ALTO. Mientras
+// dura el reset y hasta que begin() configura los pines, los GPIO quedan en alta
+// impedancia, así que el circuito externo debe mantener las cargas apagadas en ese
+// estado (p. ej. con un pull-up). Ver docs/HARDWARE.md.
+const uint8_t deviceOn  = LOW;
+const uint8_t deviceOff = HIGH;
 
 // Pines ESP32 DEV
 /*const byte lampPin = 2; // Cambia según tus conexiones
@@ -102,7 +110,7 @@ enum currentTime : uint8_t {
 // -> SUBIR ESTE VALOR en cada release que se vaya a distribuir por OTA.
 // (const char* const: puntero const, para que el header pueda incluirse en
 //  varias unidades de compilación sin colisión de símbolos en el enlazado.)
-const char* const firmwareVersion = "1.0.0";
+const char* const firmwareVersion = "1.0.1";
 
 // ===== Dirección del SoftAP =====
 // IP por defecto del SoftAP del ESP32 y única interfaz por la que se sirve el
@@ -255,8 +263,8 @@ enum requestStatus {
 const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168};
 
 // Patrón de pitido del buzzer no bloqueante (ver Plant::buzzerBeep/buzzerUpdate).
-// El buzzer es ACTIVO (oscilador propio): solo se conmuta ON/OFF con la polaridad
-// de salida directa (deviceOn/deviceOff). buzzerBeepMs es la duración de cada
+// El buzzer es ACTIVO (oscilador propio): solo se conmuta ON/OFF con la misma
+// polaridad que las demás salidas ON/OFF (deviceOn/deviceOff). buzzerBeepMs es la duración de cada
 // fase ON y de cada fase OFF del tren de pitidos de confirmación.
 const uint16_t buzzerBeepMs = 330;   // 330 ms ON / 330 ms OFF por pitido
 

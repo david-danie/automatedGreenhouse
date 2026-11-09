@@ -104,7 +104,7 @@ Esta flexibilidad permite adaptar el funcionamiento a las características de ca
 
 <div align="justify">
 
-La calidad del aire influye en la temperatura y, por lo tanto, en el desarrollo del cultivo. El sistema controla un **relé** (lógica directa) para activar un ventilador o extractor en **intervalos configurables**, forzando la circulación de aire limpio y la salida del aire viciado.
+La calidad del aire influye en la temperatura y, por lo tanto, en el desarrollo del cultivo. El sistema controla un **relé** (activo en bajo) para activar un ventilador o extractor en **intervalos configurables**, forzando la circulación de aire limpio y la salida del aire viciado.
 
 </div>
 
@@ -150,12 +150,12 @@ El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo,
 
 | Componente | GPIO | Notas |
 |-----------|------|-------|
-| Lámpara | 0 | Salida digital (lógica directa) |
+| Lámpara | 0 | Salida digital (activa en bajo: `LOW` = encendido) |
 | LED azul | 1 | PWM canal 1 |
 | LED rojo | 2 | PWM canal 2 |
 | Buzzer | 3 | Señalización sonora |
-| Ventilador | 7 | Relé (lógica directa) |
-| Bomba de agua | 10 | Relé (lógica directa) |
+| Ventilador | 7 | Relé (activo en bajo: `LOW` = encendido) |
+| Bomba de agua | 10 | Relé (activo en bajo: `LOW` = encendido) |
 | RTC DS3231 | I²C `0x68` | Reloj externo para scheduling |
 
 <div align="justify">

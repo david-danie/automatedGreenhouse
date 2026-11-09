@@ -469,7 +469,7 @@ La lámpara es el **control principal de iluminación**. Está en **GPIO 0 como 
 
 - El portal envía `0` o `1`.
 - El firmware **exige** `0` o `1`: cualquier otro valor se rechaza con `INVALID_LAMP_VALUE` (400). La validación tiene su propio estado, separado de `INVALID_LED_VALUE`, que cubre solo los espectros azul y rojo.
-- Internamente se guarda tal cual en `_systemStatus[lampOn]` y se aplica con **lógica directa**: `deviceOn` (nivel alto) enciende. La polaridad de todas las salidas ON/OFF está centralizada en `deviceOn`/`deviceOff` (`Constants.h`). `/getparams` siempre devuelve `0` o `1`.
+- Internamente se guarda tal cual en `_systemStatus[lampOn]` y se aplica con **lógica activa en bajo**: `deviceOn` (hoy nivel bajo) enciende y `deviceOff` (nivel alto) apaga. La polaridad de todas las salidas ON/OFF está centralizada en `deviceOn`/`deviceOff` (`Constants.h`). `/getparams` siempre devuelve `0` o `1`.
 
 Los canales azul (`ledAzul`) y rojo (`ledRojo`) sí son PWM y usan el rango 0–100 % completo, escalado internamente a 0–255.
 
