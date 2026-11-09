@@ -6,12 +6,17 @@
 
 // Niveles lógicos de salida. En IDF no existen HIGH/LOW de Arduino; se definen
 // como 1/0 y se usan con gpio_set_level().
-// ===== Polaridad de las salidas ON/OFF (relés/contactores y lámpara) =====
-// El nivel que ENCIENDE vive SOLO aquí. Configuración actual: LÓGICA DIRECTA
-// (el pin en alto enciende). Si el hardware fuese activo en bajo, basta
-// intercambiar estas dos líneas y todo el firmware queda coherente.
-const uint32_t deviceOn  = 1;
-const uint32_t deviceOff = 0;
+// ===== Polaridad de las salidas ON/OFF (relés/contactores, lámpara y buzzer) =====
+// El nivel que ENCIENDE vive SOLO aquí. Configuración actual: LÓGICA INVERTIDA,
+// ACTIVA EN BAJO (el pin en BAJO enciende y en ALTO apaga), igual que el firmware
+// Arduino 1.0.1. La usan lámpara, bomba, ventilador y buzzer; los canales PWM
+// azul/rojo NO dependen de esto (duty alto = más luz). Si el hardware fuese activo
+// en alto, basta intercambiar estas dos líneas.
+// En reset los GPIO quedan en alta impedancia; los circuitos (opto en sumidero y
+// buzzer con inversor) están pensados para quedar apagados en ese estado
+// (ver docs/HARDWARE.md).
+const uint32_t deviceOn  = 0;
+const uint32_t deviceOff = 1;
 
 // ===== Pines (ESP32-C3) =====
 const int lampPin = 0;
@@ -71,7 +76,7 @@ enum currentTime : uint8_t {
 // ===== Versión del firmware =====
 // Constante de compilación (no NVS): cada binario reporta lo que realmente es.
 // SUBIR en cada release distribuido por OTA.
-const char* const firmwareVersion = "1.0.0";
+const char* const firmwareVersion = "1.0.1";
 
 // ===== Hash de la contraseña (PBKDF2-HMAC-SHA256) =====
 const uint8_t pwSaltBytes = 16;

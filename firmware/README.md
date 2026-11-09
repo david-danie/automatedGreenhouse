@@ -77,6 +77,11 @@ Aplicado en código, **sin compilar ni probar en hardware**:
 - **`/` acepta cualquier método**, como `server.on("/", handleRoot)` de Arduino:
   se registra con `HTTP_ANY` (el comodín de método de `esp_http_server`); en HEAD
   solo se envían las cabeceras.
+- **Polaridad de las salidas ON/OFF activa en bajo**, como el firmware Arduino 1.0.1
+  (`deviceOn = 0`, `deviceOff = 1` en `firmware/main/Constants.h`). La usan lámpara,
+  bomba, ventilador y buzzer, todos a través de `actuators.cpp`; los canales PWM no
+  cambian. La versión que reporta pasa a `1.0.1`. El hardware está descrito en
+  `docs/HARDWARE.md` § Polaridad de las salidas ON/OFF.
 
 Diferencia deliberada respecto a Arduino (IDF es más estricto):
 
@@ -93,12 +98,6 @@ Pendiente:
 - `/exit` en Arduino también acepta cualquier método (`server.on("/exit", handleExit)`);
   en IDF sigue siendo solo `GET`. El resto de rutas de la API sí son específicas de
   método en ambos firmwares.
-- **Polaridad de las salidas ON/OFF.** El firmware Arduino 1.0.1 pasó a **activo en bajo**
-  (`deviceOn = LOW`, commit `be14ed7`); este firmware IDF sigue en **lógica directa**
-  (`deviceOn = 1`, `firmware/main/Constants.h`) y en versión `1.0.0`. La documentación común
-  ya describe la versión activa en bajo. Hay que decidirlo y replicarlo
-  (`actuators.cpp` usa `deviceOn`/`deviceOff`), con el mismo cuidado con el buzzer que se
-  explica en `docs/HARDWARE.md` § Aviso de polaridad.
 
 ## Estructura
 

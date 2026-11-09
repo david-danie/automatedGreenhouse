@@ -57,6 +57,9 @@ void begin() {
     ledc_channel_config(&red);
 
     // ---- Salidas digitales ----
+    // Polaridad activa en bajo (deviceOn = 0): gpio_config() habilita el driver de salida
+    // con el registro en 0, es decir en nivel de "encendido", hasta la primera escritura de
+    // deviceOff. La ventana es muy corta (no medida); ver docs/HARDWARE.md.
     gpioOutput(lampPin);
     gpioOutput(waterPumpPin);
     gpioOutput(fanPin);
