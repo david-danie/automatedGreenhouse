@@ -264,6 +264,17 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
         - GPIO 2 (PWM rojo): con el pull-down de 100k del gate el arranque debe ser
           normal; reiniciar varias veces con el MOSFET/LED conectado.
         - Si algo falla: reubicar esa señal a un GPIO no-strapping.
+  [ ] POLARIDAD ACTIVA EN BAJO (firmware Arduino 1.0.1, commit be14ed7:
+      deviceOn = LOW). Probar con las cargas de prueba conectadas:
+        - Reset y arranque en frío: lámpara, bomba y ventilador deben quedar
+          APAGADOS durante todo el arranque (vigilar un posible pulso al inicio
+          de begin()).
+        - Lámpara/bomba/ventilador encienden al activarse desde el portal y
+          apagan al desactivarse (no al revés).
+        - Buzzer: debe estar callado en reposo y sonar en los pitidos. Con el
+          circuito documentado (MOSFET activo en alto) lo esperado es lo
+          CONTRARIO.
+        - Canales PWM azul/rojo: sin cambios (duty alto = más luz).
 
 ---- PENDIENTE DE DECIDIR (firmware IDF, no trabajado) ---------------------
   [ ] '/exit' en Arduino acepta cualquier método; en IDF sigue siendo solo GET.
@@ -322,10 +333,34 @@ Al cambiar de máquina: git pull antes de empezar, git push al terminar.
       (60-120 W), que ahora es OPCIONAL. Revisar si el criterio de la fuente
       sigue siendo ese.
 
+ Polaridad activa en bajo (firmware Arduino 1.0.1):
+  [ ] Adaptar el hardware o revisar el firmware. docs/HARDWARE.md tiene un aviso;
+      los esquemáticos de salida digital y de buzzer siguen siendo ACTIVOS EN ALTO
+      (GPIO -> ánodo del opto con pull-down de 10k; GPIO -> gate con pull-down de
+      100k). Con ese circuito y este firmware, "apagado" (GPIO en alto) energiza la
+      carga. Falta redibujar los esquemáticos.
+        - Idea para las salidas con opto, SIN verificar contra el circuito real:
+          invertir el lado de control del PC817 (+3.3 V -> R 330 -> ánodo,
+          cátodo -> GPIO). GPIO en bajo enciende y, en alta impedancia
+          (reset/boot), el LED del opto no tiene retorno y queda APAGADO, sin
+          necesitar pull-down.
+  [ ] BUZZER: comparte deviceOn/deviceOff con las salidas de potencia, pero su
+      circuito es otro (N-MOSFET activo en alto). Decidir: (a) constantes propias
+      (buzzerOn/buzzerOff) o (b) cambiar su circuito a activo en bajo.
+  [ ] Arranque: antes de begin() los GPIO están en alta impedancia; con activo en
+      bajo el circuito externo debe mantener "apagado" en ese estado (p. ej. un
+      pull-up). Dentro de begin(), escribir deviceOff ANTES de pinMode(OUTPUT)
+      evitaría el instante en bajo (no medido).
+  [ ] PARIDAD IDF: firmware/main/Constants.h sigue en lógica directa (deviceOn = 1)
+      y versión "1.0.0"; el Arduino pasó a activo en bajo y 1.0.1. Decidir y
+      replicar (actuators.cpp usa deviceOn/deviceOff; mismo cuidado con el buzzer).
+  [ ] docs/HARDWARE.md: el índice enlaza #conectividad pero esa sección perdió su
+      encabezado ("## Conectividad"), así que el ancla está rota. Preexistente.
+
  Documentación:
   [ ] README.en.md: no tiene la reestructura del README en español (Qué controla
       y cómo, Configuración, Estado -> ROADMAP). Solo se alinearon la lámpara
-      y la polaridad (lógica directa).
+      y la polaridad (activa en bajo, igual que el firmware 1.0.1).
   [ ] README.md: la sección de Ventilación conserva la redacción anterior
       (iluminación y riego ya están reescritas).
   [ ] Duración de riego/ventilación: el portal y el firmware topan en 59 min

@@ -24,23 +24,35 @@ Definido en `ESP32_controller/Constants.h`.
 
 | Componente | GPIO | Tipo | Notas |
 |---|---|---|---|
-| Lámpara | 0 | Digital | Control principal de iluminación, ON/OFF. Lógica directa (`HIGH` = encendido) |
+| Lámpara | 0 | Digital | Control principal de iluminación, ON/OFF. Activa en bajo (`LOW` = encendido) |
 | LED azul | 1 | PWM canal 1 | 0–100 % desde el portal |
 | LED rojo | 2 | PWM canal 2 | 0–100 % desde el portal |
 | Buzzer | 3 | Digital | Señalización sonora no bloqueante (ver [vocabulario de pitidos](#vocabulario-de-pitidos)) |
-| Ventilador / extractor | 7 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
-| Bomba de agua | 10 | Contactor | Lógica directa (MOSFET → bobina de contactor) |
+| Ventilador / extractor | 7 | Contactor | Activo en bajo (`LOW` = encendido). Ver [aviso de polaridad](#aviso-de-polaridad-activa-en-bajo) |
+| Bomba de agua | 10 | Contactor | Activo en bajo (`LOW` = encendido). Ver [aviso de polaridad](#aviso-de-polaridad-activa-en-bajo) |
 | I²C SDA | 8 | I²C | Datos del bus I²C (DS3231) |
 | I²C SCL | 9 | I²C | Reloj del bus I²C (DS3231) |
 | RTC DS3231 | I²C `0x68` | — | Reloj externo para el scheduling (bus I²C en GPIO 8/9) |
 
-**Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `HIGH`/`LOW` (lógica directa). Si se cambia a módulos de relé activos en bajo, basta intercambiar esas dos líneas y todo el firmware queda coherente.
+**Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `LOW`/`HIGH` (**activo en bajo**: el pin en bajo enciende). Antes eran `HIGH`/`LOW` (lógica directa); el cambio llegó con la versión 1.0.1 del firmware Arduino. Si el hardware fuese activo en alto, basta intercambiar esas dos líneas y todo el firmware queda coherente. Las usan las cuatro salidas ON/OFF (lámpara, bomba, ventilador **y buzzer**); los canales PWM azul y rojo no dependen de ellas.
 
-**Estado inicial seguro:** `Plant::begin()` llama a `allDevicesOff()` antes de leer cualquier configuración, para que ningún actuador arranque energizado.
+**Estado inicial seguro:** `Plant::begin()` llama a `allDevicesOff()` antes de leer cualquier configuración, para que ningún actuador arranque energizado. Con la polaridad activa en bajo, "apagado" es nivel **alto**, y hay dos momentos en los que el firmware aún no lo garantiza: durante el reset y el arranque del chip, los GPIO están en alta impedancia (el circuito externo debe mantener las cargas apagadas), y dentro de `begin()` cada pin puede quedar brevemente en bajo (el registro de salida arranca en 0) entre su `pinMode(OUTPUT)` y la primera escritura de `deviceOff`; no se ha medido. Ver el aviso de abajo.
 
 **La inicialización de hardware NO va en el constructor:** `Plant planta;` es un objeto global, así que su constructor corre durante la inicialización estática de C++, antes de que el framework de Arduino termine de preparar los periféricos. Configurar GPIO o LEDC ahí puede fallar en silencio o quedar sobrescrito, dejando un pin como entrada flotante en lugar de salida firme; el síntoma típico es un relé o LED con **brillo débil** que no conmuta bien. Por eso `pinMode`, `ledcAttachChannel` y el estado inicial se hacen en `begin()`, invocado desde `setup()`.
 
 **Un solo canal digital para la lámpara:** la lámpara no tiene PWM asignado, así que solo admite ON/OFF; por eso sirve con lámparas de cultivo comerciales que se manejen con un control ON/OFF simple. Los canales PWM azul y rojo son opcionales, para quien quiera controlar esos espectros con más precisión. El portal envía `0` o `1` y el firmware evalúa `> 0`. Los espectros azul y rojo sí son regulables, que es donde la granularidad importa para el PAR.
+
+### Aviso de polaridad (activa en bajo)
+
+> **Pendiente de adaptar en el hardware.** Desde la versión 1.0.1 del firmware Arduino, las
+> salidas ON/OFF son **activas en bajo** (`deviceOn = LOW`). Los esquemáticos de
+> [salida digital](#esquemático--salida-digital-opto--mosfet--contactor) y de
+> [buzzer](#esquemático--buzzer-gpio-3) de este documento siguen describiendo la versión
+> **activa en alto** (GPIO → ánodo del opto, pull-down de 10 kΩ; GPIO → gate del MOSFET con
+> pull-down de 100 kΩ). Con ese circuito y este firmware, el estado "apagado" (GPIO en alto)
+> energizaría la carga, y el buzzer sonaría en reposo. Si el hardware ya es activo en bajo,
+> hay que actualizar esos esquemáticos; si no, hay que revisar la polaridad del firmware.
+> Los canales PWM azul y rojo no se ven afectados.
 
 ---
 
@@ -173,6 +185,9 @@ Aplica si las tiras/arreglos son de **voltaje constante a 24 V**. Un canal por c
 <!-- TODO: reemplazar el diagrama ASCII de abajo por la captura del esquemático real.
      ![Salida digital (control + potencia)](./img/salida_digital_sch.png) -->
 
+> ⚠ **Este esquemático describe la versión activa en alto.** El firmware 1.0.1 es activo en
+> bajo: ver el [aviso de polaridad](#aviso-de-polaridad-activa-en-bajo).
+
 Aplica a ventilador, bomba y lámpara (GPIO 7, 10, 0). Aislamiento galvánico: el opto
 separa el dominio de control (3.3 V, `GND_control`) del de potencia (`GND_potencia`).
 
@@ -275,6 +290,10 @@ Los dos dominios comparten SOLO el enlace óptico del PC817; sus tierras
 
 Buzzer **activo** (oscilador integrado: suena con solo aplicarle DC, tono fijo 2.4 kHz).
 Control ON/OFF, igual que una salida digital, en GPIO 3.
+
+> ⚠ **Este esquemático describe la versión activa en alto** (GPIO en alto → MOSFET conduce →
+> suena). El buzzer usa `deviceOn`/`deviceOff`, así que con el firmware 1.0.1 (activo en bajo)
+> sonaría en reposo y callaría al pitar. Ver el [aviso de polaridad](#aviso-de-polaridad-activa-en-bajo).
 
 <!-- TODO: reemplazar el diagrama ASCII de abajo por la captura del esquemático real.
      ![Buzzer](./img/buzzer_sch.png) -->
