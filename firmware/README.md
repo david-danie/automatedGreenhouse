@@ -93,6 +93,12 @@ Pendiente:
 - `/exit` en Arduino también acepta cualquier método (`server.on("/exit", handleExit)`);
   en IDF sigue siendo solo `GET`. El resto de rutas de la API sí son específicas de
   método en ambos firmwares.
+- **Polaridad de las salidas ON/OFF.** El firmware Arduino 1.0.1 pasó a **activo en bajo**
+  (`deviceOn = LOW`, commit `be14ed7`); este firmware IDF sigue en **lógica directa**
+  (`deviceOn = 1`, `firmware/main/Constants.h`) y en versión `1.0.0`. La documentación común
+  ya describe la versión activa en bajo. Hay que decidirlo y replicarlo
+  (`actuators.cpp` usa `deviceOn`/`deviceOff`), con el mismo cuidado con el buzzer que se
+  explica en `docs/HARDWARE.md` § Aviso de polaridad.
 
 ## Estructura
 
