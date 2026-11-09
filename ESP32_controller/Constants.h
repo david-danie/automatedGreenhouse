@@ -20,8 +20,8 @@
 //
 // OJO con el estado seguro: con activo en bajo, "apagado" es nivel ALTO. Mientras
 // dura el reset y hasta que begin() configura los pines, los GPIO quedan en alta
-// impedancia, así que el circuito externo debe mantener las cargas apagadas en ese
-// estado (p. ej. con un pull-up). Ver docs/HARDWARE.md.
+// impedancia; los circuitos (opto en sumidero y buzzer con inversor) están pensados
+// para quedar apagados en ese estado. Ver docs/HARDWARE.md.
 const uint8_t deviceOn  = LOW;
 const uint8_t deviceOff = HIGH;
 

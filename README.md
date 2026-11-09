@@ -153,7 +153,7 @@ El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo,
 | Lámpara | 0 | Salida digital (activa en bajo: `LOW` = encendido) |
 | LED azul | 1 | PWM canal 1 |
 | LED rojo | 2 | PWM canal 2 |
-| Buzzer | 3 | Señalización sonora |
+| Buzzer | 3 | Señalización sonora (activo en bajo: `LOW` = suena) |
 | Ventilador | 7 | Relé (activo en bajo: `LOW` = encendido) |
 | Bomba de agua | 10 | Relé (activo en bajo: `LOW` = encendido) |
 | RTC DS3231 | I²C `0x68` | Reloj externo para scheduling |
