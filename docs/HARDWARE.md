@@ -50,8 +50,9 @@ apaga. Los canales PWM azul y rojo no dependen de esto (duty alto = más luz).
 
 | Salida | Circuito | Estado |
 |---|---|---|
-| Lámpara, bomba y ventilador (GPIO 0, 10, 7) | Opto PC817 en **sumidero**: `+3.3 V → ánodo`, `cátodo → R → GPIO` | **Verificado en la placa** (reportado por el usuario) |
-| Buzzer (GPIO 3) | Dos AO3400A (inversor + interruptor) | **Propuesta, sin probar en la placa** (ver [esquemático](#esquemático--buzzer-gpio-3)) |
+| Lámpara, bomba y ventilador (GPIO 0, 10, 7) — lado de control | Opto PC817 y LED indicador en **sumidero**: `+3.3 V → ánodo`, `cátodo → R → GPIO` | **Verificado en la placa**: el LED indicador enciende con el GPIO en bajo |
+| Lámpara, bomba y ventilador — lado de potencia | Fototransistor como seguidor de emisor + Zener de 10 V + AO3400A (ver [esquemático](#esquemático--salida-digital-opto--mosfet--contactor)) | **Diseño, aún sin montar** |
+| Buzzer (GPIO 3) | TMB12A05 con dos AO3400A (inversor + interruptor) | **Diseño recomendado, aún sin montar** (ver [esquemático](#esquemático--buzzer-gpio-3)) |
 
 Con el GPIO en alta impedancia (reset y arranque), las salidas con opto quedan apagadas solas:
 sin camino de retorno no circula corriente por el LED del opto, así que no hace falta
@@ -105,7 +106,7 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 |---|---|---|
 | **Fuente única** | **24 VCD** | A 120 W, 24 V tira ~5 A vs ~10 A a 12 V → mitad de corriente, ¼ de pérdidas (I²R), pistas y conectores más chicos, menos calor. A >60 W las fuentes de 24 V son tan comunes como las de 12 V. Una sola fuente alimenta LEDs, bobinas de contactor y (vía buck) el MCU. |
 | **Dimensionado LED (canales PWM, opcional)** | Referencia de diseño: 60–120 W para 1–2 m², relación **5:1 azul:rojo, con azul predominante** | Azul ≈ 100 W (~4.2 A @ 24 V, canal fuerte); rojo ≈ 20 W (~0.85 A). Los canales se dimensionan al **peor caso: cada canal al 100 %**. Es solo una referencia: usar los canales PWM, y con qué potencia de LED, queda **a criterio del usuario**; la iluminación principal es la lámpara ON/OFF (GPIO 0). |
-| **Salidas digitales (vent/bomba/lámpara)** | **Opto PC817 + MOSFET lógico** acciona un **relé/contactor con bobina CD (5/12/24 V, a elección del usuario)**; **flyback** en la bobina y **snubber RC** en los contactos de CA | Aislamiento galvánico entre control (3.3 V) y potencia: el opto separa `GND_control` de `GND_potencia` (jumper opcional para fuente única). Mismo circuito para los tres voltajes de bobina. |
+| **Salidas digitales (vent/bomba/lámpara)** | **Opto PC817 en sumidero (activo en bajo) + MOSFET lógico** acciona un **relé/contactor con bobina CD (5/12/24 V, a elección del usuario)**; el fototransistor trabaja como **seguidor de emisor** (no invierte) y un **Zener de 10 V** protege el gate; **flyback** en la bobina y **snubber RC** en los contactos de CA | Aislamiento galvánico entre control (3.3 V) y potencia: el opto separa `GND_control` de `GND_potencia` (jumper opcional para fuente única). Mismo circuito para los tres voltajes de bobina. |
 | **PWM LED (azul, rojo)** | **MOSFET lógico N-channel directo** (sin opto) | A 1 kHz un optoacoplador común (PC817) deforma la señal. El MOSFET lógico conmuta directo desde 3.3 V. |
 | **MCU 3.3 V** | **Buck 24→5 V (→3.3 V)**, no lineal | Un lineal 24→3.3 disiparía demasiado; se usa un convertidor conmutado (p. ej. MP1584). |
 
@@ -122,17 +123,18 @@ decisiones de rediseño que sustituyen al SSR AQH2213 de la primera iteración.
 | Función | Componente | Notas |
 |---|---|---|
 | MOSFET canal PWM (azul/rojo) | **IRLZ44N** (TO-220) o **AOD4184** (DPAK, SMD) | Logic-level, margen de V y RDS(on) para el canal azul ~4.2 A @ 24 V. El AO3400A (30 V, ~5.7 A) se queda **justo** a 24 V y a 3.3 V de gate su RDS(on) sube: solo para cargas pequeñas. |
-| MOSFET bobina de contactor | **AO3400A** (SOT-23) | La bobina tira poco (<0.2 A típico); aquí el AO3400A sobra. Lo excita el opto (lado potencia). |
-| Optoacoplador (salidas digitales) | **PC817** (DIP-4 / SOP-4) | Aísla el GPIO (3.3 V) del dominio de potencia (bobina 5/12/24 VCD). **Activo en bajo (sumidero)**: `+3.3 V → ánodo`, `cátodo → R 330Ω → GPIO`; sin pull-down (con el GPIO en alta impedancia, en reset, el opto no conduce: apagado seguro). Salida: fototransistor + pull-up 10 kΩ a `+V_bobina` sobre el gate del MOSFET. **Tierras separadas** (jumper opcional para fuente única sin aislar). |
+| MOSFET bobina de contactor | **AO3400A** (SOT-23) | La bobina tira poco (<0.2 A típico); aquí el AO3400A sobra. Lo excita el opto como seguidor de emisor. Su Vgs máximo es **±12 V**, por eso el Zener del gate. |
+| Optoacoplador (salidas digitales) | **PC817** (DIP-4 / SOP-4) | Aísla el GPIO (3.3 V) del dominio de potencia (bobina 5/12/24 VCD). **Activo en bajo (sumidero)**: `+3.3 V → ánodo`, `cátodo → R 330Ω → GPIO`; sin pull-down (con el GPIO en alta impedancia, en reset, el opto no conduce: apagado seguro). Salida: fototransistor como **seguidor de emisor** (`colector → +V_bobina`, `emisor → 10 kΩ → gate`). **Tierras separadas** (jumper opcional para fuente única sin aislar). |
 | Diodo flyback (bobina) | **SS14** (Schottky SMD) o **1N4007** | **Obligatorio** en antiparalelo con la bobina CD: absorbe el pico inductivo (V=−L·di/dt) al cortar. Igual para 5/12/24 V. |
 | Snubber RC (contactos CA) | **100 Ω ≥2 W + 0.1 µF X2 275 VCA** (en serie) | En paralelo con los contactos del relé/contactor / la carga. Protege los contactos del arco al abrir un motor inductivo (≤1 HP, 120 VCA) y reduce EMI. |
-| Pull-up del gate (lado potencia) | **10 kΩ** a `+V_bobina` | El fototransistor del opto lo tira a `GND_potencia` (gate bajo) u open (pull-up sube el gate). |
-| Pull-down del gate (lado potencia) | **100 kΩ** gate→`GND_potencia` | Mantiene el MOSFET apagado cuando el opto no conduce. |
+| Resistencia serie del gate (lado potencia) | **10 kΩ** emisor→gate | Limita la corriente hacia el Zener (~1.4 mA a 24 V, dentro de lo que entrega el fototransistor) y, con el pull-down, fija ≈ 4.4 V de gate con bobina de 5 V. |
+| Pull-down del gate (lado potencia) | **100 kΩ** gate→`GND_potencia` | Descarga el gate y mantiene el MOSFET apagado cuando el opto no conduce. |
+| Zener de protección del gate | **BZX84C10** (10 V, SOT-23) | Cátodo al gate, ánodo a `GND_potencia`. Limita Vgs a ~10 V con bobinas de 12/24 V (AO3400A: máx. ±12 V). A 5 V no actúa. |
 | Convertidor MCU | Buck **24 V → 5 V** (MP1584 o equiv.) | De ahí al regulador 3.3 V. |
 | Fuente | **24 VCD, 150 W** (o 100 W si tope 60 W) | ~125 % de la carga máxima. |
-| LED indicador de salida | **LED + 680 Ω** | Uno por salida digital, en el **lado de control**, en sumidero igual que el opto (`+3.3 V → 680 Ω → LED → GPIO`: enciende con el GPIO en bajo, ~2–3 mA @ 3.3 V; por confirmar contra la placa). R fija: **independiente del voltaje de bobina** (5/12/24 V). Indica lo que pide el firmware. |
+| LED indicador de salida | **LED + 680 Ω** | Uno por salida digital, en el **lado de control**, en sumidero igual que el opto (`+3.3 V → 680 Ω → LED → GPIO`: enciende con el GPIO en bajo, ~2–3 mA @ 3.3 V; **verificado en la placa**). R fija: **independiente del voltaje de bobina** (5/12/24 V). Indica lo que pide el firmware. |
 | LED indicador de sistema | **LED + 680 Ω** | "24 V presente" en la fuente y, opcional, "3.3 V OK" tras el buck (~2 mA @ 3.3–5 V). |
-| Buzzer | **Activo magnético 5 V** (HYDZ 12 mm, DIP) | 2.4 kHz fijo, ~30 mA, 85 dB. Alimentado a 5 V, conmutado por **dos AO3400A** (inversor + interruptor, activo en bajo; mismo MOSFET que las bobinas) + flyback 1N4148, desde GPIO 3 (ver esquemático). Control no bloqueante (`buzzerBeep`/`buzzerUpdate`). |
+| Buzzer | **TMB12A05** (activo, 5 V, 12 mm, DIP) | 2300 ± 300 Hz, ≤ 30 mA, ≥ 85 dB a 10 cm. Alimentado a 5 V, conmutado por **dos AO3400A** (inversor + interruptor, activo en bajo; mismo MOSFET que las bobinas) + flyback 1N4148, desde GPIO 3 (ver esquemático). Control no bloqueante (`buzzerBeep`/`buzzerUpdate`). |
 
 ### Esquemático — canal PWM de LED (voltaje constante)
 
@@ -208,16 +210,16 @@ como simple traslado de señal). Abierto = aislado; cerrado = fuente única sin 
 ```
 LADO CONTROL (3.3 V, GND_control)       ┊ LADO POTENCIA (+V_bobina = 5/12/24 VCD, GND_potencia)
 -----------------------------------     ┊ --------------------------------------
-+3V3 ──┬─────────────┐                  ┊
++3V3 ──┬─────────────┐                  ┊ +Vb ── colector(4) PC817
+       │             │                  ┊        emisor(3) ──[10kΩ]──┬── Gate   AO3400A
+   ánodo(1)       [680Ω]                ┊                            ├──[100kΩ]─── GND_potencia
+  PC817 LED          │                  ┊                            └──[Zener 10V]─ GND_potencia
+   cátodo(2)      [LED ▼] ind.          ┊                              (cátodo del Zener al gate)
        │             │                  ┊
-   ánodo(1)       [680Ω]                ┊ +Vb ──[ BOBINA RELÉ/CONTACTOR ]── Drain
-  PC817 LED          │                  ┊        (flyback SS14/1N4007 ∥ bobina:
-   cátodo(2)      [LED ▼] ind.          ┊          cátodo→+Vb, ánodo→Drain)
-       │             │                  ┊
-    [330Ω]           │                  ┊ +Vb ──[10kΩ]─┬─► Gate   AO3400A
-       │             │                  ┊ colector(4) ─┘   Source ── GND_potencia
-       └──────┬──────┘                  ┊ emisor(3) ── GND_potencia
-              │                         ┊ [100kΩ] Gate → GND_potencia
+    [330Ω]           │                  ┊ +Vb ──[ BOBINA RELÉ/CONTACTOR ]── Drain  AO3400A
+       │             │                  ┊        (flyback SS14/1N4007 ∥ bobina:
+       └──────┬──────┘                  ┊          cátodo→+Vb, ánodo→Drain)
+              │                         ┊                        Source ── GND_potencia
             GPIO  (en BAJO enciende)    ┊
                                         ┊ (┊ = aislamiento óptico del PC817)
 
@@ -229,8 +231,12 @@ LADO CONTROL (3.3 V, GND_control)       ┊ LADO POTENCIA (+V_bobina = 5/12/24 V
 
 Lectura: **activo en BAJO** — `GPIO = 0` hace circular corriente desde +3.3 V por el LED del
 opto (pines 1-2) y por el LED indicador hasta el pin, que la absorbe; `GPIO = 1` los apaga. El
-fototransistor (pines 3-4), con el pull-up de 10 kΩ, pone el gate del MOSFET a `+V_bobina` →
-conduce y energiza la bobina. Todo el lado derecho está en `GND_potencia`.
+fototransistor (pines 3-4) trabaja como **seguidor de emisor**: cuando conduce, el emisor sube
+casi hasta `+V_bobina` y, a través de 10 kΩ, carga el gate del MOSFET → conduce y energiza la
+bobina. Cuando no conduce, el pull-down de 100 kΩ descarga el gate y la bobina queda apagada. La
+señal **no se invierte**: GPIO en bajo = carga encendida. Todo el lado derecho está en
+`GND_potencia`. **Estado:** lado de control verificado en la placa; lado de potencia es diseño,
+aún sin montar.
 
 - **Por qué activo en bajo (sumidero):** durante el boot/reset los GPIO del C3 quedan en alta
   impedancia. Con el cátodo del opto flotando no hay camino de retorno, no circula corriente y el
@@ -238,6 +244,15 @@ conduce y energiza la bobina. Todo el lado derecho está en `GND_potencia`.
   necesitar pull-down**. Con el GPIO en alto ambos extremos del LED están a 3.3 V y tampoco
   circula corriente. Coincide con `deviceOn = LOW` del firmware.
 - **Corriente del LED del opto:** `(3.3 − 1.2) / 330 ≈ 6 mA`, que el GPIO absorbe sin problema.
+- **Protección del gate (Zener 10 V):** el AO3400A admite como máximo **±12 V** entre gate y
+  source. Con bobina de 12 o 24 V el emisor queda por encima, así que el Zener (BZX84C10) entre
+  gate y `GND_potencia` lo limita a ~10 V; el 10 kΩ en serie limita su corriente (~1.4 mA a
+  24 V). Con bobina de 5 V el Zener no actúa y el gate queda en ≈ 4.4 V (divisor 10 kΩ/100 kΩ),
+  suficiente: el AO3400A tiene RDS(on) especificada a 4.5 V y la bobina pide < 0.2 A.
+- **Fototransistor a 24 V:** en reposo soporta todo `+V_bobina` entre colector y emisor; el
+  PC817 admite 35 V (VCEO), con margen a 24 V.
+- **Apagado:** el gate se descarga por el pull-down de 100 kΩ en decenas de µs, irrelevante
+  para una bobina de relé/contactor.
 
 - **Aislamiento:** el PC817 traslada la señal del GPIO al lado de potencia sin unir tierras.
   Para que aísle de verdad, `GND_control` y `GND_potencia` deben quedar **separadas** (jumper
@@ -251,8 +266,8 @@ conduce y energiza la bobina. Todo el lado derecho está en `GND_potencia`.
   (`+3.3 V → 680 Ω → LED → GPIO`): enciende cuando el firmware pide activar la salida (GPIO en
   bajo). Al estar a 3.3 V fijos, su resistencia **no cambia con el voltaje de la bobina**
   (resuelve la compatibilidad 5/12/24 V). Matiz: indica "qué pide el firmware", no "la bobina
-  recibió corriente" — suficiente para el estado del portal. *(Conexión por confirmar contra
-  la placa.)*
+  recibió corriente" — suficiente para el estado del portal. **Conexión verificada en la
+  placa.**
 - **Relé/contactor**: a criterio del usuario. Si conmuta un motor de CA (p. ej. 1 HP a 120 VCA),
   dimensionar sus contactos para ese inrush (AC-3). La bobina (5/12/24 VCD) define `+V_bobina`.
 
@@ -270,21 +285,22 @@ dominios de alimentación y todos los componentes. Las otras dos salidas digital
    │ GPIO en BAJO → circula corriente → opto y LED indicador encendidos  │
    │ GPIO en ALTO o alta impedancia → sin corriente → apagados           │
    └──────────────────────┊ aislamiento óptico ┊──────────────────────┘
-   ┌──────────────────────┊── DOMINIO POTENCIA (+Vb = 5/12/24 VCD · GND_potencia) ─┐
+   ┌──────────────────────┊── DOMINIO POTENCIA (+Vb = 5/12/24 VCD) ─────┐
    │                                                                    │
-   │   +Vb ──┬───────────────────────┬─────────────┐                    │
-   │         │                       │             │                    │
-   │   [BOBINA RELÉ/CONTACTOR]   [10kΩ pull-up]  LED "+Vb"               │
-   │         │  ▲                    │           +[R*]                   │
-   │         │  │ flyback            ▼                                   │
-   │         │  SS14             Gate ┌── AO3400A                        │
-   │         │  (cát→+Vb)             │   Drain ─► bobina(−)             │
-   │   PC817 colector(4) ────────────┘   Source ─ GND_potencia          │
-   │   PC817 emisor(3) ─ GND_potencia   [100kΩ] Gate→GND_potencia        │
+   │ +Vb ── colector(4) PC817                                           │
+   │        emisor(3) ──[10kΩ]──┬── Gate   AO3400A                      │
+   │                            ├──[100kΩ]─── GND_potencia              │
+   │                            └──[Zener 10V]─ GND_potencia            │
+   │                              (cátodo del Zener al gate)            │
    │                                                                    │
-   │   Contactos (aislados de la bobina):                               │
-   │   120 VCA L ──[contacto]── MOTOR bomba (≤1 HP) ── N                 │
-   │                  └──[R 100Ω 2W]+[C 0.1µF X2 275VCA]──┘  snubber RC  │
+   │ +Vb ──┬──[ BOBINA RELÉ/CONTACTOR ]──┬── Drain  AO3400A             │
+   │       └──────|◄── SS14 ─────────────┘   (flyback: cátodo→+Vb)      │
+   │                                     Source ── GND_potencia         │
+   │ +Vb ──[R*]──►|── LED "+Vb" ── GND_potencia   (opcional)            │
+   │                                                                    │
+   │ Contactos (aislados de la bobina):                                 │
+   │ 120 VCA L ──[contacto]── MOTOR bomba (≤1 HP) ── N                  │
+   │               └──[R 100Ω 2W]+[C 0.1µF X2 275VCA]──┘  snubber RC    │
    └────────────────────────────────────────────────────────────────────┘
 
    GND_control ──○╱○── GND_potencia   (jumper: abierto=aislado / cerrado=fuente única)
@@ -297,11 +313,12 @@ Los dos dominios comparten SOLO el enlace óptico del PC817; sus tierras
 
 ### Esquemático — buzzer (GPIO 3)
 
-Buzzer **activo** (oscilador integrado: suena con solo aplicarle DC, tono fijo 2.4 kHz).
+Buzzer **TMB12A05**: activo (oscilador integrado, suena con solo aplicarle DC), 5 V nominal,
+≤ 30 mA, 2300 ± 300 Hz, ≥ 85 dB a 10 cm.
 Control ON/OFF, igual que una salida digital, en GPIO 3.
 
 > **Activo en bajo** (GPIO en bajo → suena), igual que las demás salidas ON/OFF.
-> **Propuesta, sin probar en la placa.** Ver [Polaridad de las salidas ON/OFF](#polaridad-de-las-salidas-onoff-activa-en-bajo).
+> **Diseño recomendado, aún sin montar.** Ver [Polaridad de las salidas ON/OFF](#polaridad-de-las-salidas-onoff-activa-en-bajo).
 
 <!-- TODO: reemplazar la tabla de conexiones de abajo por la captura del esquemático real.
      ![Buzzer](./img/buzzer_sch.png) -->
@@ -313,7 +330,7 @@ Cadena: `GPIO 3 → 100 Ω → Q1 (inversor) → nodo N → Q2 (interruptor) →
 | **Q1** AO3400A (inversor) | Gate ← 100 Ω ← GPIO 3 y, además, gate → 100 kΩ → +3.3 V; Source → GND; Drain → nodo N |
 | **Nodo N** | 10 kΩ → +5 V; es la compuerta de Q2 |
 | **Q2** AO3400A (interruptor) | Gate = nodo N; Source → GND; Drain → buzzer (−) |
-| **Buzzer** activo 5 V | (+) → +5 V; (−) → Drain de Q2 |
+| **Buzzer** TMB12A05 | (+) → +5 V; (−) → Drain de Q2 (respetar la polaridad marcada en el buzzer) |
 | **D1** 1N4148 (flyback) | Cátodo → +5 V; ánodo → Drain de Q2 (en antiparalelo con el buzzer) |
 
 | GPIO 3 | Q1 | Nodo N | Q2 | Buzzer |
@@ -335,7 +352,9 @@ Cadena: `GPIO 3 → 100 Ω → Q1 (inversor) → nodo N → Q2 (interruptor) →
   buzzer callado, mientras el GPIO está en alta impedancia durante el boot.
 - **Flyback 1N4148** en antiparalelo con el buzzer (carga inductiva magnética): absorbe el
   pico al apagar.
-- A 3.3 V sonaría más débil (su óptimo es 5 V), por eso se alimenta del riel de 5 V del buck.
+- **Alimentación a 5 V:** es su voltaje nominal; a 3.3 V queda por debajo del rango de
+  operación que publican los vendedores (4–7 V), por eso se alimenta del riel de 5 V del buck.
+  Con ≤ 30 mA, el AO3400A (Q2) va muy holgado.
 - **Consumo en reposo:** con Q1 conduciendo, el pull-up de 10 kΩ gasta 0.5 mA del riel de 5 V.
 - **Al energizar:** mientras el riel de 3.3 V aún no sube, Q1 está apagado y el nodo N sube a
   5 V, así que el buzzer podría sonar unos milisegundos. No se ha medido.
@@ -388,6 +407,8 @@ usuario y de seguridad**.
 Los canales PWM no llevan LED indicador dedicado (el arreglo LED ya es su indicador).
 
 ---
+
+## Conectividad
 
 El ESP32-C3 aprovecha su Wi-Fi integrado en **modo AP+STA**:
 
