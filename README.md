@@ -2,7 +2,9 @@
 
 <div align="justify">
 
-Controlador **embebido** para cultivo indoor sobre **ESP32-C3**: regula iluminación por espectro, riego y ventilación, y se configura desde el celular mediante un portal Wi-Fi servido por el propio microcontrolador — sin app, sin nube obligatoria, sin frameworks de terceros. Nace con una motivación de fondo: avanzar hacia la **independencia alimentaria** con hortalizas adaptables a cultivo protegido.
+Controlador **embebido** para cultivo indoor basado en un **ESP32-C3**, diseñado para gestionar la iluminación, el riego y la ventilación de forma automatizada. Su configuración se realiza desde cualquier celular mediante un portal web alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
+
+El proyecto busca explorar cómo la tecnología puede facilitar la producción local y sustentable de hortalizas en espacios de cultivo controlado, con la intención de contribuir al abastecimiento de alimentos frescos en pequeñas comunidades y hogares, priorizando aquellas especies que mejor se adapten a este tipo de cultivo.
 
 </div>
 
