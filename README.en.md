@@ -4,9 +4,10 @@
 
 ### IoT crop controller on ESP32-C3 — firmware + captive portal
 
-*A device that controls spectrum lighting, irrigation and ventilation for a crop,
-configured from your phone through a Wi-Fi portal served by the microcontroller
-itself — no app, no mandatory cloud, no frameworks.*
+*An embedded automation controller for growing systems. It handles tasks such as
+switching lighting on and off, irrigation and ventilation, and is configured from
+your phone through a Wi-Fi portal served by the microcontroller itself — no app,
+no mandatory cloud, no frameworks.*
 
 `C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (in progress)`
 

@@ -2,9 +2,9 @@
 
 <div align="justify">
 
-Controlador **embebido** para cultivo indoor basado en un **ESP32-C3**, diseñado para gestionar la iluminación, el riego y la ventilación de forma automatizada. Su configuración se realiza desde cualquier celular mediante un portal web alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
+Controlador **embebido** de automatización para sistemas de cultivo, basado en un **ESP32-C3**, diseñado para gestionar de forma automatizada diferentes tareas, como el encendido y apagado de la iluminación, el riego y la ventilación. Su configuración se realiza desde cualquier celular mediante un portal web alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
 
-El proyecto busca explorar cómo la tecnología puede facilitar la producción local y sustentable de hortalizas en espacios de cultivo controlado, con la intención de contribuir al abastecimiento de alimentos frescos en pequeñas comunidades y hogares, priorizando aquellas especies que mejor se adapten a este tipo de cultivo.
+El proyecto busca explorar cómo la tecnología puede facilitar la producción local y sustentable de hortalizas en espacios de cultivo controlado, como invernaderos, huertos y pequeñas instalaciones domésticas. La intención es contribuir al abastecimiento de alimentos frescos en pequeñas comunidades y hogares, priorizando aquellas especies que mejor se adapten a las condiciones de cada entorno de cultivo.
 
 </div>
 
@@ -40,7 +40,7 @@ El proyecto busca explorar cómo la tecnología puede facilitar la producción l
 
 <div align="justify">
 
-SmartPlant automatiza las tres tareas básicas de un cultivo protegido: **luz, riego y aire**. Cada actuador se maneja desde el firmware del ESP32-C3 y se programa desde el portal web; no se requiere internet para operar.
+SmartPlant automatiza el encendido y apagado de la **iluminación**, el **riego** y la **ventilación**. Cada actuador se maneja desde el firmware del ESP32-C3 y se programa desde el portal web; no se requiere internet para operar.
 
 </div>
 
