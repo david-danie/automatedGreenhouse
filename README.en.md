@@ -1,83 +1,205 @@
-<div align="center">
-
-# 🌱 SmartPlant
-
-### IoT crop controller on ESP32-C3 — firmware + captive portal
-
-*An embedded automation controller for growing systems. It switches lighting,
-irrigation and ventilation on and off, and is configured from your phone through
-a web portal served by the microcontroller itself — no app, no mandatory cloud,
-no frameworks.*
-
-`C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (in progress)`
+# SmartPlant — IoT Crop Controller
 
 **English** · **[Español](README.md)**
 
+<div align="justify">
+
+**Embedded** automation controller for growing systems, based on an **ESP32-C3**, designed to manage the switching on and off of lighting, irrigation and ventilation. It is configured from any phone through a **web portal** hosted on the microcontroller itself, with no need to install apps or depend on cloud services or external frameworks.
+
+The project explores how technology can make the local, sustainable production of some vegetables easier in controlled growing spaces, such as greenhouses, gardens and small home setups. The aim is to contribute to the supply of fresh food in small communities and households, prioritizing the species that best suit the conditions of these growing methods.
+
+</div>
+
+<br>
+<div align="center">
+  <img src="./docs/img/descripcion.png" alt="General system diagram" width="675" height="345"/>
+</div>
 <br>
 
-![SmartPlant system overview](docs/img/descripcion.png)
+`C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (in progress)`
+
+---
+
+## CONTENTS
+
+* [WHAT IT CONTROLS AND HOW.](#what-it-controls-and-how)
+  - [LIGHTING.](#lighting)
+  - [IRRIGATION.](#irrigation)
+  - [VENTILATION / EXTRACTION.](#ventilation--extraction)
+* [AVAILABLE SETTINGS.](#available-settings)
+* [HARDWARE.](#hardware)
+* [THE PORTAL.](#the-portal)
+* [ARCHITECTURE AT A GLANCE.](#architecture-at-a-glance)
+* [HOW IT IS BUILT.](#how-it-is-built)
+* [BUILD AND USE.](#build-and-use)
+* [PROJECT STATUS.](#project-status)
+* [REPOSITORY STRUCTURE.](#repository-structure)
+* [DOCUMENTATION.](#documentation)
+
+---
+
+## WHAT IT CONTROLS AND HOW
+
+<div align="justify">
+
+SmartPlant automates the switching on and off of **lighting**, **irrigation** and **ventilation**. Each actuator is driven by the ESP32-C3 firmware and scheduled from the web portal; no internet connection is required to operate.
+
+</div>
+
+#### LIGHTING.
+
+<div align="justify">
+
+The system offers two levels of lighting control:
+
+- **Conventional lamp control (GPIO 0):** switches a grow lamp on and off on a programmed schedule (photoperiod, which can cross midnight). This makes it compatible with a wide variety of lamps on the market, such as fluorescent, LED or HPS.
+- **Independent blue and red spectrum control (optional, GPIO 1 and 2):** for more experienced users, the system can adjust the intensity of the blue and red spectra separately (PWM dimmer), adapting the light to the needs of the crop.
+
+</div>
+
+<br>
+<table align="center">
+  <tr>
+    <th>Red/blue lamps.</th>
+    <th>White lamps.</th>
+    <th>Other lamps.</th>
+  </tr>
+</table>
+<div align="center">
+  <img src="./docs/img/hyd_l.jpg" alt="Red and blue LED lamps" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
+  <img src="./docs/img/phi_lw.jpg" alt="White LED lamps" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
+  <img src="./docs/img/phi_so.jpg" alt="Other lamps" width="100" height="150"/>
+</div>
+<br>
+
+#### IRRIGATION.
+
+<div align="justify">
+
+Irrigation is programmed by switching a pump or solenoid valve (GPIO 10) on and off, with two parameters that can be set independently:
+
+- **Irrigation frequency:** how often irrigation starts, from every hour to once a week.
+- **Irrigation duration:** how many minutes the system stays on in each cycle.
+
+This flexibility allows irrigation to be adapted to each installation and to the needs of the crop (some irrigation methods may require short, frequent cycles, while others may need longer, more widely spaced ones). The cycles can therefore be adjusted to the method in use, whether drip, gravity, NFT or sprinkler, among others, optimizing both the frequency and the time of water supply.
+
+</div>
+
+<br>
+<table align="center">
+  <tr>
+    <th>&emsp;Drip.&emsp;</th>
+    <th>&emsp;Gravity.&emsp;</th>
+    <th>&emsp;NFT method.&emsp;</th>
+    <th>&emsp;Solenoid valve.&emsp;</th>
+  </tr>
+</table>
+<div align="center">
+  <img src="./docs/img/goteo.jpg" alt="Drip irrigation" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
+  <img src="./docs/img/grav1.jpg" alt="Gravity irrigation" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
+  <img src="./docs/img/NFT.jpg" alt="NFT method" width="100" height="150"/>&emsp;&emsp;&emsp;&emsp;
+  <img src="./docs/img/valve.jpg" alt="Solenoid valve" width="100" height="150"/>
+</div>
+<br>
+
+#### VENTILATION / EXTRACTION.
+
+<div align="justify">
+
+Air quality affects temperature and, therefore, crop development. The system controls a **relay** (active-low) that switches a fan or extractor on at **configurable intervals**, forcing the circulation of fresh air and the removal of stale air.
 
 </div>
 
 ---
 
-## ✨ What this project shows
+## AVAILABLE SETTINGS
 
-An **end-to-end embedded system** built under real hardware constraints
-(single-core RISC-V @160 MHz, limited RAM and flash):
+<div align="justify">
 
-- **C++ firmware** for the ESP32-C3: multi-channel PWM, relays, I²C RTC, NVS persistence, HTTP server and captive DNS.
-- **Embedded frontend**: a full SPA (state machine) in **a single HTML file with vanilla JS**, served from the device's flash — no build, no dependencies.
-- **Design with documented trade-offs**: every non-trivial decision (scheduling, session, connectivity, validation) is reasoned out in the code and the technical docs.
-- **Product mindset**: polished UX (transitions, error states, accessibility), layered security and a backend/OTA roadmap designed around the hardware.
+Everything is adjusted from the portal and **applied live**, without restarting the device. The validation rules are identical in the browser and in the firmware.
 
----
+</div>
 
-## 🧠 Engineering highlights
+| Parameter | Range / options | Notes |
+|-----------|-----------------|-------|
+| **Lamp** | ON / OFF | Main lighting control; digital channel (no dimming) |
+| **Blue** spectrum *(advanced, optional)* | 0–100 % | PWM; scaled to 0–255 in the firmware |
+| **Red** spectrum *(advanced, optional)* | 0–100 % | PWM; scaled to 0–255 in the firmware |
+| **Photoperiod** | On and off time | Can cross midnight |
+| **Irrigation** — frequency | From every hour to once a week (`0` = off) | Interval in hours; scheduled from the RTC |
+| **Irrigation** — duration | 0–59 min per cycle | Must be at least 1 if the frequency is not 0 |
+| **Ventilation** — frequency | From every hour to once a week (`0` = off) | Interval in hours |
+| **Ventilation** — duration | 0–59 min per cycle | Must be at least 1 if the frequency is not 0 |
+| **Device time** | Date and time | Synced from the browser to the DS3231 RTC |
+| **Master switch** (`enable`) | ON / OFF | OFF inhibits all actuators |
+| **User Wi-Fi network** | SSID + password | Conditional AP+STA; for future cloud/telemetry |
 
-> The interesting part isn't *what* it does, but *how* it solves the hard problems of the embedded world.
+<div align="justify">
 
-| Challenge | Solution |
-|-----------|----------|
-| **Make irrigation survive power outages** | **Stateless** scheduling: instead of a midnight counter (lost on power-off), each activation is recomputed from a continuous hour counter derived from the RTC (`epochHours % interval`). The same model covers sub-daily and multi-day spacing. |
-| **Keep crop age correct after being off** | `day`/`week` are **derived from the real calendar** (`cropStart` anchor in NVS), not a counter — the crop "keeps aging" even if the device was off, without wearing out flash every night. |
-| **Connect to Wi-Fi without freezing the portal** | **Non-blocking** STA connection + **polling** from the front end: the `POST` only *starts* the attempt and replies instantly; the client confirms via `/getparams`. Avoids blocking `handleClient()` for several seconds. |
-| **Never store a Wi-Fi password that doesn't work** | **Deferred persistence**: credentials are written to NVS *only* once the connection reaches `WL_CONNECTED` — no failed-retry loops after a reboot. |
-| **Authenticate without resending credentials** | 128-bit **session token** (`esp_random()`), fixed TTL, in RAM (dies on reboot, expiration via `millis()`, wrap-around safe). The AP is encrypted with **WPA2-PSK**. |
-| **Identical validation in browser and device** | Rules replicated **bit for bit** front↔firmware, counting by **UTF-8 character** (not bytes), so accents and ñ don't desync the limits between JS and C++. |
-| **Less flash and faster portal load** | The readable HTML (source of truth) is **regenerated without comments and gzip-compressed** into the artifact the ESP32 serves: from ~93 KB down to **~16 KB (−83%)**. `handleRoot` serves it with `Content-Encoding: gzip` and the browser decompresses it. |
+The exact ranges and options (including the valid frequencies) come from `Constants.h`; the full contract for each parameter is in [`docs/API.md`](docs/API.md).
 
----
-
-## 🔌 Features
-
-- 📶 **Wi-Fi captive portal** (AP "SmartPlant" with WPA2): configure it from any browser, nothing to install.
-- 💡 **Lighting**: a main **Lamp** output (ON/OFF, compatible with commercial lamps such as fluorescent, LED or HPS) plus two optional PWM channels (blue / red) for advanced users, driven by a photoperiod that can cross midnight.
-- 💧 **Irrigation and ventilation** scheduled by interval (from hourly to weekly).
-- 🕒 **External DS3231 RTC**: time is synced from the browser.
-- 🌐 **User Wi-Fi connectivity** (conditional AP+STA mode) to enable cloud/telemetry later.
-- 🔐 **Token-based session** + protected factory reset.
-- ⚡ **Live parameter application** (no device reboot).
+</div>
 
 ---
 
-## 📸 The portal
+## HARDWARE
 
-When you join the **SmartPlant** network, the OS detects the captive portal and
-opens the form automatically. The whole front end is a single HTML file with
-vanilla JavaScript served from the microcontroller's flash.
+<div align="justify">
 
-| Dashboard | Edit parameters | Wi-Fi setup |
-|:---:|:---:|:---:|
-| ![Dashboard](docs/img/portal-dashboard.png) | ![Edit](docs/img/portal-edit.png) | ![Wi-Fi](docs/img/portal-wifi.png) |
+The controller is an **ESP32-C3** (RISC-V, 1 core @160 MHz) with native Wi-Fi, which serves the complete web portal from its own flash.
 
-The dashboard shows crop state read-only; editing requires authentication, which
-issues a session token valid for 30 minutes. The network view scans available
-signals and connects the device to the user's Wi-Fi without losing portal access.
+</div>
+
+| Component | GPIO | Notes |
+|-----------|------|-------|
+| Lamp | 0 | Digital output (active-low: `LOW` = on) |
+| Blue LED | 1 | PWM channel 1 |
+| Red LED | 2 | PWM channel 2 |
+| Buzzer | 3 | Audible signaling (active-low: `LOW` = sounds) |
+| Fan | 7 | Relay (active-low: `LOW` = on) |
+| Water pump | 10 | Relay (active-low: `LOW` = on) |
+| DS3231 RTC | I²C `0x68` | External clock for scheduling |
+
+<div align="justify">
+
+PWM runs at 1 kHz with 8-bit resolution (0–255); spectrum values travel as 0–100 % and are scaled in the firmware. The full detail — schematics, power stage (MOSFET/relay), RTC and electrical installation — is in **[`docs/HARDWARE.md`](docs/HARDWARE.md)**.
+
+</div>
 
 ---
 
-## 🏗️ Architecture
+## THE PORTAL
+
+<div align="justify">
+
+When you join the **SmartPlant** network, the operating system detects the captive portal and opens the form automatically. The whole frontend is a single HTML file with vanilla JavaScript served from the microcontroller's flash: no build, no CDN, no dependencies. It is the configuration interface for everything above.
+
+</div>
+
+<br>
+<table align="center">
+  <tr>
+    <th>Dashboard.</th>
+    <th>Parameter editing.</th>
+    <th>Network setup.</th>
+  </tr>
+  <tr>
+    <td><img src="./docs/img/portal-dashboard.png" alt="Portal dashboard" width="240"/></td>
+    <td><img src="./docs/img/portal-edit.png" alt="Parameter editing" width="240"/></td>
+    <td><img src="./docs/img/portal-wifi.png" alt="Wi-Fi network setup" width="240"/></td>
+  </tr>
+</table>
+<br>
+
+<div align="justify">
+
+The dashboard shows the crop state in read-only mode; editing requires authentication, which issues a session token valid for 30 minutes. The network view scans the available signals and connects the device to the user's Wi-Fi without losing access to the portal.
+
+</div>
+
+---
+
+## ARCHITECTURE AT A GLANCE
 
 ```
 ┌──────────────┐   Wi-Fi (WPA2)   ┌─────────────────────────────┐
@@ -94,105 +216,96 @@ signals and connects the device to the user's Wi-Fi without losing portal access
                                   └─────────────────────────────┘
 ```
 
-The front end is a **state machine** (`welcome · register · view · auth · edit · wifi`)
-in a single HTML file; the firmware exposes a JSON API and applies config instantly.
+<div align="justify">
+
+The frontend is a **state machine** in a single HTML file; the firmware exposes a JSON API and applies the configuration instantly. All browser↔microcontroller communication happens inside the AP's local network. The details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); the API contract is in [`docs/API.md`](docs/API.md).
+
+</div>
 
 ---
 
-## 🛠️ Hardware
+## HOW IT IS BUILT
 
-| Component | GPIO | Notes |
-|-----------|------|-------|
-| Lamp | 0 | digital output (active-low: LOW = on) |
-| Blue LED | 1 | PWM channel 1 |
-| Red LED | 2 | PWM channel 2 |
-| Buzzer | 3 | Audible signaling (active-low: LOW = sounds) |
-| Fan | 7 | relay (active-low: LOW = on) |
-| Water pump | 10 | relay (active-low: LOW = on) |
-| DS3231 RTC | I²C `0x68` | external clock |
+<div align="justify">
 
-PWM at 1 kHz, 8-bit (0–255); spectra are sent 0–100 % and scaled internally.
+What makes an embedded project interesting is not only *what* it does, but *how* it solves the problems the hardware imposes (1 RISC-V core @160 MHz, limited RAM and flash):
 
----
+- **Stateless irrigation scheduling**, recomputed from the RTC: it survives power outages without persisting counters.
+- **Serving the portal without exhausting the heap**: HTML compressed with gzip (−83 %) and delivered straight from flash.
+- **Token session** of 128 bits in RAM and **identical validation** front↔firmware (per UTF-8 character).
+- **Layered security**: PBKDF2 for the password, reset restricted to the AP and a login attempt limit.
 
-## 📚 Tech stack
+The full reasoning behind each decision, with its trade-offs, is in **[`docs/ARCHITECTURE.md` § Engineering decisions](docs/ARCHITECTURE.md#decisiones-de-ingeniería-resumen)** (in Spanish).
 
-- **MCU:** ESP32-C3 (RISC-V, single core @160 MHz)
-- **Firmware:** C++ (Arduino-ESP32 / ESP-IDF) — `WiFi`, `WebServer`, `DNSServer`, `Wire`, `Preferences`, `ArduinoJson` (v6)
-- **Frontend:** HTML + CSS + vanilla JavaScript (no frameworks, no build)
-- **Local persistence:** NVS (Preferences)
-- **Backend (design settled, implementation pending):** Python (FastAPI), PostgreSQL + TimescaleDB, MQTT, S3-compatible storage
-- **Planned:** TLS (mbedTLS) and signed OTA
+</div>
 
 ---
 
-## 📁 Structure
-
-```
-.
-├── ESP32_controller/          # Firmware (Arduino sketch)
-│   ├── ESP32_controller.ino   # Wi-Fi AP, captive DNS, HTTP routes and handlers
-│   ├── Plant.h / .cpp         # Crop logic: validation, PWM/relays, RTC, session, Wi-Fi
-│   ├── Constants.h            # Pins, PWM, validation limits, state/error enums
-│   ├── utils.h / .cpp         # Helpers: string/UTF-8 validation, BCD, date
-│   ├── sensible.h             # AP secrets (unversioned)
-│   └── mainForm.h             # Generated artifact: the HTML served by the ESP32
-├── HTML/
-│   └── mainForm.html          # Portal source of truth (readable and commented)
-├── ESP32_Board/               # Board design (KiCad)
-├── pythonServer/              # Backend: local infra + DDL (code pending)
-├── docs/                      # Technical documentation
-│   ├── README.md              # Documentation index
-│   ├── ARCHITECTURE.md        # Firmware and portal design
-│   ├── API.md                 # HTTP API reference
-│   ├── HARDWARE.md            # Pins, peripherals, electrical install
-│   ├── BACKEND.md             # Backend design
-│   └── img/                   # Images and diagrams
-├── README.md
-└── README.en.md
-```
-
-**Portal convention:** edit `HTML/mainForm.html` (readable, commented source) and
-regenerate `ESP32_controller/mainForm.h` from it — that's the artifact the device
-serves. Never the other way around.
-
----
-
-## 🚀 Build and flash
+## BUILD AND USE
 
 ```bash
 # Requirements: Arduino IDE / arduino-cli with the ESP32 core and ArduinoJson (v6).
-# 1. Create sensible.h with the AP credentials (see template).
+# 1. Create sensible.h with the AP credentials (see the template in the code).
 # 2. Build and flash the ESP32_controller/ sketch to the ESP32-C3 board.
 # 3. Connect to the "SmartPlant" Wi-Fi network → the captive portal opens the form.
 ```
 
-> There is no test runner: validation is done on hardware. The portal's JS is
-> checked with `node --check` after regenerating `mainForm.h` from the source HTML.
+<div align="justify">
+
+There is no automated test runner: validation is done on hardware. The portal's JS is checked with `node --check` after regenerating `mainForm.h` from the source HTML. The portal regeneration convention (source → artifact) is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+</div>
 
 ---
 
-## 🗺️ Roadmap
+## PROJECT STATUS
 
-- [x] Captive portal + dashboard + live parameter editing
-- [x] Token-based session (no credential resending)
-- [x] **User Wi-Fi connectivity** (AP+STA, scan, connect + polling)
-- [x] Serve the portal **gzip** (`Content-Encoding: gzip`): `gen_mainform.py` compresses the HTML and embeds it as a byte array (`mainForm_gz`); `handleRoot` serves it with the header. Shrinks the portal from ~93 KB to ~16 KB (−83%). Hardware test pending.
-- [ ] **Backend** (FastAPI + Postgres/Timescale): accounts, telemetry and cross-device queries — *design settled in [docs/BACKEND.md](docs/BACKEND.md); infrastructure up, code pending*
-- [ ] **Secure OTA** over TLS (CA pinning + signed firmware)
-- [ ] Temperature and humidity sensing (DS18B20 planned in the original design)
+<div align="justify">
+
+The Arduino firmware is **functional** (portal, scheduling, session, AP+STA Wi-Fi, local OTA, portal security); the backend has **authentication and provisioning** running; backend telemetry and the firmware migration to ESP-IDF are **in progress**, and secure OTA over TLS and temperature/humidity sensing are **planned**.
+
+The detailed status — with the level of evidence for each capability (verified / verified on hardware / written untested / in progress / planned) — is the single source of truth and lives in **[`docs/ROADMAP.md` § Estado actual](docs/ROADMAP.md#estado-actual)** (in Spanish).
+
+</div>
 
 ---
 
-## 📖 Documentation
+## REPOSITORY STRUCTURE
 
-All technical documentation lives in **[`docs/`](docs/README.md)**:
+```
+.
+├── ESP32_controller/   # STABLE firmware (Arduino-ESP32): sketch in production
+├── firmware/           # Firmware being MIGRATED to ESP-IDF (only on the esp-idf-migration branch)
+├── HTML/               # Portal: source, generated artifacts, scripts and palettes
+├── ESP32_Board/        # Board design (KiCad)
+├── pythonServer/       # Backend: FastAPI + Alembic + Docker
+├── docs/               # Technical documentation (ARCHITECTURE, API, HARDWARE, BACKEND, ROADMAP)
+├── README.md
+└── README.en.md
+```
 
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — in-depth technical design: decisions, trade-offs, caveats, portal state machine, DB model and TLS strategy for the C3.
-- **[docs/API.md](docs/API.md)** — complete HTTP API reference for the **device**: routes, payloads, validation, error catalog and `curl` examples.
-- **[docs/HARDWARE.md](docs/HARDWARE.md)** — pin map, PWM, RTC, SSR outputs, connectivity and electrical installation.
-- **[docs/BACKEND.md](docs/BACKEND.md)** — backend design (FastAPI + Postgres/Timescale + MQTT + S3). The authoritative reference for implementing it.
-- **[pythonServer/README.md](pythonServer/README.md)** — how to bring up the backend's local infrastructure (Postgres/Timescale, MinIO, Mosquitto).
+<div align="justify">
+
+**Two firmware bases.** `ESP32_controller/` is the **stable** firmware (Arduino-ESP32), the one flashed today, on the `main` branch. `firmware/` is the ongoing **migration to ESP-IDF** (only on the `esp-idf-migration` branch), which uses the stable one as its reference specification and will replace it once it reaches parity. The portal, the backend, the hardware and the documentation are **shared** by both: they are edited on `main` and brought to the other branch with `git merge`. The details of this convention and of the workflow are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+</div>
+
+---
+
+## DOCUMENTATION
+
+<div align="justify">
+
+All the technical documentation lives in **[`docs/`](docs/README.md)** (in Spanish):
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — technical design and **engineering decisions**: trade-offs, portal state machine, portal regeneration convention, DB model and TLS strategy.
+- **[docs/API.md](docs/API.md)** — complete HTTP API reference: routes, payloads, validation, errors and `curl` examples.
+- **[docs/HARDWARE.md](docs/HARDWARE.md)** — pin map, PWM, RTC, power stage, connectivity and electrical installation.
+- **[docs/BACKEND.md](docs/BACKEND.md)** — backend design (FastAPI + Postgres/Timescale + MQTT + S3): data model and API contracts.
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — **project status** (what works today) and the phased plan to migrate the firmware to ESP-IDF.
+- **[pythonServer/README.md](pythonServer/README.md)** — how to bring up the local backend.
+
+</div>
 
 ---
 
