@@ -2,9 +2,9 @@
 
 <div align="justify">
 
-Controlador **embebido** de automatización para sistemas de cultivo, basado en un **ESP32-C3**, diseñado para gestionar de forma automatizada diferentes tareas, como el encendido y apagado de la iluminación, el riego y la ventilación. Su configuración se realiza desde cualquier celular mediante un portal web alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
+Controlador **embebido** de automatización para sistemas de cultivo, basado en un **ESP32-C3**, diseñado para gestionar el encendido y apagado de la iluminación, el riego y la ventilación. Su configuración se realiza desde cualquier celular mediante un **portal web** alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
 
-El proyecto busca explorar cómo la tecnología puede facilitar la producción local y sustentable de hortalizas en espacios de cultivo controlado, como invernaderos, huertos y pequeñas instalaciones domésticas. La intención es contribuir al abastecimiento de alimentos frescos en pequeñas comunidades y hogares, priorizando aquellas especies que mejor se adapten a las condiciones de cada entorno de cultivo.
+El proyecto busca explorar cómo la tecnología puede facilitar la producción local y sustentable de algunas hortalizas en espacios de cultivo controlado, como invernaderos, huertos y pequeñas instalaciones domésticas. La intención es poder contribuir al abastecimiento de alimentos frescos en pequeñas comunidades y hogares, priorizando aquellas especies que mejor se adapten a las condiciones de estos métodos de cultivo.
 
 </div>
 
@@ -50,8 +50,8 @@ SmartPlant automatiza el encendido y apagado de la **iluminación**, el **riego*
 
 El sistema ofrece dos niveles de control de iluminación:
 
-- **Control de lámparas convencionales (GPIO 0):** permite encender y apagar una lámpara de cultivo mediante un horario programado (fotoperiodo, que admite cruzar la medianoche). Esto lo hace compatible con una gran variedad de lámparas disponibles en el mercado, sin necesidad de que tengan regulación de intensidad.
-- **Control independiente de espectros azul y rojo (opcional, GPIO 1 y 2):** para quienes buscan un mayor control sobre la iluminación, el sistema permite regular por separado la intensidad de los espectros azul y rojo (dimmer por PWM), adaptando la luz a las necesidades del cultivo.
+- **Control de lámparas convencionales (GPIO 0):** permite encender y apagar una lámpara de cultivo mediante un horario programado (fotoperiodo, que admite cruzar la medianoche). Esto lo hace compatible con una gran variedad de lámparas disponibles en el mercado, ya sean, fluorescentes, LED, HPS, etc.
+- **Control independiente de espectros azul y rojo (opcional, GPIO 1 y 2):** para quienes tengan mayor experiencia, el sistema permite regular por separado la intensidad de los espectros azul y rojo (dimmer por PWM), adaptando la luz a las necesidades del cultivo.
 
 </div>
 
@@ -74,14 +74,12 @@ El sistema ofrece dos niveles de control de iluminación:
 
 <div align="justify">
 
-El sistema permite automatizar el riego mediante el encendido y apagado de una bomba o electroválvula (GPIO 10), por lo que puede adaptarse a distintos métodos de riego, como goteo, gravedad, NFT o aspersión.
-
-La programación es flexible y permite ajustar dos aspectos de forma independiente:
+La programación del riego mediante el encendido y apagado de una bomba o electroválvula (GPIO 10) permite configurar de forma independiente dos parámetros:
 
 - **Frecuencia de riego:** define cada cuánto tiempo se activa el riego, desde intervalos de una hora hasta una vez por semana.
 - **Duración del riego:** establece cuántos minutos permanece activo el sistema en cada ciclo.
 
-Esta flexibilidad permite adaptar el funcionamiento a las características de cada instalación y a las necesidades del cultivo. Por ejemplo, un sistema con una bomba de alto caudal puede requerir riegos más cortos y espaciados, mientras que uno de goteo con menor caudal puede necesitar riegos más frecuentes.
+Esta flexibilidad permite adaptar el riego a las características de cada instalación y a las necesidades del cultivo (algunos métodos de riego pueden requerir ciclos cortos y frecuentes, mientras que otros pueden necesitar periodos de activación más prolongados y espaciados). Así, es posible ajustar los ciclos de riego según el método utilizado, ya sea por goteo, gravedad, NFT o aspersión, entre otros, optimizando tanto la frecuencia como el tiempo de suministro de agua.
 
 </div>
 
