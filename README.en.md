@@ -4,10 +4,10 @@
 
 ### IoT crop controller on ESP32-C3 — firmware + captive portal
 
-*An embedded automation controller for growing systems. It handles tasks such as
-switching lighting on and off, irrigation and ventilation, and is configured from
-your phone through a Wi-Fi portal served by the microcontroller itself — no app,
-no mandatory cloud, no frameworks.*
+*An embedded automation controller for growing systems. It switches lighting,
+irrigation and ventilation on and off, and is configured from your phone through
+a web portal served by the microcontroller itself — no app, no mandatory cloud,
+no frameworks.*
 
 `C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (in progress)`
 
@@ -52,7 +52,7 @@ An **end-to-end embedded system** built under real hardware constraints
 ## 🔌 Features
 
 - 📶 **Wi-Fi captive portal** (AP "SmartPlant" with WPA2): configure it from any browser, nothing to install.
-- 💡 **Lighting**: a main **Lamp** output (ON/OFF, works with commercial grow lamps that use simple ON/OFF control) plus two optional PWM channels (blue / red) for advanced users, driven by a photoperiod that can cross midnight.
+- 💡 **Lighting**: a main **Lamp** output (ON/OFF, compatible with commercial lamps such as fluorescent, LED or HPS) plus two optional PWM channels (blue / red) for advanced users, driven by a photoperiod that can cross midnight.
 - 💧 **Irrigation and ventilation** scheduled by interval (from hourly to weekly).
 - 🕒 **External DS3231 RTC**: time is synced from the browser.
 - 🌐 **User Wi-Fi connectivity** (conditional AP+STA mode) to enable cloud/telemetry later.
