@@ -1,5 +1,7 @@
 # SmartPlant — Controlador de Cultivo IoT
 
+**[English](README.en.md)** · **Español**
+
 <div align="justify">
 
 Controlador **embebido** de automatización para sistemas de cultivo, basado en un **ESP32-C3**, diseñado para gestionar el encendido y apagado de la iluminación, el riego y la ventilación. Su configuración se realiza desde cualquier celular mediante un **portal web** alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
