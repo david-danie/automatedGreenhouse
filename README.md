@@ -1,10 +1,10 @@
 # SmartPlant — Controlador de Cultivo IoT
 
-**[English](README.en.md)** · **Español**
+**Español** · **[English](README.en.md)**
 
 <div align="justify">
 
-Controlador **embebido** de automatización para sistemas de cultivo, basado en un **ESP32-C3**, diseñado para gestionar el encendido y apagado de la iluminación, el riego y la ventilación. Su configuración se realiza desde cualquier celular mediante un **portal web** alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
+Controlador **embebido** para sistemas de cultivo, basado en un **ESP32-C3**, diseñado para automatizar el encendido y apagado de la iluminación, el riego y la ventilación. Su configuración se realiza desde cualquier celular mediante un **portal web** alojado en el propio microcontrolador, sin necesidad de instalar aplicaciones ni depender de servicios en la nube o frameworks externos.
 
 El proyecto busca explorar cómo la tecnología puede facilitar la producción local y sustentable de algunas hortalizas en espacios de cultivo controlado, como invernaderos, huertos y pequeñas instalaciones domésticas. La intención es poder contribuir al abastecimiento de alimentos frescos en pequeñas comunidades y hogares, priorizando aquellas especies que mejor se adapten a las condiciones de estos métodos de cultivo.
 
@@ -30,8 +30,6 @@ El proyecto busca explorar cómo la tecnología puede facilitar la producción l
 * [HARDWARE.](#hardware)
 * [EL PORTAL.](#el-portal)
 * [ARQUITECTURA EN UNA VISTA.](#arquitectura-en-una-vista)
-* [CÓMO ESTÁ CONSTRUIDO.](#cómo-está-construido)
-* [COMPILAR Y USAR.](#compilar-y-usar)
 * [ESTADO DEL PROYECTO.](#estado-del-proyecto)
 * [ESTRUCTURA DEL REPOSITORIO.](#estructura-del-repositorio)
 * [DOCUMENTACIÓN.](#documentación)
@@ -42,7 +40,7 @@ El proyecto busca explorar cómo la tecnología puede facilitar la producción l
 
 <div align="justify">
 
-SmartPlant automatiza el encendido y apagado de la **iluminación**, el **riego** y la **ventilación**. Cada actuador se maneja desde el firmware del ESP32-C3 y se programa desde el portal web; no se requiere internet para operar.
+SmartPlant automatiza el encendido y apagado de la **iluminación**, el **riego** y la **ventilación**. Cada actuador se maneja desde el firmware del ESP32-C3 y se programa desde un portal web; no se requiere internet para operar.
 
 </div>
 
@@ -52,8 +50,8 @@ SmartPlant automatiza el encendido y apagado de la **iluminación**, el **riego*
 
 El sistema ofrece dos niveles de control de iluminación:
 
-- **Control de lámparas convencionales (GPIO 0):** permite encender y apagar una lámpara de cultivo mediante un horario programado (fotoperiodo, que admite cruzar la medianoche). Esto lo hace compatible con una gran variedad de lámparas disponibles en el mercado, ya sean, fluorescentes, LED, HPS, etc.
-- **Control independiente de espectros azul y rojo (opcional, GPIO 1 y 2):** para quienes tengan mayor experiencia, el sistema permite regular por separado la intensidad de los espectros azul y rojo (dimmer por PWM), adaptando la luz a las necesidades del cultivo.
+- Control de **lámparas convencionales (GPIO 0)**: permite encender y apagar una lámpara de cultivo mediante un horario programado (fotoperiodo, que admite cruzar la medianoche). Esto lo hace compatible con una gran variedad de lámparas disponibles en el mercado, ya sean, fluorescentes, LED, HPS, etc.
+- Control independiente de **espectros azul y rojo (opcional, GPIO 1 y 2)**: para quienes tengan mayor experiencia, el sistema permite regular por separado la intensidad de los espectros azul y rojo (dimmer por PWM), adaptando la luz a las necesidades del cultivo.
 
 </div>
 
@@ -76,12 +74,12 @@ El sistema ofrece dos niveles de control de iluminación:
 
 <div align="justify">
 
-La programación del riego mediante el encendido y apagado de una bomba o electroválvula (GPIO 10) permite configurar de forma independiente dos parámetros:
+La programación del riego mediante el encendido y apagado de una **bomba o electroválvula (GPIO 10)** permite configurar de forma independiente dos parámetros:
 
-- **Frecuencia de riego:** define cada cuánto tiempo se activa el riego, desde intervalos de una hora hasta una vez por semana.
+- **Frecuencia de riego:** define cuántas veces al día se activa el sistema, con intervalos configurables desde una hora hasta una vez por semana.
 - **Duración del riego:** establece cuántos minutos permanece activo el sistema en cada ciclo.
 
-Esta flexibilidad permite adaptar el riego a las características de cada instalación y a las necesidades del cultivo (algunos métodos de riego pueden requerir ciclos cortos y frecuentes, mientras que otros pueden necesitar periodos de activación más prolongados y espaciados). Así, es posible ajustar los ciclos de riego según el método utilizado, ya sea por goteo, gravedad, NFT o aspersión, entre otros, optimizando tanto la frecuencia como el tiempo de suministro de agua.
+Ambos valores se ajustan según el método de riego (goteo, gravedad, NFT o aspersión, entre otros) y las necesidades hídricas del cultivo, permitiendo establecer ciclos de riego más cortos o prolongados, con mayor o menor frecuencia.
 
 </div>
 
@@ -106,7 +104,12 @@ Esta flexibilidad permite adaptar el riego a las características de cada instal
 
 <div align="justify">
 
-La calidad del aire influye en la temperatura y, por lo tanto, en el desarrollo del cultivo. El sistema controla un **relé** (activo en bajo) para activar un ventilador o extractor en **intervalos configurables**, forzando la circulación de aire limpio y la salida del aire viciado.
+La ventilación contribuye a mantener condiciones ambientales adecuadas para el cultivo, ya que permite regular la temperatura, renovar el aire y reducir el exceso de humedad, factores que influyen directamente en el crecimiento y la salud de las plantas. Para ello, el sistema controla el encendido y apagado de un **ventilador y/o extractor (GPIO 7)** mediante dos parámetros configurables:
+
+- **Frecuencia de ventilación:** define cuántas veces al día se activa el sistema.
+- **Duración de la ventilación:** establece cuánto tiempo permanece encendido el ventilador o extractor en cada ciclo.
+
+Ambos valores se ajustan según las condiciones ambientales y las necesidades del cultivo, permitiendo establecer ciclos de ventilación más cortos o prolongados, con mayor o menor frecuencia.
 
 </div>
 
@@ -122,23 +125,17 @@ Todo se ajusta desde el portal y se **aplica en vivo**, sin reiniciar el disposi
 
 | Parámetro | Rango / opciones | Notas |
 |-----------|------------------|-------|
-| **Lámpara** | ON / OFF | Control principal de iluminación; canal digital (sin regulación) |
-| Espectro **azul** *(avanzado, opcional)* | 0–100 % | PWM; se escala a 0–255 en el firmware |
-| Espectro **rojo** *(avanzado, opcional)* | 0–100 % | PWM; se escala a 0–255 en el firmware |
+| **Lámpara** | ON / OFF | Lámpara principal (sin regulación) |
+| Espectro **azul** *(avanzado, opcional)* | 0–100 % | Dimmeable; intervalos de 5% |
+| Espectro **rojo** *(avanzado, opcional)* | 0–100 % | Dimmeable; intervalos de 5% |
 | **Fotoperiodo** | Hora de encendido y apagado | Admite cruce de medianoche |
-| **Riego** — frecuencia | De cada hora a una vez por semana (`0` = apagado) | Intervalo en horas; scheduling desde el RTC |
+| **Riego** — frecuencia | Hasta una vez por semana (`0` = apagado) | Intervalo en horas |
 | **Riego** — duración | 0–59 min por ciclo | Debe ser al menos 1 si la frecuencia no es 0 |
-| **Ventilación** — frecuencia | De cada hora a una vez por semana (`0` = apagado) | Intervalo en horas |
+| **Ventilación** — frecuencia | Hasta una vez por semana (`0` = apagado) | Intervalo en horas |
 | **Ventilación** — duración | 0–59 min por ciclo | Debe ser al menos 1 si la frecuencia no es 0 |
-| **Hora del dispositivo** | Fecha y hora | Se sincroniza desde el navegador al RTC DS3231 |
-| **Interruptor general** (`enable`) | ON / OFF | OFF inhibe todos los actuadores |
+| **Hora del dispositivo** | Fecha y hora | Se sincroniza desde el navegador, se mantiene con un RTC |
+| **Interruptor general** (`enable`) | ON / OFF | Desactiva el cultivo |
 | **Red Wi-Fi del usuario** | SSID + contraseña | AP+STA condicional; para nube/telemetría a futuro |
-
-<div align="justify">
-
-El rango y las opciones exactas (incluidas las frecuencias válidas) salen de `Constants.h`; el contrato completo de cada parámetro está en [`docs/API.md`](docs/API.md).
-
-</div>
 
 ---
 
@@ -219,40 +216,6 @@ El dashboard muestra el estado del cultivo en modo lectura; para editar hay que 
 <div align="justify">
 
 El frontend es una **máquina de estados** en un único HTML; el firmware expone una API JSON y aplica la configuración al instante. Toda la comunicación navegador↔microcontrolador ocurre dentro de la red local del AP. El detalle está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); el contrato de la API, en [`docs/API.md`](docs/API.md).
-
-</div>
-
----
-
-## CÓMO ESTÁ CONSTRUIDO
-
-<div align="justify">
-
-Lo interesante de un proyecto embebido no es solo *qué* hace, sino *cómo* resuelve los problemas que impone el hardware (1 núcleo RISC-V @160 MHz, RAM y flash limitadas):
-
-- **Scheduling stateless** del riego, recalculado desde el RTC: sobrevive cortes de luz sin persistir contadores.
-- **Servir el portal sin agotar el heap**: HTML comprimido con gzip (−83 %) entregado directo desde flash.
-- **Sesión con token** de 128 bits en RAM y **validación idéntica** front↔firmware (por carácter UTF-8).
-- **Seguridad por capas**: PBKDF2 para la contraseña, reset restringido al AP y límite de intentos de login.
-
-El razonamiento completo de cada decisión, con sus trade-offs, está en **[`docs/ARCHITECTURE.md` § Decisiones de ingeniería](docs/ARCHITECTURE.md#decisiones-de-ingeniería-resumen)**.
-
-</div>
-
----
-
-## COMPILAR Y USAR
-
-```bash
-# Requisitos: Arduino IDE / arduino-cli con el core ESP32 y ArduinoJson (v6).
-# 1. Crear sensible.h con las credenciales del AP (ver plantilla en el código).
-# 2. Compilar y flashear el sketch ESP32_controller/ a la placa ESP32-C3.
-# 3. Conectarse a la red Wi-Fi "SmartPlant" → el portal captivo abre el formulario.
-```
-
-<div align="justify">
-
-No hay test runner automatizado: la validación se hace en hardware. El JS del portal se verifica con `node --check` tras regenerar `mainForm.h` desde el HTML fuente. La convención de regeneración del portal (fuente → artefacto) está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 </div>
 

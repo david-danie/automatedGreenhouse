@@ -25,7 +25,7 @@
 
 ## Por tarea
 
-**Quiero flashear el dispositivo y usarlo** → [README § Compilar y usar](../README.md#compilar-y-usar), luego [HARDWARE.md](HARDWARE.md) para el conexionado.
+**Quiero flashear el dispositivo y usarlo** → [ARCHITECTURE.md § Compilar y flashear](ARCHITECTURE.md#compilar-y-flashear), luego [HARDWARE.md](HARDWARE.md) para el conexionado.
 
 **Quiero modificar el portal web** → [ARCHITECTURE.md](ARCHITECTURE.md) explica la máquina de estados y la convención de regenerar `mainForm.h` desde `HTML/mainForm.html`.
 
