@@ -34,6 +34,10 @@ Definido en `ESP32_controller/Constants.h`.
 | I²C SCL | 9 | I²C | Reloj del bus I²C (DS3231) |
 | RTC DS3231 | I²C `0x68` | — | Reloj externo para el scheduling (bus I²C en GPIO 8/9) |
 
+<div align="center">
+  <img src="./img/esp32-c3_connection.png" alt="Conexión de pines del ESP32-C3 Super Mini"/>
+</div>
+
 **Polaridad centralizada:** el nivel que enciende vive en **un solo sitio**, las constantes `deviceOn`/`deviceOff` de `Constants.h`, hoy `LOW`/`HIGH` (**activo en bajo**: el pin en bajo enciende). Antes eran `HIGH`/`LOW` (lógica directa); el cambio llegó con la versión 1.0.1 del firmware Arduino. Si el hardware fuese activo en alto, basta intercambiar esas dos líneas y todo el firmware queda coherente. Las usan las cuatro salidas ON/OFF (lámpara, bomba, ventilador **y buzzer**); los canales PWM azul y rojo no dependen de ellas.
 
 **Estado inicial seguro:** `Plant::begin()` llama a `allDevicesOff()` antes de leer cualquier configuración, para que ningún actuador arranque energizado. Con la polaridad activa en bajo, "apagado" es nivel **alto**. Durante el reset y el arranque del chip los GPIO están en alta impedancia y los circuitos están pensados para quedar apagados en ese estado (ver [polaridad](#polaridad-de-las-salidas-onoff-activa-en-bajo)). Lo que el firmware no garantiza es el instante dentro de `begin()` entre el `pinMode(OUTPUT)` de un pin y su primera escritura de `deviceOff`: el registro de salida arranca en 0 (nivel de "encendido"), así que el pin puede quedar brevemente en bajo; no se ha medido.
@@ -89,9 +93,11 @@ La hora **no** se configura con botones: se sincroniza desde el navegador del us
   </tr>
   <tr>
     <th><img src="./img/ds3231_wiri.png" alt="Diagrama típico RTC"/></th>
-    <th><img src="./img/ds3231_sch.png" alt="Diagrama esquemático RTC"/></th>
+    <th><img src="./img/ds3231_conecction.png" alt="Diagrama de conexión final del RTC"/></th>
   </tr>
 </table>
+
+En el diagrama de conexión final, el DS3231 se alimenta a 3.3 V, SDA y SCL llevan pull-ups de 10 kΩ a 3.3 V y el pin VBAT toma una pila CR2032 que mantiene la hora sin alimentación.
 
 ---
 
@@ -187,8 +193,9 @@ Aplica si las tiras/arreglos son de **voltaje constante a 24 V**. Un canal por c
 
 ### Esquemático — salida digital (opto + MOSFET + contactor)
 
-<!-- TODO: reemplazar el diagrama ASCII de abajo por la captura del esquemático real.
-     ![Salida digital (control + potencia)](./img/salida_digital_sch.png) -->
+<div align="center">
+  <img src="./img/relay_output.png" alt="Esquemático de una salida digital: opto PC817, MOSFET AO3400A y bobina de relé"/>
+</div>
 
 > Salida **activa en bajo** (opto en sumidero), verificada en la placa. Ver [Polaridad de las salidas ON/OFF](#polaridad-de-las-salidas-onoff-activa-en-bajo).
 
