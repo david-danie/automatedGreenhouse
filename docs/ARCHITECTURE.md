@@ -549,6 +549,7 @@ Definidas en `Constants.h` y replicadas en JS dentro de `HTML/mainForm.html`
 - IDE: Arduino IDE / arduino-cli. Placa: ESP32-C3 (ver `ci.json`).
 - Dependencias: core **ESP32 (WiFi/WebServer/DNSServer)**, **ArduinoJson** (v6, API
   `StaticJsonDocument`), `Wire`, `Preferences`.
+- Antes de compilar, crear `ESP32_controller/sensible.h` con las credenciales del AP (ver [Secretos del AP](#secretos-del-ap-sensibleh)).
 - Tras flashear, conectarse al Wi-Fi `SmartPlant`; el portal captivo abre el formulario.
 - **No hay test runner.** La validación se hace en hardware / a mano.
 

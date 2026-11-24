@@ -1,10 +1,10 @@
 # SmartPlant — IoT Crop Controller
 
-**English** · **[Español](README.md)**
+**[Español](README.md)** · **English**
 
 <div align="justify">
 
-**Embedded** automation controller for growing systems, based on an **ESP32-C3**, designed to manage the switching on and off of lighting, irrigation and ventilation. It is configured from any phone through a **web portal** hosted on the microcontroller itself, with no need to install apps or depend on cloud services or external frameworks.
+**Embedded** controller for growing systems, based on an **ESP32-C3**, designed to automate the switching on and off of lighting, irrigation and ventilation. It is configured from any phone through a **web portal** hosted on the microcontroller itself, with no need to install apps or depend on cloud services or external frameworks.
 
 The project explores how technology can make the local, sustainable production of some vegetables easier in controlled growing spaces, such as greenhouses, gardens and small home setups. The aim is to contribute to the supply of fresh food in small communities and households, prioritizing the species that best suit the conditions of these growing methods.
 
@@ -30,8 +30,6 @@ The project explores how technology can make the local, sustainable production o
 * [HARDWARE.](#hardware)
 * [THE PORTAL.](#the-portal)
 * [ARCHITECTURE AT A GLANCE.](#architecture-at-a-glance)
-* [HOW IT IS BUILT.](#how-it-is-built)
-* [BUILD AND USE.](#build-and-use)
 * [PROJECT STATUS.](#project-status)
 * [REPOSITORY STRUCTURE.](#repository-structure)
 * [DOCUMENTATION.](#documentation)
@@ -42,7 +40,7 @@ The project explores how technology can make the local, sustainable production o
 
 <div align="justify">
 
-SmartPlant automates the switching on and off of **lighting**, **irrigation** and **ventilation**. Each actuator is driven by the ESP32-C3 firmware and scheduled from the web portal; no internet connection is required to operate.
+SmartPlant automates the switching on and off of **lighting**, **irrigation** and **ventilation**. Each actuator is driven by the ESP32-C3 firmware and scheduled from a web portal; no internet connection is required to operate.
 
 </div>
 
@@ -52,8 +50,8 @@ SmartPlant automates the switching on and off of **lighting**, **irrigation** an
 
 The system offers two levels of lighting control:
 
-- **Conventional lamp control (GPIO 0):** switches a grow lamp on and off on a programmed schedule (photoperiod, which can cross midnight). This makes it compatible with a wide variety of lamps on the market, such as fluorescent, LED or HPS.
-- **Independent blue and red spectrum control (optional, GPIO 1 and 2):** for more experienced users, the system can adjust the intensity of the blue and red spectra separately (PWM dimmer), adapting the light to the needs of the crop.
+- Control of **conventional lamps (GPIO 0)**: switches a grow lamp on and off on a programmed schedule (photoperiod, which can cross midnight). This makes it compatible with a wide variety of lamps on the market, such as fluorescent, LED or HPS.
+- Independent control of the **blue and red spectra (optional, GPIO 1 and 2)**: for more experienced users, the system can adjust the intensity of the blue and red spectra separately (PWM dimmer), adapting the light to the needs of the crop.
 
 </div>
 
@@ -76,12 +74,12 @@ The system offers two levels of lighting control:
 
 <div align="justify">
 
-Irrigation is programmed by switching a pump or solenoid valve (GPIO 10) on and off, with two parameters that can be set independently:
+Irrigation programming, by switching a **pump or solenoid valve (GPIO 10)** on and off, lets you set two parameters independently:
 
-- **Irrigation frequency:** how often irrigation starts, from every hour to once a week.
-- **Irrigation duration:** how many minutes the system stays on in each cycle.
+- **Irrigation frequency:** defines how many times a day the system is activated, with configurable intervals from one hour up to once a week.
+- **Irrigation duration:** sets how many minutes the system stays on in each cycle.
 
-This flexibility allows irrigation to be adapted to each installation and to the needs of the crop (some irrigation methods may require short, frequent cycles, while others may need longer, more widely spaced ones). The cycles can therefore be adjusted to the method in use, whether drip, gravity, NFT or sprinkler, among others, optimizing both the frequency and the time of water supply.
+Both values are adjusted to the irrigation method (drip, gravity, NFT or sprinkler, among others) and the water needs of the crop, allowing shorter or longer irrigation cycles, with greater or lesser frequency.
 
 </div>
 
@@ -106,7 +104,12 @@ This flexibility allows irrigation to be adapted to each installation and to the
 
 <div align="justify">
 
-Air quality affects temperature and, therefore, crop development. The system controls a **relay** (active-low) that switches a fan or extractor on at **configurable intervals**, forcing the circulation of fresh air and the removal of stale air.
+Ventilation helps maintain suitable environmental conditions for the crop, since it regulates temperature, renews the air and reduces excess humidity, factors that directly influence plant growth and health. To this end, the system switches a **fan and/or extractor (GPIO 7)** on and off through two configurable parameters:
+
+- **Ventilation frequency:** defines how many times a day the system is activated.
+- **Ventilation duration:** sets how long the fan or extractor stays on in each cycle.
+
+Both values are adjusted to the environmental conditions and the needs of the crop, allowing shorter or longer ventilation cycles, with greater or lesser frequency.
 
 </div>
 
@@ -122,23 +125,17 @@ Everything is adjusted from the portal and **applied live**, without restarting 
 
 | Parameter | Range / options | Notes |
 |-----------|-----------------|-------|
-| **Lamp** | ON / OFF | Main lighting control; digital channel (no dimming) |
-| **Blue** spectrum *(advanced, optional)* | 0–100 % | PWM; scaled to 0–255 in the firmware |
-| **Red** spectrum *(advanced, optional)* | 0–100 % | PWM; scaled to 0–255 in the firmware |
+| **Lamp** | ON / OFF | Main lamp (no dimming) |
+| **Blue** spectrum *(advanced, optional)* | 0–100 % | Dimmable; 5 % steps |
+| **Red** spectrum *(advanced, optional)* | 0–100 % | Dimmable; 5 % steps |
 | **Photoperiod** | On and off time | Can cross midnight |
-| **Irrigation** — frequency | From every hour to once a week (`0` = off) | Interval in hours; scheduled from the RTC |
+| **Irrigation** — frequency | Up to once a week (`0` = off) | Interval in hours |
 | **Irrigation** — duration | 0–59 min per cycle | Must be at least 1 if the frequency is not 0 |
-| **Ventilation** — frequency | From every hour to once a week (`0` = off) | Interval in hours |
+| **Ventilation** — frequency | Up to once a week (`0` = off) | Interval in hours |
 | **Ventilation** — duration | 0–59 min per cycle | Must be at least 1 if the frequency is not 0 |
-| **Device time** | Date and time | Synced from the browser to the DS3231 RTC |
-| **Master switch** (`enable`) | ON / OFF | OFF inhibits all actuators |
+| **Device time** | Date and time | Synced from the browser, kept by an RTC |
+| **Master switch** (`enable`) | ON / OFF | Disables the crop |
 | **User Wi-Fi network** | SSID + password | Conditional AP+STA; for future cloud/telemetry |
-
-<div align="justify">
-
-The exact ranges and options (including the valid frequencies) come from `Constants.h`; the full contract for each parameter is in [`docs/API.md`](docs/API.md).
-
-</div>
 
 ---
 
@@ -219,40 +216,6 @@ The dashboard shows the crop state in read-only mode; editing requires authentic
 <div align="justify">
 
 The frontend is a **state machine** in a single HTML file; the firmware exposes a JSON API and applies the configuration instantly. All browser↔microcontroller communication happens inside the AP's local network. The details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); the API contract is in [`docs/API.md`](docs/API.md).
-
-</div>
-
----
-
-## HOW IT IS BUILT
-
-<div align="justify">
-
-What makes an embedded project interesting is not only *what* it does, but *how* it solves the problems the hardware imposes (1 RISC-V core @160 MHz, limited RAM and flash):
-
-- **Stateless irrigation scheduling**, recomputed from the RTC: it survives power outages without persisting counters.
-- **Serving the portal without exhausting the heap**: HTML compressed with gzip (−83 %) and delivered straight from flash.
-- **Token session** of 128 bits in RAM and **identical validation** front↔firmware (per UTF-8 character).
-- **Layered security**: PBKDF2 for the password, reset restricted to the AP and a login attempt limit.
-
-The full reasoning behind each decision, with its trade-offs, is in **[`docs/ARCHITECTURE.md` § Engineering decisions](docs/ARCHITECTURE.md#decisiones-de-ingeniería-resumen)** (in Spanish).
-
-</div>
-
----
-
-## BUILD AND USE
-
-```bash
-# Requirements: Arduino IDE / arduino-cli with the ESP32 core and ArduinoJson (v6).
-# 1. Create sensible.h with the AP credentials (see the template in the code).
-# 2. Build and flash the ESP32_controller/ sketch to the ESP32-C3 board.
-# 3. Connect to the "SmartPlant" Wi-Fi network → the captive portal opens the form.
-```
-
-<div align="justify">
-
-There is no automated test runner: validation is done on hardware. The portal's JS is checked with `node --check` after regenerating `mainForm.h` from the source HTML. The portal regeneration convention (source → artifact) is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 </div>
 
