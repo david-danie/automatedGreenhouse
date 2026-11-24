@@ -18,7 +18,6 @@ El proyecto busca explorar cómo la tecnología puede facilitar la producción l
 
 `C++` · `ESP32-C3` · `Arduino / ESP-IDF` · `Vanilla JS` · `HTML/CSS` · `mbedTLS (planned)` · `FastAPI + PostgreSQL (in progress)`
 
----
 
 ## CONTENIDO
 
@@ -34,7 +33,6 @@ El proyecto busca explorar cómo la tecnología puede facilitar la producción l
 * [ESTRUCTURA DEL REPOSITORIO.](#estructura-del-repositorio)
 * [DOCUMENTACIÓN.](#documentación)
 
----
 
 ## QUÉ CONTROLA Y CÓMO
 
@@ -113,7 +111,6 @@ Ambos valores se ajustan según las condiciones ambientales y las necesidades de
 
 </div>
 
----
 
 ## CONFIGURACIÓN DISPONIBLE
 
@@ -163,7 +160,6 @@ PWM a 1 kHz con resolución de 8 bits (0–255); los valores de espectro viajan 
 
 </div>
 
----
 
 ## EL PORTAL
 
@@ -194,7 +190,6 @@ El dashboard muestra el estado del cultivo en modo lectura; para editar hay que 
 
 </div>
 
----
 
 ## ARQUITECTURA EN UNA VISTA
 
@@ -219,7 +214,6 @@ El frontend es una **máquina de estados** en un único HTML; el firmware expone
 
 </div>
 
----
 
 ## ESTADO DEL PROYECTO
 
@@ -231,7 +225,6 @@ El estado detallado —con nivel de evidencia por capacidad (verificado / verifi
 
 </div>
 
----
 
 ## ESTRUCTURA DEL REPOSITORIO
 
@@ -253,7 +246,6 @@ El estado detallado —con nivel de evidencia por capacidad (verificado / verifi
 
 </div>
 
----
 
 ## DOCUMENTACIÓN
 
@@ -270,7 +262,6 @@ Toda la documentación técnica vive en **[`docs/`](docs/README.md)**:
 
 </div>
 
----
 
 <div align="center">
 
