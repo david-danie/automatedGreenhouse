@@ -106,7 +106,7 @@ Ambos valores se ajustan según el método de riego (goteo, gravedad, NFT o aspe
 
 La ventilación contribuye a mantener condiciones ambientales adecuadas para el cultivo, ya que permite regular la temperatura, renovar el aire y reducir el exceso de humedad, factores que influyen directamente en el crecimiento y la salud de las plantas. Para ello, el sistema controla el encendido y apagado de un **ventilador y/o extractor (GPIO 7)** mediante dos parámetros configurables:
 
-- **Frecuencia de ventilación:** define cuántas veces al día se activa el sistema.
+- **Frecuencia de ventilación:** define cuántas veces al día se activa el sistema, con intervalos configurables desde una hora hasta una vez por semana.
 - **Duración de la ventilación:** establece cuánto tiempo permanece encendido el ventilador o extractor en cada ciclo.
 
 Ambos valores se ajustan según las condiciones ambientales y las necesidades del cultivo, permitiendo establecer ciclos de ventilación más cortos o prolongados, con mayor o menor frecuencia.
