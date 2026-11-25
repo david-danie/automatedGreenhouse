@@ -46,10 +46,10 @@ SmartPlant automatiza el encendido y apagado de la **iluminación**, el **riego*
 
 <div align="justify">
 
-El sistema ofrece dos niveles de control de iluminación:
+La iluminación es un factor fundamental para el desarrollo de las plantas, ya que influye directamente en procesos como la fotosíntesis, el crecimiento y la floración. Además, cada etapa del cultivo puede requerir distintas condiciones de iluminación, tanto en duración como en espectro lumínico. Para ello, el sistema ofrece dos niveles de control:
 
-- Control de **lámparas convencionales (GPIO 0)**: permite encender y apagar una lámpara de cultivo mediante un horario programado (fotoperiodo, que admite cruzar la medianoche). Esto lo hace compatible con una gran variedad de lámparas disponibles en el mercado, ya sean, fluorescentes, LED, HPS, etc.
-- Control independiente de **espectros azul y rojo (opcional, GPIO 1 y 2)**: para quienes tengan mayor experiencia, el sistema permite regular por separado la intensidad de los espectros azul y rojo (dimmer por PWM), adaptando la luz a las necesidades del cultivo.
+- Control de **lámparas convencionales (GPIO 0):** permite encender y apagar una lámpara de cultivo mediante un horario programado (fotoperiodo, que admite cruzar la medianoche). Esto lo hace compatible con una gran variedad de lámparas disponibles en el mercado, ya sean, fluorescentes, LED, HPS, etc.
+- Control independiente de **espectros azul y rojo (opcional, GPIO 1 y 2):** para quienes tengan mayor experiencia, el sistema permite regular por separado la intensidad de los espectros azul y rojo (dimmer por PWM), adaptando la luz a las necesidades del cultivo.
 
 </div>
 
@@ -72,7 +72,7 @@ El sistema ofrece dos niveles de control de iluminación:
 
 <div align="justify">
 
-La programación del riego mediante el encendido y apagado de una **bomba o electroválvula (GPIO 10)** permite configurar de forma independiente dos parámetros:
+El riego permite suministrar a las plantas el agua necesaria para su desarrollo, por lo que tanto la frecuencia como la cantidad de agua aplicada son factores importantes para mantener una adecuada hidratación y evitar excesos o déficits hídricos. Para ello, el sistema automatiza el suministro de agua mediante el encendido y apagado de una **bomba o electroválvula (GPIO 10)**, permitiendo configurar de forma independiente dos parámetros:
 
 - **Frecuencia de riego:** define cuántas veces al día se activa el sistema, con intervalos configurables desde una hora hasta una vez por semana.
 - **Duración del riego:** establece cuántos minutos permanece activo el sistema en cada ciclo.
@@ -195,13 +195,13 @@ El dashboard muestra el estado del cultivo en modo lectura; para editar hay que 
 
 ```
 ┌──────────────┐   Wi-Fi (WPA2)   ┌─────────────────────────────┐
-│  📱 Cliente   │ ────────────────▶│   ESP32-C3  "SmartPlant"    │
+│  📱 Cliente  │ ────────────────▶│   ESP32-C3  "SmartPlant"    │
 │ (navegador)  │   HTTP / JSON    │ ┌─────────────────────────┐ │
 └──────────────┘                  │ │ Portal captivo (AP)     │ │
                                   │ │ SPA en 1 HTML (vanilla) │ │
                                   │ └─────────────────────────┘ │
    red del usuario   ◀────────────│ ┌─────────────────────────┐ │
-   (Internet, futuro)             │ │ STA  (AP+STA condicional)│ │
+   (Internet, futuro)             │ │STA  (AP+STA condicional)│ │
                                   │ └─────────────────────────┘ │
                                   │  PWM LEDs · Bomba · Fan ·   │
                                   │  RTC DS3231 · NVS · Token   │
