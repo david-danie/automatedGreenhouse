@@ -8,8 +8,9 @@
 
 | Documento | Contenido | Cuándo consultarlo |
 |---|---|---|
-| [**ARCHITECTURE.md**](ARCHITECTURE.md) | Diseño del firmware y del frontend a fondo: decisiones, trade-offs, caveats, máquina de estados del portal, modelo de BD y estrategia TLS para el C3 | Para entender *por qué* el código está escrito así |
-| [**API.md**](API.md) | Referencia completa de la API HTTP **del dispositivo**: rutas, payloads, validaciones, catálogo de errores y ejemplos con `curl` | Para integrar algo contra el dispositivo |
+| [**ARCHITECTURE.md**](ARCHITECTURE.md) | Diseño del sistema y del portal: decisiones de ingeniería, trade-offs, máquina de estados del portal, convención de regeneración y reglas de validación | Para entender *por qué* el sistema está diseñado así |
+| [**FIRMWARE.md**](FIRMWARE.md) | Comportamiento del firmware: arranque y red, scheduling, RTC y modo seguro, sesión, Wi-Fi del usuario, OTA y diferencias entre Arduino-ESP32 y ESP-IDF | Para trabajar en el firmware o entender su lógica |
+| [**API-device.md**](API-device.md) | Referencia completa de la API HTTP **del dispositivo**: rutas, payloads, validaciones, catálogo de errores y ejemplos con `curl` | Para integrar algo contra el dispositivo |
 | [**API-backend.md**](API-backend.md) | Referencia de la API HTTP **del backend** (nube): auth, provisión, config/telemetría del dispositivo y lecturas de la app; qué está implementado y qué no | Para integrar la app o el dispositivo contra la nube |
 | [**HARDWARE.md**](HARDWARE.md) | Mapa de pines, PWM, RTC, etapa de potencia (control ↔ potencia), conectividad e instalación eléctrica | Para montar o modificar el hardware |
 | [**BACKEND.md**](BACKEND.md) | Diseño del backend y **referencia autoritativa** para implementarlo: stack, modelo de datos, contratos de API, despliegue | Para retomar el desarrollo del backend |
@@ -25,11 +26,13 @@
 
 ## Por tarea
 
-**Quiero flashear el dispositivo y usarlo** → [ARCHITECTURE.md § Compilar y flashear](ARCHITECTURE.md#compilar-y-flashear), luego [HARDWARE.md](HARDWARE.md) para el conexionado.
+**Quiero flashear el dispositivo y usarlo** → [FIRMWARE.md § Compilar y flashear](FIRMWARE.md#compilar-y-flashear), luego [HARDWARE.md](HARDWARE.md) para el conexionado.
+
+**Quiero modificar el firmware** → [FIRMWARE.md](FIRMWARE.md) describe su comportamiento y [HARDWARE.md](HARDWARE.md) los pines y periféricos.
 
 **Quiero modificar el portal web** → [ARCHITECTURE.md](ARCHITECTURE.md) explica la máquina de estados y la convención de regenerar `mainForm.h` desde `HTML/mainForm.html`.
 
-**Quiero agregar o cambiar una ruta HTTP** → [API.md](API.md) es el contrato; mantenlo sincronizado con `ESP32_controller.ino` y `Plant.cpp`.
+**Quiero agregar o cambiar una ruta HTTP** → [API-device.md](API-device.md) es el contrato; mantenlo sincronizado con `ESP32_controller.ino` y `Plant.cpp`.
 
 **Quiero integrar la app o el dispositivo contra la nube** → [API-backend.md](API-backend.md) es la referencia de la API del backend (lo implementado y lo pendiente); mantenla sincronizada con `pythonServer/app/routers/`.
 
@@ -58,8 +61,8 @@
 | Firmware ESP32-C3 | Funcional: portal captivo, scheduling, RTC con modo seguro, sesión, Wi-Fi AP+STA con escaneo asíncrono |
 | Portal web embebido | Funcional: dashboard, edición en vivo, configuración de red |
 | Hardware | Prototipo; PCB de la versión ESP32 en [`ESP32_Board/`](../ESP32_Board) (KiCad) |
-| Seguridad del portal | Los tres huecos resueltos: contraseña con PBKDF2, reset restringido al AP y límite de intentos de login — [ARCHITECTURE.md](ARCHITECTURE.md#huecos-de-seguridad-identificados-y-su-resolución) |
-| OTA local | Implementada: endpoint `POST /otaupdate` (firmware, librería `Update`) + `partitions.csv` de doble slot + cliente en **ambos portales** (V1 y V2). Falta probar el flujo completo en hardware — [ARCHITECTURE.md](ARCHITECTURE.md#otaupdate) |
+| Seguridad del portal | Los tres huecos resueltos: contraseña con PBKDF2, reset restringido al AP y límite de intentos de login — [FIRMWARE.md](FIRMWARE.md#huecos-de-seguridad-identificados-y-su-resolución) |
+| OTA local | Implementada: endpoint `POST /otaupdate` (firmware, librería `Update`) + `partitions.csv` de doble slot + cliente en **ambos portales** (V1 y V2). Falta probar el flujo completo en hardware — [FIRMWARE.md](FIRMWARE.md#ota-local-subir-el-bin-desde-el-teléfono) |
 | Portal gzip | Implementado: `gen_mainform.py` comprime el HTML (~93 KB → ~16 KB) y `handleRoot` lo sirve con `Content-Encoding: gzip`. Falta probar en hardware — [ARCHITECTURE.md](ARCHITECTURE.md#servir-el-html-comprimido-gzip) |
 | Backend | Auth + provisión + config/telemetría + lecturas app-facing **implementados y verificados** end-to-end; faltan OTA/admin y MQTT — [BACKEND.md](BACKEND.md) / [API-backend.md](API-backend.md) |
-| OTA segura | No iniciada; estrategia analizada en [ARCHITECTURE.md](ARCHITECTURE.md) |
+| OTA segura | No iniciada; estrategia analizada en [FIRMWARE.md](FIRMWARE.md) |
