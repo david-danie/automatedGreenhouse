@@ -173,7 +173,7 @@ cosa (RAM, 30 min, red local). La tabla comparativa está en el §4.0.
 ## Documentación relacionada
 
 - **[`../docs/BACKEND.md`](../docs/BACKEND.md)** — el diseño a implementar. Referencia única.
-- **[`../docs/API.md`](../docs/API.md)** — API HTTP del **dispositivo**, un contrato distinto
+- **[`../docs/API-device.md`](../docs/API-device.md)** — API HTTP del **dispositivo**, un contrato distinto
   al de este backend. Define las llaves que `device_configs` espeja.
 - **[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)** — firmware; secciones de TLS en el
   ESP32-C3 y OTA sobre TLS.

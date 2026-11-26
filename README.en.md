@@ -215,7 +215,7 @@ The dashboard shows the crop state in read-only mode; editing requires authentic
 
 <div align="justify">
 
-The frontend is a **state machine** in a single HTML file; the firmware exposes a JSON API and applies the configuration instantly. All browser↔microcontroller communication happens inside the AP's local network. The details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); the API contract is in [`docs/API.md`](docs/API.md).
+The frontend is a **state machine** in a single HTML file; the firmware exposes a JSON API and applies the configuration instantly. All browser↔microcontroller communication happens inside the AP's local network. The details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); the API contract is in [`docs/API-device.md`](docs/API-device.md).
 
 </div>
 
@@ -242,7 +242,7 @@ The detailed status — with the level of evidence for each capability (verified
 ├── HTML/               # Portal: source, generated artifacts, scripts and palettes
 ├── ESP32_Board/        # Board design (KiCad)
 ├── pythonServer/       # Backend: FastAPI + Alembic + Docker
-├── docs/               # Technical documentation (ARCHITECTURE, API, HARDWARE, BACKEND, ROADMAP)
+├── docs/               # Technical documentation (ARCHITECTURE, FIRMWARE, API-device, HARDWARE, BACKEND, ROADMAP)
 ├── README.md
 └── README.en.md
 ```
@@ -261,8 +261,9 @@ The detailed status — with the level of evidence for each capability (verified
 
 All the technical documentation lives in **[`docs/`](docs/README.md)** (in Spanish):
 
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — technical design and **engineering decisions**: trade-offs, portal state machine, portal regeneration convention, DB model and TLS strategy.
-- **[docs/API.md](docs/API.md)** — complete HTTP API reference: routes, payloads, validation, errors and `curl` examples.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — technical design and **engineering decisions**: trade-offs, portal state machine, portal regeneration convention.
+- **[docs/FIRMWARE.md](docs/FIRMWARE.md)** — firmware behavior: startup and network, scheduling, RTC, session, user Wi-Fi, OTA and the differences between the Arduino-ESP32 and ESP-IDF versions.
+- **[docs/API-device.md](docs/API-device.md)** — complete HTTP API reference: routes, payloads, validation, errors and `curl` examples.
 - **[docs/HARDWARE.md](docs/HARDWARE.md)** — pin map, PWM, RTC, power stage, connectivity and electrical installation.
 - **[docs/BACKEND.md](docs/BACKEND.md)** — backend design (FastAPI + Postgres/Timescale + MQTT + S3): data model and API contracts.
 - **[docs/ROADMAP.md](docs/ROADMAP.md)** — **project status** (what works today) and the phased plan to migrate the firmware to ESP-IDF.

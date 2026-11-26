@@ -16,6 +16,8 @@ Rutas que expone el **ESP32-C3** desde el portal captivo (AP `SmartPlant`, servi
 - Códigos: `200` éxito · `400` error de validación · `401` sesión inválida o expirada · `500` error interno.
 - **Ninguna ruta reinicia el dispositivo salvo el factory reset.** Los parámetros se aplican en vivo.
 
+---
+
 ## Autenticación
 
 `/newparams`, `/newcrop` y `/wificredentials` exigen un **token de sesión** vigente. El flujo es:
@@ -103,7 +105,7 @@ Estado del dispositivo. Es la primera llamada que hace el front para decidir qu�
 | `wifiConnected` | bool | Estado del STA (conexión a la red del usuario) |
 | `wifiSsid` | string | SSID asociado, o `""` si el STA no está conectado |
 | `firmwareVersion` | string | Versión del binario en ejecución (constante de compilación `firmwareVersion` en `Constants.h`, **no** un valor en NVS: así cada binario reporta lo que realmente es tras un OTA). La vista OTA del portal la muestra; si falta, pinta "desconocida" |
-| `rtcValid` | bool | Salud del reloj. En `false` el firmware **no acciona nada** aunque `enable` sea `true` (ver [nota sobre el RTC](#nota-sobre-el-rtc-y-el-modo-seguro)). El portal lo usa para el tercer estado del indicador; el backend lo querrá como telemetría |
+| `rtcValid` | bool | Salud del reloj. En `false` el firmware **no acciona nada** aunque `enable` sea `true` (ver [nota sobre el RTC](FIRMWARE.md#nota-sobre-el-rtc-y-el-modo-seguro)). El portal lo usa para el tercer estado del indicador; el backend lo querrá como telemetría |
 
 **Presentes solo si `hasRegisteredUser == true`:**
 
@@ -115,15 +117,15 @@ Estado del dispositivo. Es la primera llamada que hace el front para decidir qu�
 | `fpOff` | 0–23 | Hora de apagado del fotoperiodo |
 | `ledAzul` | 0–100 | Espectro azul (%) |
 | `ledRojo` | 0–100 | Espectro rojo (%) |
-| `lampara` | 0 / 1 | Lámpara ON/OFF (ver [nota sobre `lampara`](#nota-sobre-lampara)) |
-| `irrH` | horas | Intervalo de riego (ver [nota de frecuencias](#nota-de-frecuencias)) |
+| `lampara` | 0 / 1 | Lámpara ON/OFF (ver [nota sobre `lampara`](FIRMWARE.md#nota-sobre-lampara)) |
+| `irrH` | horas | Intervalo de riego (ver [nota de frecuencias](FIRMWARE.md#nota-de-frecuencias)) |
 | `irrM` | 0–59 | Duración del riego (min) |
 | `ventH` | horas | Intervalo de ventilación |
 | `ventM` | 0–59 | Duración de la ventilación (min) |
 | `dia` | number | Día del ciclo del cultivo (derivado del RTC; `0` = sin anclar **o** RTC sin hora fiable) |
 | `semana` | number | Semana del ciclo, derivada de `dia` |
 
-`dia` y `semana` **no** se almacenan: se calculan desde el ancla `cropStart` en NVS y la fecha del RTC, así que el cultivo sigue envejeciendo aunque el equipo haya estado apagado. Devuelven `0` también si el RTC no da una hora de confianza (ver [nota sobre el RTC](#nota-sobre-el-rtc-y-el-modo-seguro)).
+`dia` y `semana` **no** se almacenan: se calculan desde el ancla `cropStart` en NVS y la fecha del RTC, así que el cultivo sigue envejeciendo aunque el equipo haya estado apagado. Devuelven `0` también si el RTC no da una hora de confianza (ver [nota sobre el RTC](FIRMWARE.md#nota-sobre-el-rtc-y-el-modo-seguro)).
 
 ---
 
@@ -147,7 +149,7 @@ Alta del usuario en el primer arranque. **No** reinicia.
 - `pass`: 8–64 caracteres. Mismo charset, sin espacios.
 - Ninguno con 4 o más caracteres idénticos consecutivos.
 
-**Éxito:** guarda el usuario y **la contraseña derivada** en NVS (namespace `config`: `username`, `pwSalt`, `pwHash`), marca `hasRegisteredUser=1` (namespace `system`) y **devuelve un `token`** de sesión. La contraseña en claro nunca se persiste ni se conserva en RAM (ver [Contraseña de usuario](ARCHITECTURE.md#1-contraseña-de-usuario-resuelto)).
+**Éxito:** guarda el usuario y **la contraseña derivada** en NVS (namespace `config`: `username`, `pwSalt`, `pwHash`), marca `hasRegisteredUser=1` (namespace `system`) y **devuelve un `token`** de sesión. La contraseña en claro nunca se persiste ni se conserva en RAM (ver [Contraseña de usuario](FIRMWARE.md#1-contraseña-de-usuario-resuelto)).
 
 ```json
 { "status": true, "message": "Usuario registrado.", "token": "a1b2c3…" }
@@ -176,7 +178,7 @@ Login para desbloquear la edición, y puerta del factory reset.
 
 1. Si `pass == "**reset**"` → **reset de fábrica**: `hardReset()` borra **todos** los namespaces de Preferences (`system`, `plantData`, `config` y `wifi`, incluida la passphrase de la red del usuario), responde `HARD_RESET` y **el dispositivo reinicia** tras 1 s. Se evalúa **antes** de comparar credenciales, así que funciona aunque se haya olvidado la contraseña — es su razón de ser.
 
-   **Solo se acepta si la petición entró por la interfaz del AP.** Como no exige credenciales, su única barrera es la cercanía física. Hoy la comprobación es redundante —el servidor solo escucha en la IP del SoftAP, ver [Caveats de seguridad](ARCHITECTURE.md#caveats-de-seguridad)— y se mantiene como defensa en profundidad. Si llegara por otra interfaz se rechaza con `RESET_REQUIRES_AP` (403), comparando `server.client().localIP()` con `WiFi.softAPIP()`: la interfaz que aceptó la conexión, no un dato que el cliente pueda falsificar.
+   **Solo se acepta si la petición entró por la interfaz del AP.** Como no exige credenciales, su única barrera es la cercanía física. Hoy la comprobación es redundante —el servidor solo escucha en la IP del SoftAP, ver [Caveats de seguridad](FIRMWARE.md#caveats-de-seguridad)— y se mantiene como defensa en profundidad. Si llegara por otra interfaz se rechaza con `RESET_REQUIRES_AP` (403), comparando `server.client().localIP()` con `WiFi.softAPIP()`: la interfaz que aceptó la conexión, no un dato que el cliente pueda falsificar.
 
    Para empezar una cosecha nueva sin perder la cuenta ni la red, la operación correcta es [`POST /newcrop`](#post-newcrop).
 2. **Bloqueo por intentos fallidos.** Si hay una ventana de bloqueo activa se responde `TOO_MANY_ATTEMPTS` (**429**) y se corta ahí. Se evalúa **después** del reset y **antes** de derivar el hash, y ese orden es deliberado:
@@ -221,7 +223,7 @@ devuelven el `INVALID_*_FORMAT` correspondiente.
 | `ledRojo` | 0–100 | Espectro rojo (%) |
 | `lampara` | 0 / 1 | Lámpara ON/OFF (**estricto**: cualquier otro valor → `INVALID_LAMP_VALUE`) |
 | `irrH` | `validFrequencies` | Intervalo en horas |
-| `irrM` | 0–59 | Duración en minutos. **Debe ser ≥ 1 si `irrH > 0`** (ver [nota de duración](#nota-sobre-frecuencia-y-duración)) |
+| `irrM` | 0–59 | Duración en minutos. **Debe ser ≥ 1 si `irrH > 0`** (ver [nota de duración](FIRMWARE.md#nota-sobre-frecuencia-y-duración)) |
 | `ventH` | `validFrequencies` | Intervalo en horas |
 | `ventM` | 0–59 | Duración en minutos. **Debe ser ≥ 1 si `ventH > 0`** |
 
@@ -411,81 +413,6 @@ Logout. Invalida la sesión en el dispositivo (`clearSession()`); el front adem�
 ## Cualquier otra ruta
 
 `handleNotFound` responde `302` con `Location: /`. Es lo que hace que el sistema operativo detecte el portal captivo y abra el formulario automáticamente.
-
----
-
-## Nota de frecuencias
-
-`irrH` y `ventH` son el **intervalo en horas entre activaciones**, no "veces por día". El firmware los valida con `isValidFrequency()` contra `validFrequencies` en `Constants.h`:
-
-```cpp
-const uint8_t validFrequencies[] = {0, 1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168};
-```
-
-| Valor | Significado |
-|---|---|
-| `0` | Apagado |
-| `1`–`12` | Cada N horas (sub-diario) |
-| `24` | Diario |
-| `48` | Cada 2 días |
-| `72` | Cada 3 días |
-| `168` | Semanal |
-
-Con este modelo el riego sub-diario y el espaciado multi-día usan la **misma** lógica en `manageDevice()`: un módulo sobre un contador continuo de horas derivado del RTC (`epochHours % intervalo`), que no se reinicia a medianoche. Es *stateless*, así que sobrevive cortes de luz sin derivar.
-
-El tope es 255 (`uint8_t`): un intervalo mayor a ~10 días exigiría ampliar `validFrequencies` y `_systemStatus` a `uint16_t`.
-
-Si `validFrequencies` cambia en `Constants.h`, hay que actualizar en paralelo las `<option>` del `<select>` y la constante JS `VALID_FREQUENCIES` en `HTML/mainForm.html`.
-
-## Nota sobre el RTC y el modo seguro
-
-El scheduling depende por completo del DS3231, así que el firmware **no acciona nada si la hora no es de fiar**. Una lectura se considera fiable solo si cumple las tres condiciones:
-
-1. El chip responde por I²C y entrega los 7 registros de tiempo.
-2. Los valores caen en rango (`seg/min ≤ 59`, `hora ≤ 23`, `diaSem 1–7`, `dia 1–31`, `mes 1–12`, `anio ≤ 99`).
-3. El bit **OSF** (*Oscillator Stop Flag*, registro `0x0F` bit 7) está en 0.
-
-El OSF es el que distingue una hora real de un valor por defecto: un DS3231 sin batería arranca en `2000-01-01 00:00:00`, que **pasa el chequeo de rangos** pero no es la hora. El chip levanta OSF cuando el oscilador se detuvo, y el firmware lo baja al escribir la hora desde el navegador.
-
-**Consecuencias observables cuando la hora no es fiable:**
-
-- Luces, bomba y ventilador quedan **apagados** (mismo apagado total que `enable: false`).
-- `/getparams` reporta `rtcValid: false`.
-- `dia` y `semana` de `/getparams` devuelven `0`; el portal los pinta como `—`, porque un `0` afirmaría una edad de cultivo que no se puede calcular.
-- El indicador de estado del dashboard muestra un **tercer estado, "En espera"**, en lugar de "Activo": el sistema está habilitado pero no acciona nada. Sin ese estado la UI diría "Activo" mientras nada funciona.
-- El log serie **no** lo dice de forma explícita: solo se deduce de la fecha del encabezado (un RTC sin hora imprime algo como `01/01/00`).
-
-**Cómo se sale de ese estado:** guardando parámetros (`POST /newparams`), porque el navegador manda la fecha/hora y el firmware la escribe en el RTC y limpia el OSF. Es decir, se resuelve solo en el flujo normal de uso; no hace falta ninguna acción especial.
-
-> Este es el motivo más probable de un "no hace nada" en un equipo recién montado o con la pila del RTC agotada: cambiar la pila y volver a guardar parámetros.
-
----
-
-## Nota sobre `lampara`
-
-La lámpara es el **control principal de iluminación**. Está en **GPIO 0 como salida digital**, no como canal PWM: solo tiene dos estados (encendida/apagada). Eso permite usar lámparas de cultivo comerciales que se manejen con un control ON/OFF simple, a través de la etapa de potencia (relé/contactor; ver [`HARDWARE.md`](HARDWARE.md)). Los canales PWM azul y rojo son un extra para quien quiera controlar esos espectros con precisión.
-
-> **Cambio de nombre:** esta clave se llamaba `ledBlanco` y el error `INVALID_WHITE_LED_VALUE`. Un cliente que aún envíe `ledBlanco` recibe `MISSING_FIELDS`.
-
-- El portal envía `0` o `1`.
-- El firmware **exige** `0` o `1`: cualquier otro valor se rechaza con `INVALID_LAMP_VALUE` (400). La validación tiene su propio estado, separado de `INVALID_LED_VALUE`, que cubre solo los espectros azul y rojo.
-- Internamente se guarda tal cual en `_systemStatus[lampOn]` y se aplica con **lógica activa en bajo**: `deviceOn` (hoy nivel bajo) enciende y `deviceOff` (nivel alto) apaga. La polaridad de todas las salidas ON/OFF está centralizada en `deviceOn`/`deviceOff` (`Constants.h`). `/getparams` siempre devuelve `0` o `1`.
-
-Los canales azul (`ledAzul`) y rojo (`ledRojo`) sí son PWM y usan el rango 0–100 % completo, escalado internamente a 0–255.
-
-> **Nombres y contrato:** las claves son `ledAzul`, `ledRojo` (`0–100`, PWM) y `lampara` (`0/1` estricto, salida digital). `lampara` distinto de `0/1` devuelve `INVALID_LAMP_VALUE`. Cualquier otro nombre de clave produce `MISSING_FIELDS` (falta una obligatoria).
-
----
-
-## Nota sobre frecuencia y duración
-
-`irrH`/`ventH` dicen **cada cuánto** se activa el dispositivo; `irrM`/`ventM`, **cuánto tiempo** permanece encendido dentro de la hora en que toca.
-
-**Regla:** si la frecuencia es mayor que 0, la duración debe ser **al menos 1 minuto**. La combinación "frecuencia activa + duración 0" se rechaza con `INVALID_IRRIGATION_DURATION` / `INVALID_VENTILATION_DURATION` (400).
-
-El motivo es que esa combinación **no hace nada**: `manageDevice()` enciende mientras `minuto_actual < duración`, así que con duración 0 la condición nunca se cumple y el dispositivo jamás arranca. Al mismo tiempo, el portal y el dashboard mostrarían una frecuencia configurada ("Cada 3h"), de modo que un riego que nunca ocurre pasaría inadvertido. Para desactivar existe la forma canónica y explícita: **frecuencia `0` ("Apagado")**.
-
-La regla es asimétrica a propósito: **frecuencia 0 con duración > 0 sí es válida**. Conservar el valor de duración mientras el dispositivo está apagado es útil para cuando se reactive.
 
 ---
 

@@ -91,7 +91,7 @@ usuario → *"¿`device.user_id` == `user.id` del token?"*. Una sola condición,
 joins de permisos ni tabla de membresías.
 
 > Las llaves de `device_configs` deben mantenerse en sync con el payload de
-> `/newparams` del firmware (ver [`API.md`](API.md) y `Plant.cpp`). Si cambia
+> `/newparams` del firmware (ver [`API-device.md`](API-device.md) y `Plant.cpp`). Si cambia
 > el formulario del portal, cambia esta tabla.
 
 > **`firmware_version` aparece en dos lugares a propósito, no por error:**
@@ -130,7 +130,7 @@ filtra la BD, nadie obtiene credenciales funcionales. Y como el token vive en un
 
 > **No confundir con el token de sesión del firmware.** Son dos cosas distintas:
 >
-> | | Sesión del portal ([`API.md`](API.md)) | Token de dispositivo (este doc) |
+> | | Sesión del portal ([`API-device.md`](API-device.md)) | Token de dispositivo (este doc) |
 > |---|---|---|
 > | Vive en | RAM del ESP32 | `devices.token_hash` |
 > | Sirve para | Editar parámetros en la red local | Hablar con la nube |
@@ -158,7 +158,7 @@ Autenticadas con el **token de dispositivo**, salvo `/devices/provision`.
 #### `POST /devices/{id}/config`
 
 Registra la configuración vigente del cultivo. Las llaves **espejan las del firmware**
-(ver [`API.md`](API.md)), en `snake_case`.
+(ver [`API-device.md`](API-device.md)), en `snake_case`.
 
 ```json
 {
@@ -549,7 +549,7 @@ sin esa directiva).
 ## 9. Referencias cruzadas
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — diseño del firmware; secciones *"Modelado de
   la base de datos (backend futuro)"* y *"TLS en el ESP32-C3"* son el origen de este doc.
-- [`API.md`](API.md) — API HTTP del firmware
+- [`API-device.md`](API-device.md) — API HTTP del firmware
   (llaves de `/newparams` que `device_configs` debe espejar).
 - `README.md` — roadmap del proyecto (el ítem *"Backend (FastAPI + Postgres)"* lo
   desarrolla este documento).

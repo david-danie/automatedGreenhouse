@@ -29,7 +29,7 @@ ONLINE_WINDOW = timedelta(minutes=5)
 
 # El día 0 del "epoch de días" del firmware es 1970-01-01. crop_start_day se
 # guarda como daysSinceEpoch(fecha de anclaje); ver "Edad del cultivo" en
-# ARCHITECTURE.md. Se deriva aquí con la MISMA regla que el firmware.
+# FIRMWARE.md. Se deriva aquí con la MISMA regla que el firmware.
 _EPOCH_DATE = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # Anchos de agregación soportados para el histórico. La clave es lo que manda el

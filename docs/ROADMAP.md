@@ -38,7 +38,7 @@ Firmware Arduino (`ESP32_controller/`), salvo que se indique:
 - ✅ **Conectividad Wi-Fi del usuario** (AP+STA, escaneo asíncrono, conexión + polling).
 - ✅ **Interruptor general del cultivo** (`enable`) que inhibe todos los actuadores.
 - ✅ **Modo seguro del RTC**: sin hora fiable (bit OSF del DS3231) no se acciona nada.
-- ✅ **Seguridad del portal** — los tres huecos resueltos ([detalle](ARCHITECTURE.md#huecos-de-seguridad-identificados-y-su-resolución)): contraseña con PBKDF2-HMAC-SHA256 + salt; reset de fábrica restringido a la interfaz del AP (operación rutinaria separada en `POST /newcrop`); límite de intentos de login con espera creciente.
+- ✅ **Seguridad del portal** — los tres huecos resueltos ([detalle](FIRMWARE.md#huecos-de-seguridad-identificados-y-su-resolución)): contraseña con PBKDF2-HMAC-SHA256 + salt; reset de fábrica restringido a la interfaz del AP (operación rutinaria separada en `POST /newcrop`); límite de intentos de login con espera creciente.
 - ✅ **Portal servido gzip** (`Content-Encoding: gzip`, ~16 KB): round-trip del artefacto verificado. 📝 Falta la prueba en hardware del servido.
 - 📝 **OTA local** (`POST /otaupdate`, subir el `.bin` por el AP sin internet): doble slot en `partitions.csv`, cliente en el portal (vistas `ota`/`flashing`). Escrito; falta probar el flujo completo en hardware.
 - ✅ **Backend — autenticación y provisión**: infraestructura en Docker (Postgres/Timescale, MinIO, Mosquitto), esquema por Alembic, registro/login/refresh con JWT y vinculación de dispositivos con token revocable, verificados end-to-end ([estado](../pythonServer/README.md)).
@@ -121,7 +121,7 @@ scheduling stateless, manejo del bit OSF del RTC, sesión con token): cada hito 
 módulo consultando ese original y se verifica en hardware antes de pasar al siguiente.
 
 **Objetivo de paridad:** al terminar, el firmware ESP-IDF debe comportarse igual que el
-Arduino frente al portal y al usuario (mismo contrato de [API.md](API.md), mismas reglas de
+Arduino frente al portal y al usuario (mismo contrato de [API-device.md](API-device.md), mismas reglas de
 seguridad y validación). Las diferencias deliberadas se documentan.
 
 El trabajo vive en la rama `esp-idf-migration`; `main` conserva el firmware Arduino funcional
@@ -150,7 +150,7 @@ portar lógica.
 latido. (Primer flasheo con `erase-flash` para limpiar otadata residual de layouts previos.)
 
 **Criticidad de `partitions.csv`:** OTA de doble slot exige dos particiones de app del mismo
-tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTURE.md § requisito de particiones](ARCHITECTURE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota).
+tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [FIRMWARE.md § requisito de particiones](FIRMWARE.md#requisito-crítico-tabla-de-particiones-con-dos-slots-ota).
 
 > `firmware/partitions.csv` (4 MB): `nvs` 20 KB, `otadata`, `phy_init`, y dos slots OTA de
 > ~1.9 MB (`ota_0` en `0x20000`). El offset exacto de la primera app se confirma con el primer
@@ -194,7 +194,7 @@ tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTU
 
 **Objetivo:** el trabajo grande. Sincronizar con la homologación del **Portal V2**, porque esa capa se toca de todas formas.
 
-- `esp_http_server`: los 11 endpoints del contrato de [API.md](API.md) (`/`, `/usercredentials`, `/getparams`, `/newparams`, `/newcrop`, `/authusercredentials`, `/wifiscan`, `/wificredentials`, `/exit`, `/otaupdate` y el catch-all del portal captivo)
+- `esp_http_server`: los 11 endpoints del contrato de [API-device.md](API-device.md) (`/`, `/usercredentials`, `/getparams`, `/newparams`, `/newcrop`, `/authusercredentials`, `/wifiscan`, `/wificredentials`, `/exit`, `/otaupdate` y el catch-all del portal captivo)
 - Servir el portal **directo desde flash**, sin copiarlo al heap, con **gzip**
   (`Content-Encoding: gzip`) — el mismo artefacto `mainForm.h` que genera `gen_mainform.py`
   para el firmware Arduino.
@@ -206,7 +206,7 @@ tamaño. Fijar esto ahora evita rehacer el layout más adelante. Ver [ARCHITECTU
 - Servidor DNS captivo propio (responde la IP del AP a todas las consultas)
 - Endpoint **`POST /otaupdate`** (subir `.bin` por el AP) usando `esp_ota_ops`
 
-**Verificación:** todos los endpoints responden igual que en Arduino (contrato de [API.md](API.md)); el portal carga completo en AP+STA sin fallos de heap; desde la red STA no responde ningún endpoint; el reset solo se acepta por el AP; un OTA local completa y arranca el binario nuevo.
+**Verificación:** todos los endpoints responden igual que en Arduino (contrato de [API-device.md](API-device.md)); el portal carga completo en AP+STA sin fallos de heap; desde la red STA no responde ningún endpoint; el reset solo se acepta por el AP; un OTA local completa y arranca el binario nuevo.
 
 ---
 
@@ -236,7 +236,7 @@ de cierre.
 - **Rollback automático si la imagen nueva no arranca** — en el firmware Arduino NO existe: el
   OTA local reinicia directo al binario nuevo sin "marcado de app válida", así que un `.bin`
   estructuralmente válido pero no arrancable puede brickear el equipo (ver
-  [ARCHITECTURE.md § OTA](ARCHITECTURE.md#endpoint-post-otaupdate)). Requiere
+  [FIRMWARE.md § OTA](FIRMWARE.md#endpoint-post-otaupdate)). Requiere
   `esp_ota_mark_app_valid_cancel_rollback()` + `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`
   (de primera clase en IDF).
 - Integración con el endpoint OTA del backend (ver [BACKEND.md](BACKEND.md))

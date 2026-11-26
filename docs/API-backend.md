@@ -1,6 +1,6 @@
 # API HTTP del backend (nube)
 
-Rutas que expone el servicio **FastAPI** de la nube (`pythonServer/`). Es la API que consumen dos clientes muy distintos: el **dispositivo** (ESP32-C3, tras provisionarse) y la **app** del usuario (móvil/tablet). No confundir con la [API local del dispositivo](API.md), que es un contrato aparte servido por el propio firmware en la red del AP.
+Rutas que expone el servicio **FastAPI** de la nube (`pythonServer/`). Es la API que consumen dos clientes muy distintos: el **dispositivo** (ESP32-C3, tras provisionarse) y la **app** del usuario (móvil/tablet). No confundir con la [API local del dispositivo](API-device.md), que es un contrato aparte servido por el propio firmware en la red del AP.
 
 **Fuente:** `pythonServer/app/main.py`, `app/routers/auth.py`, `app/routers/devices.py`, `app/routers/me.py`, `app/deps.py`, `app/security.py`, `app/models.py`.
 
