@@ -3,7 +3,7 @@
 Firmware del controlador SmartPlant reescrito en **ESP-IDF puro** (ESP32-C3),
 migrando desde el sketch Arduino de [`../ESP32_controller/`](../ESP32_controller/),
 que se conserva como **especificación de referencia**: el objetivo es **paridad de
-comportamiento** con él (mismo contrato de [`../docs/API.md`](../docs/API.md), mismas
+comportamiento** con él (mismo contrato de [`../docs/API-device.md`](../docs/API-device.md), mismas
 reglas de seguridad y validación).
 
 > Rama de trabajo: `esp-idf-migration`. En `main` sigue viviendo el firmware
@@ -87,7 +87,7 @@ Diferencia deliberada respecto a Arduino (IDF es más estricto):
 
 - **DNS captivo ligado solo a la IP del AP** (`192.168.4.1`), no a `INADDR_ANY`. En
   Arduino `DNSServer` no permite elegir interfaz y escucha también en la red del
-  usuario (limitación aceptada en `docs/ARCHITECTURE.md`); aquí el servidor es
+  usuario (limitación aceptada en `docs/FIRMWARE.md`); aquí el servidor es
   propio, así que desde la red STA ya no contesta. Como la IP del AP se asigna al
   llegar el evento `AP_START` (asíncrono respecto a `esp_wifi_start()`), el `bind`
   se reintenta hasta 20 veces cada 500 ms; si no lo logra, el DNS queda desactivado
