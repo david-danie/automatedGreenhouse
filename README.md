@@ -74,7 +74,7 @@ La iluminación es un factor fundamental para el desarrollo de las plantas, ya q
 
 El riego permite suministrar a las plantas el agua necesaria para su desarrollo, por lo que tanto la frecuencia como la cantidad de agua aplicada son factores importantes para mantener una adecuada hidratación y evitar excesos o déficits hídricos. Para ello, el sistema automatiza el suministro de agua mediante el encendido y apagado de una **bomba o electroválvula (GPIO 10)**, permitiendo configurar de forma independiente dos parámetros:
 
-- **Frecuencia de riego:** define cuántas veces al día se activa el sistema, con intervalos configurables desde una hora hasta una vez por semana.
+- **Frecuencia de riego:** define cuántas horas se activa el sistema, con intervalos configurables desde una hora hasta una vez por semana.
 - **Duración del riego:** establece cuántos minutos permanece activo el sistema en cada ciclo.
 
 Ambos valores se ajustan según el método de riego (goteo, gravedad, NFT o aspersión, entre otros) y las necesidades hídricas del cultivo, permitiendo establecer ciclos de riego más cortos o prolongados, con mayor o menor frecuencia.
@@ -104,7 +104,7 @@ Ambos valores se ajustan según el método de riego (goteo, gravedad, NFT o aspe
 
 La ventilación contribuye a mantener condiciones ambientales adecuadas para el cultivo, ya que permite regular la temperatura, renovar el aire y reducir el exceso de humedad, factores que influyen directamente en el crecimiento y la salud de las plantas. Para ello, el sistema controla el encendido y apagado de un **ventilador y/o extractor (GPIO 7)** mediante dos parámetros configurables:
 
-- **Frecuencia de ventilación:** define cuántas veces al día se activa el sistema, con intervalos configurables desde una hora hasta una vez por semana.
+- **Frecuencia de ventilación:** define cuántas horas se activa el sistema, con intervalos configurables desde una hora hasta una vez por semana.
 - **Duración de la ventilación:** establece cuánto tiempo permanece encendido el ventilador o extractor en cada ciclo.
 
 Ambos valores se ajustan según las condiciones ambientales y las necesidades del cultivo, permitiendo establecer ciclos de ventilación más cortos o prolongados, con mayor o menor frecuencia.
@@ -134,13 +134,12 @@ Todo se ajusta desde el portal y se **aplica en vivo**, sin reiniciar el disposi
 | **Interruptor general** (`enable`) | ON / OFF | Desactiva el cultivo |
 | **Red Wi-Fi del usuario** | SSID + contraseña | AP+STA condicional; para nube/telemetría a futuro |
 
----
 
 ## HARDWARE
 
 <div align="justify">
 
-El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo, que sirve el portal web completo desde su propia flash.
+El sistema utiliza un microcontrolador **ESP32-C3** (arquitectura RISC-V, un núcleo a 160 MHz), que integra conectividad Wi-Fi y ejecuta tanto la lógica de automatización como el servidor web desde su memoria flash. A través de sus entradas y salidas controla los distintos actuadores del cultivo: iluminación, ventilación y riego, además de permitir la regulación independiente de los espectros azul y rojo mediante PWM. También incorpora un **RTC DS3231** para mantener la referencia horaria de las tareas programadas y un buzzer para la señalización sonora.
 
 </div>
 
@@ -152,11 +151,12 @@ El controlador es un **ESP32-C3** (RISC-V, 1 núcleo @160 MHz) con Wi-Fi nativo,
 | Buzzer | 3 | Señalización sonora (activo en bajo: `LOW` = suena) |
 | Ventilador | 7 | Relé (activo en bajo: `LOW` = encendido) |
 | Bomba de agua | 10 | Relé (activo en bajo: `LOW` = encendido) |
-| RTC DS3231 | I²C `0x68` | Reloj externo para scheduling |
+| RTC DS3231 | 8 (SDA) / 9 (SCL) | I²C `0x68`. Reloj externo para scheduling |
+| Regulador 3.3 V | — | AMS1117. Genera los 3.3 V de la placa |
 
 <div align="justify">
 
-PWM a 1 kHz con resolución de 8 bits (0–255); los valores de espectro viajan como 0–100 % y se escalan en el firmware. El detalle completo —esquemáticos, etapa de potencia (MOSFET/relé), RTC e instalación eléctrica— está en **[`docs/HARDWARE.md`](docs/HARDWARE.md)**.
+La documentación técnica completa del hardware, incluyendo esquemáticos, etapas de potencia, conexiones del RTC y recomendaciones de instalación eléctrica, se encuentra en **[`docs/HARDWARE.md`](docs/HARDWARE.md)**.
 
 </div>
 
